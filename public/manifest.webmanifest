@@ -1,0 +1,42 @@
+{
+  "name": "Aviatix",
+  "short_name": "Aviatix",
+  "description": "Aviatix — личный кабинет пилота и рабочие инструменты экипажа",
+  "start_url": "/planning/personal",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1E64D4",
+  "orientation": "any",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icons/LogoA.png",
+      "sizes": "196x196",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Мои аудиты",
+      "short_name": "Аудиты",
+      "description": "Открыть список активных аудитов и чек-листов",
+      "url": "/modules/inspections/active",
+      "icons": [{ "src": "/icons/LogoA.png", "sizes": "196x196" }]
+    },
+    {
+      "name": "Открыть чат",
+      "short_name": "Чат",
+      "description": "Открыть страницу чата",
+      "url": "/chat",
+      "icons": [{ "src": "/icons/LogoA.png", "sizes": "196x196" }]
+    },
+    {
+      "name": "Личный кабинет пилота",
+      "short_name": "Личный кабинет",
+      "description": "Открыть личный кабинет пилота",
+      "url": "/planning/personal",
+      "icons": [{ "src": "/icons/LogoA.png", "sizes": "196x196" }]
+    }
+  ]
+}

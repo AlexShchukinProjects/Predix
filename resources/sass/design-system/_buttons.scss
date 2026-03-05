@@ -1,0 +1,99 @@
+/*
+ * eFlight Design System: Buttons
+ *
+ * Source: Flight Details modal ("Сохранить" / "Отменить") styles.
+ */
+
+.efds-btn {
+  font-size: 16px;
+  font-weight: 400;
+  transition: all 0.3s ease;
+}
+
+.efds-btn:disabled,
+.efds-btn.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.efds-btn--primary {
+  background-color: white;
+  border-color: var(--efds-color-primary) !important;
+  color: var(--efds-color-primary) !important;
+}
+
+.efds-btn--primary:hover {
+  background-color: var(--efds-color-primary-hover) !important;
+  border-color: var(--efds-color-primary-hover) !important;
+  color: #ffffff !important;
+}
+
+.efds-btn--primary:focus {
+  background-color: var(--efds-color-primary) !important;
+  border-color: var(--efds-color-primary) !important;
+  color: #ffffff !important;
+  box-shadow: var(--efds-focus-ring-primary) !important;
+}
+
+.efds-btn--primary:active {
+  background-color: var(--efds-color-primary-hover) !important;
+  border-color: var(--efds-color-primary-hover) !important;
+  color: #ffffff !important;
+}
+
+.efds-btn--outline-primary {
+  background-color: transparent !important;
+  border-color: var(--efds-color-border-muted) !important;
+  color: var(--efds-color-primary) !important;
+}
+
+.efds-btn--outline-primary:hover {
+  background-color: var(--efds-color-primary) !important;
+  border-color: var(--efds-color-primary) !important;
+  color: #ffffff !important;
+}
+
+.efds-btn--outline-primary:focus {
+  box-shadow: var(--efds-focus-ring-primary) !important;
+}
+
+.efds-btn--outline-primary:active {
+  background-color: var(--efds-color-primary-hover) !important;
+  border-color: var(--efds-color-primary-hover) !important;
+  color: #ffffff !important;
+}
+
+/* Danger (delete) buttons */
+.efds-btn--danger {
+  background-color: var(--efds-color-danger) !important;
+  border-color: var(--efds-color-danger) !important;
+  color: #ffffff !important;
+}
+
+.efds-btn--danger:hover {
+  background-color: var(--efds-color-danger-hover) !important;
+  border-color: var(--efds-color-danger-border-hover) !important;
+  color: #ffffff !important;
+}
+
+.efds-btn--danger:focus {
+  background-color: var(--efds-color-danger) !important;
+  border-color: var(--efds-color-danger) !important;
+  box-shadow: var(--efds-focus-ring-danger) !important;
+}
+
+.efds-btn--danger:active {
+  background-color: var(--efds-color-danger-hover) !important;
+  border-color: var(--efds-color-danger-border-hover) !important;
+  color: #ffffff !important;
+}
+
+.efds-btn--danger:disabled,
+.efds-btn--danger.disabled {
+  background-color: #6c757d !important;
+  border-color: #6c757d !important;
+  box-shadow: none !important;
+}
+
+

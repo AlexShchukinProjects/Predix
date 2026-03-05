@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест API рейсов</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        button { margin: 10px; padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #result { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <h1>Тест API рейсов</h1>
+    
+    <button onclick="createTestFlight()">Создать тестовый рейс</button>
+    <button onclick="checkTableStructure()">Проверить структуру таблицы</button>
+    <button onclick="getFlightsByDate()">Получить рейсы на 9 июля</button>
+    <button onclick="getAllFlights()">Получить все рейсы</button>
+    
+    <div id="result"></div>
+    
+    <script>
+        function createTestFlight() {
+            document.getElementById('result').innerHTML = '<div>Создаем тестовый рейс...</div>';
+            fetch('/create-test-flight')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                })
+                .catch(error => {
+                    document.getElementById('result').innerHTML = '<pre>Ошибка: ' + error.message + '</pre>';
+                });
+        }
+        
+        function checkTableStructure() {
+            document.getElementById('result').innerHTML = '<div>Проверяем структуру таблицы...</div>';
+            fetch('/check-table-structure')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                })
+                .catch(error => {
+                    document.getElementById('result').innerHTML = '<pre>Ошибка: ' + error.message + '</pre>';
+                });
+        }
+        
+        function getFlightsByDate() {
+            document.getElementById('result').innerHTML = '<div>Получаем рейсы на 9 июля...</div>';
+            fetch('/schedule/flights-by-date?date=2024-07-09')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                })
+                .catch(error => {
+                    document.getElementById('result').innerHTML = '<pre>Ошибка: ' + error.message + '</pre>';
+                });
+        }
+        
+        function getAllFlights() {
+            document.getElementById('result').innerHTML = '<div>Получаем все рейсы...</div>';
+            fetch('/test-flights')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                })
+                .catch(error => {
+                    document.getElementById('result').innerHTML = '<pre>Ошибка: ' + error.message + '</pre>';
+                });
+        }
+    </script>
+</body>
+</html> 

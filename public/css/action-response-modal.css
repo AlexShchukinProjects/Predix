@@ -1,0 +1,105 @@
+/* Стили для модального окна ответа за мероприятие */
+
+.modal-dialog {
+    max-width: 1200px;
+}
+
+.form-control {
+    background-color: white;
+    border-color: #ced4da;
+    width: 100%;
+    font-size: 14px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    height: 50px;
+}
+
+.form-select {
+    background-color: #fff;
+    height: 50px;
+    width: 100% !important;
+}
+
+.form-control:focus {
+    border-color: #1e3a8a;
+    box-shadow: 0 0 0 0.2rem rgba(30, 58, 138, 0.25);
+}
+
+.form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 8px;
+    margin-left: 10px;
+}
+
+.section-header {
+    background: #1E64D4;
+    color: white;
+    padding: 15px 20px;
+    margin: 0;
+}
+
+.section-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.section-content {
+    padding-top: 20px;
+}
+
+.task-description {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    min-height: 60px;
+}
+
+textarea.form-control.tall {
+    min-height: 120px !important;
+    resize: vertical;
+}
+
+.modal-footer {
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    padding: 15px 20px;
+}
+
+.btn {
+    font-weight: 500;
+    border-radius: 6px;
+    padding: 8px 16px;
+}
+
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    border-color: #dc3545;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+.btn-outline-primary {
+    color: #007bff;
+    border-color: #007bff;
+}
+
+.btn-outline-primary:hover {
+    background-color: #007bff;
+    color: white;
+}

@@ -1,0 +1,115 @@
+/*
+ * eFlight Design System: Filter bar
+ *
+ * Универсальный стиль строки фильтров (как на рейсах / пользователях).
+ */
+
+.filter-bar-wrap {
+  width: 100%;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 48px;
+  padding: 12px 14px;
+  background: #f5f7fa;
+  border: 1px solid #E4E7E8;
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.filter-bar__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #5f6368;
+}
+
+.filter-bar__form {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+
+.filter-bar__fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px 12px;
+}
+
+.filter-bar__input,
+.filter-bar__select {
+  height: 40px;
+  padding: 0 10px;
+  font-size: 13px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  background: #fff;
+  color: #5f6368;
+  font-family: inherit;
+}
+
+.filter-bar__input {
+  min-width: 160px;
+}
+
+.filter-bar__input--search {
+  min-width: 240px;
+}
+
+.filter-bar__select {
+  min-width: 160px;
+  cursor: pointer;
+}
+
+.filter-bar__input::placeholder {
+  color: #9aa0a6;
+}
+
+.filter-bar__input:focus,
+.filter-bar__select:focus {
+  outline: none;
+  border-color: #5f6368;
+}
+
+.filter-bar__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #5f6368;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.filter-bar__clear:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #202124;
+}
+
+@media (max-width: 992px) {
+  .filter-bar {
+    flex-wrap: wrap;
+  }
+  .filter-bar__form {
+    width: 100%;
+    order: 10;
+  }
+  .filter-bar__fields {
+    width: 100%;
+  }
+}
+

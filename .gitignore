@@ -1,0 +1,69 @@
+# ENV/Secrets
+.env
+.env.*.local
+
+# Composer
+composer.phar
+
+# Node/Vite
+node_modules/
+public/hot
+.vite/
+pnpm-lock.yaml
+yarn.lock
+.cursor/debug.log
+
+# Laravel storage/cache/logs
+public/storage
+storage/*.key
+storage/app/public/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+
+# Bootstrap cache (keep directory, ignore compiled files)
+bootstrap/cache/*.php
+
+# PHPUnit
+.phpunit.result.cache
+coverage/
+
+# IDE/OS
+.idea/
+.vscode/
+*.code-workspace
+.DS_Store
+Thumbs.db
+
+# Archives/Artifacts
+*.zip
+*.tar
+*.tar.gz
+
+# Local data files (adjust as needed)
+storage/*.xlsx
+storage/excel/*.xlsx
+/.phpunit.cache
+/node_modules
+
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+auth.json
+npm-debug.log
+yarn-error.log
+/.fleet
+/.idea
+/.vscode
+/.zed
+/.cursor/*.log
+public_html

@@ -1,0 +1,81 @@
+{
+    "ID": 38948899,
+    "TABN": 135,
+    "HR_EMPLOYEE_ID": 662,
+    "FULLNAME": "\u0423\u0441\u0430\u043d\u043e\u0432 \u0414.\u0418.",
+    "DT1_UTC": "20.08.2024 07:08:00",
+    "DT2_UTC": "20.08.2024 10:55:00",
+    "DT1_LOCAL": "20.08.2024 10:08:00",
+    "DT2_LOCAL": "20.08.2024 15:55:00",
+    "DEP_ARR_ID": 23825,
+    "DEP_ARR_IATA": "VKO",
+    "ARR_ARR_ID": 23028,
+    "ARR_ARR_IATA": "SKD",
+    "POSITION": "CO",
+    "TIME_BRIEFING": 70,
+    "TIME_DEBRIEFING": 15,
+    "TIME_TO_WORK": 60,
+    "TIME_TO_HOME": 60,
+    "QUALITY_REST": "-1",
+    "NAP1START": -1,
+    "NAP1END": 0,
+    "NAP1TYPE": "-1",
+    "NAP2START": -1,
+    "NAP2END": -1,
+    "NAP2TYPE": "-1",
+    "NAP3START": -1,
+    "NAP3END": -1,
+    "NAP3TYPE": "-1",
+    "ACTIVITY_TYPE": "FL",
+    "ARR_LATITUDE": "2382",
+    "ARR_LONGITUDE": "4018",
+    "AC_CHANGE": "-1",
+    "AIRCRAFT_TYPE": "B737-800",
+    "CREW_AUGMENTATION": 4,
+    "FLIGHT_NUM": "UT809",
+    "FILE_ID": 2863,
+    "ALERT": null,
+    "IS_WRONG": "N",
+    "AIRLINE_ID": 1,
+    "CALC_ALERT": null,
+    "IS_PAIR": "N",
+    "DELAY_TIME": null,
+    "DELAY_ID": null,
+    "ADD_DATE": "22.08.2024",
+    "ALERT_LEVEL": null,
+    "UTC_TIME_START": "07:08",
+    "UTC_TIME_END": "10:55",
+    "LOCAL_TIME_START": "10:08",
+    "LOCAL_TIME_END": "15:55",
+    "DELAY_TIME_FORMAT": null,
+    "times": {
+        "before_work": {
+            "dt1": 1724133480,
+            "dt2": 1724137680
+        },
+        "to_work": {
+            "dt1": 1724129880,
+            "dt2": 1724133480
+        },
+        "after_work": {
+            "dt1": 1724151300,
+            "dt2": 1724152200
+        },
+        "to_home": {
+            "dt1": 1724152200,
+            "dt2": 1724155800
+        },
+        "main": [
+            {
+                "dt1": 1724137680,
+                "dt2": 1724151300
+            }
+        ]
+    },
+    "start": 1724137680,
+    "end": 1724151300,
+    "TZ": 10800,
+    "start_time": "07:08",
+    "end_time": "10:55",
+    "time_right": "wrong"
+}

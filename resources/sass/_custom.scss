@@ -1,0 +1,353 @@
+// Custom styles for eFlight application
+
+// Global styles
+body {
+    font-family: $font-family-sans-serif;
+    background-color: $body-bg;
+    line-height: $line-height-base;
+}
+
+// Button styles
+.btn-primary {
+    background-color: #1E64D4 !important;
+    border-color: #1E64D4 !important;
+    color: white !important;
+    
+    &:hover {
+        background-color: #1a5bc4 !important;
+        border-color: #1a5bc4 !important;
+    }
+    
+    &:focus {
+        background-color: #1E64D4 !important;
+        border-color: #1E64D4 !important;
+        box-shadow: 0 0 0 0.2rem rgba(30, 100, 212, 0.25) !important;
+    }
+    
+    &:active {
+        background-color: #1a5bc4 !important;
+        border-color: #1a5bc4 !important;
+    }
+}
+
+// Custom Tab Navigation Styles for Risk Management Settings
+.custom-tab-navigation {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2rem;
+}
+
+.tab-toggle-container {
+    display: flex;
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e9ecef;
+}
+
+.tab-toggle {
+    background: transparent;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    font-weight: 500;
+    font-size: 14px;
+    color: #6c757d;
+    min-width: 140px;
+    text-align: center;
+    
+    &:hover {
+        color: #495057;
+        background: rgba(255, 255, 255, 0.5);
+    }
+    
+    &.active {
+        background: linear-gradient(135deg, #1E64D4 0%, rgba(30, 100, 212, 0.78) 100%);
+        color: white;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+}
+
+.tab-toggle-text {
+    position: relative;
+    z-index: 1;
+}
+
+// Стили для вкладок только в настройках управления рисками
+.risk-management-settings .tab-pane {
+    display: none !important;
+    
+    &.show {
+        display: block !important;
+        animation: fadeIn 0.3s ease-in-out;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+// Custom utility classes
+.text-primary {
+    color: $primary !important;
+}
+
+.bg-primary {
+    background-color: $primary !important;
+}
+
+// Custom components
+.btn-custom {
+    @extend .btn;
+    border-radius: $border-radius;
+    box-shadow: $box-shadow;
+    
+    &:hover {
+        box-shadow: $box-shadow-lg;
+    }
+}
+
+.card-custom {
+    @extend .card;
+    border-radius: $border-radius-lg;
+    box-shadow: $box-shadow;
+    
+    .card-header {
+        background-color: rgba($primary, 0.1);
+        border-bottom: 1px solid rgba($primary, 0.2);
+    }
+}
+
+// Navigation styles
+.navbar-custom {
+    @extend .navbar;
+    box-shadow: $box-shadow-sm;
+    
+    .navbar-brand {
+        font-weight: 600;
+        color: $primary;
+    }
+}
+
+// Form styles
+.form-control-custom {
+    @extend .form-control;
+    border-radius: $border-radius;
+    
+    &:focus {
+        border-color: $primary;
+        box-shadow: 0 0 0 0.2rem rgba($primary, 0.25);
+    }
+}
+
+// Table styles
+.table-custom {
+    @extend .table;
+    
+    thead th {
+        background-color: rgba($primary, 0.1);
+        border-bottom: 2px solid $primary;
+        font-weight: 600;
+    }
+    
+    tbody tr:hover {
+        background-color: rgba($primary, 0.05);
+    }
+}
+
+// Alert styles
+.alert-custom {
+    @extend .alert;
+    border-radius: $border-radius;
+    border: none;
+    box-shadow: $box-shadow-sm;
+}
+
+// Modal styles
+.modal-custom {
+    .modal-header {
+        background-color: rgba($primary, 0.1);
+        border-bottom: 1px solid rgba($primary, 0.2);
+    }
+    
+    .modal-footer {
+        background-color: rgba($primary, 0.05);
+        border-top: 1px solid rgba($primary, 0.2);
+    }
+}
+
+// Responsive utilities
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .card-custom {
+        margin-bottom: 1rem;
+    }
+}
+
+// Animation utilities
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+// Loading spinner
+.spinner-custom {
+    width: 2rem;
+    height: 2rem;
+    border: 0.25rem solid rgba($primary, 0.3);
+    border-top: 0.25rem solid $primary;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+// Стили для модальных окон классификаторов
+.modal-dialog {
+    max-width: 500px;
+}
+
+.modal-content {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+    background: linear-gradient(135deg, #1E64D4 0%, rgba(30, 100, 212, 0.8) 100%);
+    color: white;
+    border-radius: 12px 12px 0 0;
+    border-bottom: none;
+    padding: 1.5rem;
+}
+
+.modal-title {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+
+
+.modal-body {
+    padding: 2rem;
+    background-color: #f8f9fa;
+}
+
+.modal-footer {
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+    border-radius: 0 0 12px 12px;
+    padding: 1rem 2rem;
+}
+
+// Стили для форм в модальных окнах
+.form-label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.form-control {
+    border-radius: 8px;
+    border: 1px solid #ced4da;
+    padding: 0.75rem 1rem;
+    transition: all 0.3s ease;
+    
+    &:focus {
+        border-color: #1E64D4;
+        box-shadow: 0 0 0 0.2rem rgba(30, 100, 212, 0.15);
+    }
+}
+
+textarea.form-control {
+    resize: vertical;
+    min-height: 80px;
+}
+
+// Стили для кнопок в модальных окнах
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    border-radius: 8px;
+    padding: 0.5rem 1.5rem;
+    font-weight: 500;
+    
+    &:hover {
+        background-color: #5a6268;
+        border-color: #545b62;
+    }
+}
+
+// Стили для таблиц классификаторов
+.table {
+    margin-bottom: 0;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    color: #495057;
+    padding: 1rem 0.75rem;
+}
+
+.table td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(30, 100, 212, 0.05);
+}
+
+// Стили для кнопки удаления (красный крестик)
+.btn-link.text-danger {
+    color: #dc3545 !important;
+    text-decoration: none;
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-size: 18px;
+    font-weight: bold;
+    transition: color 0.2s ease;
+    
+    &:hover {
+        color: #c82333 !important;
+        text-decoration: none;
+    }
+    
+    &:focus {
+        box-shadow: none !important;
+        outline: none;
+    }
+} 

@@ -1,0 +1,20 @@
+/*
+ * eFlight Design System tokens
+ */
+
+:root {
+  /* Primary buttons (from Flight Details modal) */
+  --efds-color-primary: #1E64D4;
+  --efds-color-primary-hover: #1a5bc4;
+  --efds-color-border-muted: #adb5bd; /* Bootstrap gray-500 */
+
+  /* Danger buttons (from Flight Details modal delete button) */
+  --efds-color-danger: #dc3545;
+  --efds-color-danger-hover: #c82333;
+  --efds-color-danger-border-hover: #bd2130;
+
+  /* Effects */
+  --efds-focus-ring-primary: 0 0 0 0.2rem rgba(30, 100, 212, 0.25);
+  --efds-focus-ring-danger: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+

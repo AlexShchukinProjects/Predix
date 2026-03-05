@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="test-token">
+    <title>Тест контекстного меню</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        
+        .test-area {
+            width: 800px;
+            height: 400px;
+            border: 2px solid #ccc;
+            position: relative;
+            background: #f9f9f9;
+            margin: 20px 0;
+        }
+        
+        .test-info {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        .test-button:hover {
+            background: #0056b3;
+        }
+        
+        /* Стили для контекстного меню */
+        .context-menu {
+            position: fixed;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 10000;
+            min-width: 200px;
+            padding: 8px 0;
+            display: none;
+        }
+
+        .context-menu-header {
+            padding: 8px 16px;
+            font-weight: bold;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            font-size: 12px;
+            background-color: #f8f9fa;
+        }
+
+        .context-menu-separator {
+            height: 1px;
+            background-color: #eee;
+            margin: 4px 0;
+        }
+
+        .context-menu-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #333;
+            transition: background-color 0.2s;
+            position: relative;
+        }
+
+        .context-menu-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .context-menu-item i {
+            width: 16px;
+            text-align: center;
+            color: #6c757d;
+        }
+
+        .context-menu-submenu {
+            position: absolute;
+            left: 100%;
+            top: 0;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            min-width: 250px;
+            max-width: 350px;
+            display: none;
+            z-index: 10001;
+            margin-left: 2px;
+        }
+
+        .submenu-header {
+            padding: 8px 12px;
+            font-weight: bold;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            font-size: 12px;
+            background-color: #f8f9fa;
+        }
+
+        .submenu-content {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .submenu-flight-item {
+            padding: 6px 12px;
+            font-size: 12px;
+            color: #333;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .submenu-flight-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .submenu-flight-item:last-child {
+            border-bottom: none;
+        }
+
+        .flight-number {
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .flight-details {
+            color: #6c757d;
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
+        .no-flights {
+            padding: 12px;
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            font-size: 12px;
+        }
+
+        .loading-flights {
+            padding: 12px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Тест контекстного меню</h1>
+    
+    <div class="test-info">
+        <h3>Инструкции:</h3>
+        <ol>
+            <li>Кликните правой кнопкой мыши в области ниже</li>
+            <li>Наведите на "Добавить рейс"</li>
+            <li>Должно появиться подменю с рейсами на 2025-07-09</li>
+        </ol>
+    </div>
+    
+    <div class="test-area" id="testCanvas">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #666;">
+            Кликните правой кнопкой мыши здесь
+        </div>
+    </div>
+    
+    <div class="test-info">
+        <h3>Отладочная информация:</h3>
+        <div id="debugInfo">Ожидание действий...</div>
+    </div>
+    
+    <button class="test-button" onclick="testAPI()">Тест API</button>
+    <button class="test-button" onclick="clearDebug()">Очистить отладку</button>
+
+    <!-- Контекстное меню -->
+    <div id="contextMenu" class="context-menu">
+        <div class="context-menu-header" id="contextMenuHeader">
+            Контекстное меню
+        </div>
+        <div class="context-menu-separator"></div>
+        <div class="context-menu-item" id="addFlight">
+            <i class="fas fa-plane"></i>
+            Добавить рейс
+            <div class="context-menu-submenu" id="flightsSubmenu">
+                <div class="submenu-header">Рейсы на выбранную дату:</div>
+                <div class="submenu-content" id="flightsList">
+                    <!-- Список рейсов будет загружен сюда -->
+                </div>
+            </div>
+        </div>
+        <div class="context-menu-item" id="addEvent">
+            <i class="fas fa-calendar-plus"></i>
+            Добавить мероприятие
+            <div class="context-menu-submenu" id="eventsSubmenu">
+                <div class="submenu-header">Доступные мероприятия:</div>
+                <div class="submenu-content" id="eventsList">
+                    <!-- Список мероприятий будет загружен сюда -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Глобальные переменные
+        let contextMenuData = {
+            x: 0,
+            y: 0,
+            crewMember: null,
+            date: null
+        };
+
+        // Функции для работы с контекстным меню
+        function showContextMenu(x, y) {
+            const contextMenu = document.getElementById('contextMenu');
+            const contextMenuHeader = document.getElementById('contextMenuHeader');
+            
+            // Устанавливаем позицию меню
+            contextMenu.style.left = x + 'px';
+            contextMenu.style.top = y + 'px';
+            contextMenu.style.display = 'block';
+            
+            // Заполняем заголовок
+            if (contextMenuData.crewMember && contextMenuData.date) {
+                contextMenuHeader.textContent = `${contextMenuData.crewMember.name} (${contextMenuData.crewMember.position}) - ${contextMenuData.date}`;
+            } else if (contextMenuData.crewMember) {
+                contextMenuHeader.textContent = `${contextMenuData.crewMember.name} (${contextMenuData.crewMember.position})`;
+            } else if (contextMenuData.date) {
+                contextMenuHeader.textContent = `Дата: ${contextMenuData.date}`;
+            } else {
+                contextMenuHeader.textContent = 'Добавить на расписание';
+            }
+            
+            // Скрываем подменю
+            hideSubmenus();
+            
+            logDebug('Показано контекстное меню', { x, y, contextMenuData });
+        }
+        
+        function hideContextMenu() {
+            const contextMenu = document.getElementById('contextMenu');
+            contextMenu.style.display = 'none';
+            hideSubmenus();
+            logDebug('Скрыто контекстное меню');
+        }
+        
+        function hideSubmenus() {
+            const flightsSubmenu = document.getElementById('flightsSubmenu');
+            const eventsSubmenu = document.getElementById('eventsSubmenu');
+            
+            flightsSubmenu.style.display = 'none';
+            eventsSubmenu.style.display = 'none';
+        }
+        
+        function loadFlightsForSubmenu(date) {
+            logDebug('Загрузка рейсов для даты:', date);
+            
+            const flightsList = document.getElementById('flightsList');
+            const flightsSubmenu = document.getElementById('flightsSubmenu');
+            
+            // Показываем подменю с загрузкой
+            flightsSubmenu.style.display = 'block';
+            flightsList.innerHTML = '<div class="loading-flights">Загрузка рейсов...</div>';
+            
+            // Загружаем рейсы
+            fetch(`/schedule/flights-by-date?date=${date}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            })
+            .then(response => {
+                logDebug('Ответ сервера:', response.status, response.statusText);
+                return response.json();
+            })
+            .then(data => {
+                logDebug('Данные от сервера:', data);
+                
+                if (data.success && data.flights.length > 0) {
+                    flightsList.innerHTML = '';
+                    
+                    data.flights.forEach(flight => {
+                        const flightItem = document.createElement('div');
+                        flightItem.className = 'submenu-flight-item';
+                        
+                        // Форматируем время
+                        const departureTime = flight.time_departure ? flight.time_departure.substring(0, 5) : 'N/A';
+                        const arrivalTime = flight.time_arrival ? flight.time_arrival.substring(0, 5) : 'N/A';
+                        
+                        flightItem.innerHTML = `
+                            <div class="flight-number">${flight.flight_number || 'N/A'}</div>
+                            <div class="flight-details">
+                                ${flight.aircraft || 'N/A'} | ${departureTime} - ${arrivalTime}
+                            </div>
+                        `;
+                        
+                        // Добавляем обработчик клика
+                        flightItem.addEventListener('click', function() {
+                            logDebug('Клик по рейсу:', flight);
+                            hideContextMenu();
+                            alert(`Выбран рейс: ${flight.flight_number}`);
+                        });
+                        
+                        flightsList.appendChild(flightItem);
+                    });
+                } else {
+                    flightsList.innerHTML = '<div class="no-flights">На выбранную дату рейсов не найдено</div>';
+                }
+            })
+            .catch(error => {
+                logDebug('Ошибка при загрузке рейсов:', error);
+                flightsList.innerHTML = '<div class="no-flights">Ошибка при загрузке рейсов</div>';
+            });
+        }
+        
+        function loadEventsForSubmenu() {
+            logDebug('Загрузка мероприятий');
+            
+            const eventsList = document.getElementById('eventsList');
+            const eventsSubmenu = document.getElementById('eventsSubmenu');
+            
+            // Показываем подменю с загрузкой
+            eventsSubmenu.style.display = 'block';
+            eventsList.innerHTML = '<div class="loading-flights">Загрузка мероприятий...</div>';
+            
+            // Загружаем мероприятия
+            fetch('/api/active-events', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                logDebug('Данные мероприятий:', data);
+                
+                if (data.success && data.events.length > 0) {
+                    eventsList.innerHTML = '';
+                    
+                    data.events.forEach(event => {
+                        const eventItem = document.createElement('div');
+                        eventItem.className = 'submenu-flight-item';
+                        
+                        eventItem.innerHTML = `
+                            <div class="flight-number">${event.name}</div>
+                        `;
+                        
+                        // Добавляем обработчик клика
+                        eventItem.addEventListener('click', function() {
+                            logDebug('Клик по мероприятию:', event);
+                            hideContextMenu();
+                            alert(`Выбрано мероприятие: ${event.name}`);
+                        });
+                        
+                        eventsList.appendChild(eventItem);
+                    });
+                } else {
+                    eventsList.innerHTML = '<div class="no-flights">Доступных мероприятий не найдено</div>';
+                }
+            })
+            .catch(error => {
+                logDebug('Ошибка при загрузке мероприятий:', error);
+                eventsList.innerHTML = '<div class="no-flights">Ошибка при загрузке мероприятий</div>';
+            });
+        }
+
+        // Обработчики событий
+        document.addEventListener('DOMContentLoaded', function() {
+            const testCanvas = document.getElementById('testCanvas');
+            
+            // Обработчик правого клика на тестовой области
+            testCanvas.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                
+                // Устанавливаем тестовые данные
+                contextMenuData = {
+                    x: e.clientX,
+                    y: e.clientY,
+                    crewMember: { name: 'Иванов И.И.', position: 'КВС', id: 1 },
+                    date: '2025-07-09'
+                };
+                
+                logDebug('Правый клик на тестовой области', { x: e.clientX, y: e.clientY });
+                showContextMenu(e.clientX, e.clientY);
+            });
+            
+            // Обработчик клика вне контекстного меню
+            document.addEventListener('click', function(e) {
+                const contextMenu = document.getElementById('contextMenu');
+                if (!contextMenu.contains(e.target)) {
+                    hideContextMenu();
+                }
+            });
+            
+            // Обработчики для элементов контекстного меню
+            const addFlightItem = document.getElementById('addFlight');
+            const addEventItem = document.getElementById('addEvent');
+            
+            if (addFlightItem) {
+                addFlightItem.addEventListener('mouseenter', function() {
+                    logDebug('Наведение на "Добавить рейс"');
+                    if (contextMenuData.date) {
+                        loadFlightsForSubmenu(contextMenuData.date);
+                    }
+                });
+            }
+            
+            if (addEventItem) {
+                addEventItem.addEventListener('mouseenter', function() {
+                    logDebug('Наведение на "Добавить мероприятие"');
+                    loadEventsForSubmenu();
+                });
+            }
+        });
+        
+        // Функции для отладки
+        function logDebug(message, data = null) {
+            const debugInfo = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            let logMessage = `[${timestamp}] ${message}`;
+            
+            if (data) {
+                logMessage += ': ' + JSON.stringify(data, null, 2);
+            }
+            
+            debugInfo.innerHTML = logMessage + '<br>' + debugInfo.innerHTML;
+        }
+        
+        function clearDebug() {
+            document.getElementById('debugInfo').innerHTML = 'Отладка очищена';
+        }
+        
+        function testAPI() {
+            logDebug('Тестирование API...');
+            
+            fetch('/schedule/flights-by-date?date=2025-07-09', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                logDebug('API тест успешен:', data);
+            })
+            .catch(error => {
+                logDebug('API тест неудачен:', error);
+            });
+        }
+    </script>
+</body>
+</html> 

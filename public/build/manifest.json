@@ -1,0 +1,38 @@
+{
+  "_bootstrap.bundle-DOg28wnD.js": {
+    "file": "assets/bootstrap.bundle-DOg28wnD.js",
+    "name": "bootstrap.bundle"
+  },
+  "resources/js/aircraft-schedule-chart.js": {
+    "file": "assets/aircraft-schedule-chart-xIUa9nf-.js",
+    "name": "aircraft-schedule-chart",
+    "src": "resources/js/aircraft-schedule-chart.js",
+    "isEntry": true,
+    "imports": [
+      "_bootstrap.bundle-DOg28wnD.js"
+    ]
+  },
+  "resources/js/crew-schedule-chart.js": {
+    "file": "assets/crew-schedule-chart-DmDkejjQ.js",
+    "name": "crew-schedule-chart",
+    "src": "resources/js/crew-schedule-chart.js",
+    "isEntry": true,
+    "imports": [
+      "_bootstrap.bundle-DOg28wnD.js"
+    ]
+  },
+  "resources/sass/app.scss": {
+    "file": "assets/app-4NzBB3Eb.css",
+    "src": "resources/sass/app.scss",
+    "isEntry": true
+  },
+  "resources/sass/style.css": {
+    "file": "assets/style-B5phYShT.css",
+    "src": "resources/sass/style.css",
+    "isEntry": true
+  },
+  "resources/sass/svg.svg": {
+    "file": "assets/svg-DfwzDo2B.svg",
+    "src": "resources/sass/svg.svg"
+  }
+}

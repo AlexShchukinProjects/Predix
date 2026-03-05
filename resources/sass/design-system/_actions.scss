@@ -1,0 +1,13 @@
+/*
+ * eFlight Design System: Action button groups
+ *
+ * Pattern: primary + cancel buttons слева, отдельной строкой.
+ */
+
+.efds-actions {
+  margin-top: 12px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+

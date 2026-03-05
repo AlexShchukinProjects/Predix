@@ -1,0 +1,93 @@
+/*
+ * eFlight Design System: Таблица мероприятий (measures/actions table)
+ *
+ * Используется на вкладке «Мероприятия» (Safety Reporting, Управление рисками,
+ * Исполнительская дисциплина). Классы: .actions-table-container,
+ * .actions-table, .add-action-container, .empty-actions
+ */
+
+.actions-table-container {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.actions-table {
+  margin: 0;
+  font-size: 14px;
+
+  thead th {
+    background: var(--efds-color-primary, #1e64d4);
+    color: white;
+    font-weight: 600;
+    text-align: center;
+    padding: 12px 8px;
+    border: none;
+  }
+
+  tbody td {
+    padding: 12px 8px;
+    vertical-align: top;
+    border: 1px solid #dee2e6;
+  }
+
+  tbody tr {
+    cursor: pointer;
+  }
+
+  tbody tr:hover {
+    background-color: #f8f9fa;
+  }
+
+  /* Колонки: МЕРОПРИЯТИЕ (широкая), СРОК (узкая) */
+  thead th:nth-child(2),
+  tbody td:nth-child(2) {
+    width: 60%;
+  }
+
+  thead th:nth-child(3),
+  tbody td:nth-child(3) {
+    width: 10%;
+    white-space: nowrap;
+  }
+}
+
+.action-description {
+  max-width: 600px;
+  min-width: 500px;
+}
+
+.action-text {
+  font-size: 13px;
+  line-height: 1.4;
+
+  p {
+    margin-bottom: 10px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+.add-action-container {
+  text-align: left;
+  margin-top: 20px;
+
+  .btn {
+    padding: 10px 30px;
+    font-weight: 500;
+  }
+}
+
+.empty-actions {
+  padding: 40px 20px;
+  text-align: center;
+  color: #6c757d;
+
+  .fa-inbox {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+}

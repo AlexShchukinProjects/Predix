@@ -1,0 +1,8 @@
+"aircraft_type_id","aircraft_type_title","active","engines_count","lang_variable","is_helicopter","airline_id","code"
+"1","Ми-171А2","1","4","aircraft_type_1","Y",1,NULL
+"2","ЕС-130","1","4","aircraft_type_2","Y",1,""
+"3","Емв-135","1","4","aircraft_type_3","N",1,""
+"342","BD-700-1A10","1","4","aircraft_type_342","N",1,""
+"362","Ми-8АМТ",NULL,"4","aircraft_type_362","Y",1,NULL
+"402","AS-350",NULL,"4","aircraft_type_402","N",1,NULL
+"422","Ми-8МТВ",NULL,"4","aircraft_type_422","Y",1,NULL
