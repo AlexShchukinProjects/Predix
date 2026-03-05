@@ -154,19 +154,19 @@
                         <div id="eef-panel-local" class="d-none">
                             <p class="small text-muted mb-2">Путь относительно корня проекта:</p>
                             <input type="text" id="eef-local-path" class="form-control form-control-sm font-monospace" placeholder="excel/GAES Data/EEF — копия.xlsx" value="excel/GAES Data/EEF — копия.xlsx">
-                            <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm mt-2" id="eef-local-check"><span class="spinner-border spinner-border-sm d-none me-1" id="eef-local-spin"></span>Проверить и подсчитать строки</button>
                         </div>
                         <div id="eef-file-info" class="mt-3 d-none">
                             <div class="d-flex align-items-center gap-2 mb-1"><i class="fas fa-file-excel text-success"></i><span id="eef-registry-upload-filename" class="small text-success fw-bold"></span></div>
-                            <div id="eef-counting" class="small text-muted d-none"><span class="spinner-border spinner-border-sm me-1"></span>Подсчёт строк…</div>
-                            <div id="eef-count-result" class="d-none"><span class="small text-muted">Строк для загрузки: </span><strong id="eef-total-rows" class="text-primary fs-6">—</strong></div>
-                            <div id="eef-count-error" class="small text-danger mt-1 d-none"></div>
+                        </div>
+                        <div class="form-check mt-2">
+                            <input type="checkbox" class="form-check-input" id="eef-clear-before-upload" checked>
+                            <label class="form-check-label small" for="eef-clear-before-upload">Очистить таблицу перед загрузкой</label>
                         </div>
                     </div>
                     <div id="eef-step-progress" class="d-none">
                         <p class="small text-muted mb-1"><span id="eef-prog-filename"></span></p>
-                        <p class="small mb-1">Обработано: <span id="eef-prog-processed">0</span> из <span id="eef-prog-total">—</span></p>
-                        <div class="progress mb-2"><div class="progress-bar progress-bar-striped progress-bar-animated" id="eef-progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div></div>
+                        <p class="small mb-1">Обработано: <span id="eef-prog-processed">0</span><span id="eef-prog-total-wrap"> из <span id="eef-prog-total">—</span></span></p>
+                        <div class="progress mb-2"><div class="progress-bar progress-bar-striped progress-bar-animated" id="eef-progress-bar" role="progressbar" style="width: 100%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div></div>
                         <div id="eef-prog-error" class="small text-danger d-none"></div>
                         <div id="eef-prog-done" class="small text-success d-none">Готово.</div>
                     </div>
@@ -239,11 +239,8 @@
     var stepSelect = document.getElementById('eef-step-select');
     var stepProgress = document.getElementById('eef-step-progress');
     var fileInfoEl = document.getElementById('eef-file-info');
-    var countingEl = document.getElementById('eef-counting');
-    var countResultEl = document.getElementById('eef-count-result');
-    var totalRowsEl = document.getElementById('eef-total-rows');
-    var countErrorEl = document.getElementById('eef-count-error');
     var progFilename = document.getElementById('eef-prog-filename');
+    var progTotalWrap = document.getElementById('eef-prog-total-wrap');
     var progProcessed = document.getElementById('eef-prog-processed');
     var progTotal = document.getElementById('eef-prog-total');
     var progressBar = document.getElementById('eef-progress-bar');
@@ -264,9 +261,15 @@
         document.getElementById('eef-panel-upload').classList.toggle('d-none', tab !== 'upload');
         document.getElementById('eef-panel-local').classList.toggle('d-none', tab !== 'local');
         fileInfoEl.classList.add('d-none');
-        submitBtn.disabled = true;
         knownTotal = 0;
-        localPathOk = false;
+        if (tab === 'upload') {
+            submitBtn.disabled = !(fileInput.files && fileInput.files[0]);
+        } else {
+            var pathInput = document.getElementById('eef-local-path');
+            localPathOk = pathInput && pathInput.value.trim().length > 0;
+            submitBtn.disabled = !localPathOk;
+            if (localPathOk && pathInput) { filenameEl.textContent = pathInput.value.trim().split('/').pop(); fileInfoEl.classList.remove('d-none'); }
+        }
     };
 
     function resetUploadModal() {
@@ -279,19 +282,21 @@
         stepSelect.classList.remove('d-none');
         stepProgress.classList.add('d-none');
         fileInfoEl.classList.add('d-none');
-        countingEl.classList.add('d-none');
-        countResultEl.classList.add('d-none');
-        countErrorEl.classList.add('d-none');
         progError.classList.add('d-none');
         progDone.classList.add('d-none');
         knownTotal = 0;
         eefSwitchTab('upload');
     }
 
-    function setProgressBar(pct) {
-        progressBar.style.width = pct + '%';
-        progressBar.textContent = pct + '%';
-        progressBar.setAttribute('aria-valuenow', pct);
+    function setProgressBar(pct, noTotal) {
+        if (noTotal) {
+            progressBar.style.width = '100%';
+            progressBar.textContent = '';
+        } else {
+            progressBar.style.width = pct + '%';
+            progressBar.textContent = pct + '%';
+        }
+        progressBar.setAttribute('aria-valuenow', noTotal ? 0 : pct);
     }
 
     function readNdjsonStream(response, displayName) {
@@ -299,8 +304,9 @@
         stepProgress.classList.remove('d-none');
         progFilename.textContent = displayName;
         progProcessed.textContent = '0';
-        progTotal.textContent = knownTotal > 0 ? knownTotal.toLocaleString() : '—';
-        setProgressBar(0);
+        var noTotal = true;
+        if (progTotalWrap) progTotalWrap.style.display = 'none';
+        setProgressBar(0, true);
         progError.classList.add('d-none');
         progDone.classList.add('d-none');
         submitBtn.disabled = true;
@@ -321,16 +327,15 @@
                     if (!line) continue;
                     try {
                         var d = JSON.parse(line);
-                        if (d.total && !knownTotal) { knownTotal = d.total; progTotal.textContent = d.total.toLocaleString(); }
+                        if (d.total > 0 && noTotal) { noTotal = false; if (progTotalWrap) { progTotalWrap.style.display = ''; } document.getElementById('eef-prog-total').textContent = d.total.toLocaleString(); }
                         if (d.error) { progError.textContent = d.error; progError.classList.remove('d-none'); importing = false; cancelBtn.setAttribute('data-bs-dismiss', 'modal'); return; }
                         if (typeof d.processed !== 'undefined') {
-                            var tot = knownTotal || d.total || 0;
                             progProcessed.textContent = d.processed.toLocaleString();
-                            progTotal.textContent = tot > 0 ? tot.toLocaleString() : '—';
-                            setProgressBar(tot > 0 ? Math.min(100, Math.round(100 * d.processed / tot)) : 0);
+                            if (!noTotal && d.total > 0) { document.getElementById('eef-prog-total').textContent = d.total.toLocaleString(); setProgressBar(Math.min(100, Math.round(100 * d.processed / d.total)), false); }
+                            else { setProgressBar(0, true); }
                         }
                         if (d.done) {
-                            setProgressBar(100);
+                            setProgressBar(100, false);
                             progProcessed.textContent = (d.count || 0).toLocaleString();
                             progressBar.classList.remove('progress-bar-animated');
                             progDone.classList.remove('d-none');
@@ -348,93 +353,15 @@
         return pump();
     }
 
-    function startCounting(file) {
-        knownTotal = 0;
-        submitBtn.disabled = true;
-        filenameEl.textContent = file.name;
-        fileInfoEl.classList.remove('d-none');
-        countingEl.classList.remove('d-none');
-        countResultEl.classList.add('d-none');
-        countErrorEl.classList.add('d-none');
-        var fd = new FormData();
-        fd.append('file', file);
-        fd.append('_token', formUpload.querySelector('[name=_token]').value);
-        fetch('{{ route("modules.reliability.settings.inspection.eef-registry.count") }}', { method: 'POST', body: fd })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            countingEl.classList.add('d-none');
-            if (data.error) { countErrorEl.textContent = data.error; countErrorEl.classList.remove('d-none'); return; }
-            knownTotal = data.total || 0;
-            totalRowsEl.textContent = knownTotal.toLocaleString();
-            countResultEl.classList.remove('d-none');
-            submitBtn.disabled = false;
-        }).catch(function(err) {
-            countingEl.classList.add('d-none');
-            countErrorEl.textContent = 'Ошибка: ' + (err.message || 'не удалось подсчитать');
-            countErrorEl.classList.remove('d-none');
-            submitBtn.disabled = false;
-        });
-    }
-
-    var localCheckBtn = document.getElementById('eef-local-check');
-    var localSpin = document.getElementById('eef-local-spin');
-    if (localCheckBtn) {
-        localCheckBtn.addEventListener('click', function() {
-            var path = document.getElementById('eef-local-path').value.trim();
-            if (!path) return;
-            localPathOk = false;
-            submitBtn.disabled = true;
-            localSpin.classList.remove('d-none');
-            localCheckBtn.disabled = true;
-            fileInfoEl.classList.remove('d-none');
-            filenameEl.textContent = path.split('/').pop();
-            countErrorEl.classList.add('d-none');
-            var fd2 = new FormData();
-            fd2.append('_token', formUpload.querySelector('[name=_token]').value);
-            fd2.append('local_path', path);
-            fetch('{{ route("modules.reliability.settings.inspection.eef-registry.import-local") }}', { method: 'POST', body: fd2, headers: { 'X-EEF-Count-Only': '1', 'Accept': 'application/x-ndjson' } })
-            .then(function(r) {
-                localSpin.classList.add('d-none');
-                localCheckBtn.disabled = false;
-                if (!r.ok) return r.text().then(function(t) { try { var e = JSON.parse(t); throw new Error(e.error || 'HTTP ' + r.status); } catch (pe) { throw new Error('HTTP ' + r.status); } });
-                var reader2 = r.body.getReader();
-                var dec = new TextDecoder();
-                var buf2 = '';
-                function readFirst() {
-                    return reader2.read().then(function(chunk) {
-                        buf2 += dec.decode(chunk.value || new Uint8Array(), { stream: !chunk.done });
-                        var nl = buf2.indexOf('\n');
-                        if (nl < 0 && !chunk.done) return readFirst();
-                        var firstLine = (nl >= 0 ? buf2.substring(0, nl) : buf2).trim();
-                        reader2.cancel();
-                        var d = JSON.parse(firstLine);
-                        if (d.error) throw new Error(d.error);
-                        knownTotal = d.total || 0;
-                        totalRowsEl.textContent = knownTotal.toLocaleString();
-                        countResultEl.classList.remove('d-none');
-                        countErrorEl.classList.add('d-none');
-                        countingEl.classList.add('d-none');
-                        localPathOk = true;
-                        submitBtn.disabled = false;
-                    });
-                }
-                return readFirst();
-            }).catch(function(err) {
-                localSpin.classList.add('d-none');
-                localCheckBtn.disabled = false;
-                fileInfoEl.classList.remove('d-none');
-                countErrorEl.textContent = err.message;
-                countErrorEl.classList.remove('d-none');
-                countResultEl.classList.add('d-none');
-            });
-        });
-    }
-
     if (uploadModal) uploadModal.addEventListener('show.bs.modal', resetUploadModal);
     if (dropzone && fileInput) {
         dropzone.addEventListener('click', function() { if (!importing) fileInput.click(); });
         fileInput.addEventListener('change', function() {
-            if (this.files && this.files[0]) startCounting(this.files[0]);
+            if (this.files && this.files[0]) {
+                filenameEl.textContent = this.files[0].name;
+                fileInfoEl.classList.remove('d-none');
+                submitBtn.disabled = false;
+            }
         });
         dropzone.addEventListener('dragover', function(e) { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('drag-over'); });
         dropzone.addEventListener('dragleave', function(e) { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('drag-over'); });
@@ -442,7 +369,18 @@
             e.preventDefault(); e.stopPropagation();
             dropzone.classList.remove('drag-over');
             var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-            if (file) { var dt = new DataTransfer(); dt.items.add(file); fileInput.files = dt.files; startCounting(file); }
+            if (file) { var dt = new DataTransfer(); dt.items.add(file); fileInput.files = dt.files; filenameEl.textContent = file.name; fileInfoEl.classList.remove('d-none'); submitBtn.disabled = false; }
+        });
+    }
+
+    var pathInput = document.getElementById('eef-local-path');
+    if (pathInput) {
+        pathInput.addEventListener('input', function() {
+            if (activeTab !== 'local') return;
+            var p = this.value.trim();
+            localPathOk = p.length > 0;
+            submitBtn.disabled = !localPathOk;
+            if (localPathOk) { filenameEl.textContent = p.split('/').pop(); fileInfoEl.classList.remove('d-none'); }
         });
     }
 
@@ -450,21 +388,37 @@
         formUpload.addEventListener('submit', function(e) {
             e.preventDefault();
             importing = true;
-            if (activeTab === 'local') {
-                var path = document.getElementById('eef-local-path').value.trim();
-                if (!path || !localPathOk) return;
-                var fd3 = new FormData();
-                fd3.append('_token', formUpload.querySelector('[name=_token]').value);
-                fd3.append('path', path);
-                fetch('{{ route("modules.reliability.settings.inspection.eef-registry.import-local") }}', { method: 'POST', body: fd3, headers: { 'Accept': 'application/x-ndjson' } })
-                .then(function(r) { return readNdjsonStream(r, path.split('/').pop()); })
-                .catch(function(err) { progError.textContent = err.message || 'Ошибка'; progError.classList.remove('d-none'); importing = false; cancelBtn.setAttribute('data-bs-dismiss', 'modal'); });
+            var clearCheck = document.getElementById('eef-clear-before-upload');
+            function doUpload() {
+                if (activeTab === 'local') {
+                    var path = document.getElementById('eef-local-path').value.trim();
+                    if (!path) return;
+                    var fd3 = new FormData();
+                    fd3.append('_token', formUpload.querySelector('[name=_token]').value);
+                    fd3.append('path', path);
+                    fetch('{{ route("modules.reliability.settings.inspection.eef-registry.import-local") }}', { method: 'POST', body: fd3, headers: { 'Accept': 'application/x-ndjson' } })
+                    .then(function(r) { return readNdjsonStream(r, path.split('/').pop()); })
+                    .catch(function(err) { progError.textContent = err.message || 'Ошибка'; progError.classList.remove('d-none'); importing = false; cancelBtn.setAttribute('data-bs-dismiss', 'modal'); });
+                } else {
+                    if (!fileInput.files || !fileInput.files[0]) return;
+                    var fd = new FormData(formUpload);
+                    fetch(formUpload.action, { method: 'POST', body: fd, headers: { 'X-EEF-Stream': '1', 'Accept': 'application/x-ndjson' } })
+                    .then(function(r) { return readNdjsonStream(r, fileInput.files[0].name); })
+                    .catch(function(err) { progError.textContent = err.message || 'Ошибка'; progError.classList.remove('d-none'); importing = false; cancelBtn.setAttribute('data-bs-dismiss', 'modal'); submitBtn.disabled = false; submitBtn.textContent = 'Загрузить'; });
+                }
+            }
+            if (clearCheck && clearCheck.checked) {
+                var fdClear = new FormData();
+                fdClear.append('_token', formUpload.querySelector('[name=_token]').value);
+                fetch('{{ route("modules.reliability.settings.inspection.eef-registry.clear") }}', { method: 'POST', body: fdClear })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.error) throw new Error(data.error);
+                    doUpload();
+                })
+                .catch(function(err) { progError.textContent = err.message || 'Ошибка очистки'; progError.classList.remove('d-none'); importing = false; cancelBtn.setAttribute('data-bs-dismiss', 'modal'); });
             } else {
-                if (!fileInput.files || !fileInput.files[0]) return;
-                var fd = new FormData(formUpload);
-                fetch(formUpload.action, { method: 'POST', body: fd, headers: { 'X-EEF-Stream': '1', 'Accept': 'application/x-ndjson' } })
-                .then(function(r) { return readNdjsonStream(r, fileInput.files[0].name); })
-                .catch(function(err) { progError.textContent = err.message || 'Ошибка'; progError.classList.remove('d-none'); importing = false; cancelBtn.setAttribute('data-bs-dismiss', 'modal'); submitBtn.disabled = false; submitBtn.textContent = 'Загрузить'; });
+                doUpload();
             }
         });
     }

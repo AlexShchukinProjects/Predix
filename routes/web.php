@@ -87,6 +87,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/eef-registry/count', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'eefRegistryCount'])->name('inspection.eef-registry.count');
             Route::post('/eef-registry/upload', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'eefRegistryUpload'])->name('inspection.eef-registry.upload');
             Route::post('/eef-registry/import-local', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'eefRegistryImportLocal'])->name('inspection.eef-registry.import-local');
+            Route::post('/eef-registry/clear', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'eefRegistryClear'])->name('inspection.eef-registry.clear');
             Route::post('/eef-registry/delete', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'eefRegistryDelete'])->name('inspection.eef-registry.delete');
             Route::get('/work-card-materials', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'workCardMaterials'])->name('inspection.work-card-materials');
             Route::post('/work-card-materials/upload', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'workCardMaterialsUpload'])->name('inspection.work-card-materials.upload');

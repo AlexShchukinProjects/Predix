@@ -81,6 +81,19 @@ class InspectionDataController extends Controller
         return redirect()->route('modules.reliability.settings.inspection.work-cards')->with('success', 'Выбранные записи удалены.');
     }
 
+    public function eefRegistryClear(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $request->validate(['_token' => 'required']);
+        try {
+            \DB::statement('SET FOREIGN_KEY_CHECKS=0');
+            \DB::table('inspection_eef_registry')->delete();
+            \DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            return response()->json(['success' => true]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
     public function eefRegistryDelete(Request $request)
     {
         $ids = $request->input('ids', []);
@@ -1091,14 +1104,13 @@ class InspectionDataController extends Controller
 
         return new StreamedResponse(function () use ($absPath, $ext, $send, $countOnly) {
             try {
-                $total = $this->countEefRegistryRows($absPath, $ext);
-                $send(['total' => $total]);
+                $send(['total' => 0]); // EEF: не считаем заранее
                 if ($countOnly) {
                     return;
                 }
                 $count = $this->importEefRegistryChunked($absPath, function (int $processed, int $tot) use ($send) {
                     $send(['processed' => $processed, 'total' => $tot]);
-                }, $total);
+                }, null);
                 $send(['done' => true, 'count' => $count]);
             } catch (\Throwable $e) {
                 report($e);
@@ -1123,11 +1135,10 @@ class InspectionDataController extends Controller
         };
         return new StreamedResponse(function () use ($file, $send) {
             try {
-                $total = $this->countEefRegistryRows($file->getRealPath(), strtolower($file->getClientOriginalExtension()));
-                $send(['total' => $total]);
+                $send(['total' => 0]); // EEF: не считаем заранее (XLSX часто даёт завышенное число)
                 $count = $this->importEefRegistryChunked($file, function (int $processed, int $tot) use ($send) {
                     $send(['processed' => $processed, 'total' => $tot]);
-                }, $total);
+                }, null);
                 $send(['done' => true, 'count' => $count]);
             } catch (\Throwable $e) {
                 report($e);
@@ -1160,20 +1171,28 @@ class InspectionDataController extends Controller
 
         $buildIndexMap = function (array $fileHeaders): array {
             $map = $this->eefRegistryHeaderMap();
-            $mapUpper = [];
+            $normalize = static function (string $s): string {
+                $s = str_replace(["\r", "\n", "\t"], ' ', $s);
+                $s = preg_replace('/[.,;:?]+/', ' ', $s);
+                $s = preg_replace('/\s+/', ' ', trim($s));
+                return strtoupper($s);
+            };
+            $mapNorm = [];
             foreach ($map as $fileCol => $dbCol) {
-                $key = strtoupper(str_replace(["\r", "\n"], ' ', trim($fileCol)));
-                $mapUpper[$key] = $dbCol;
+                $key = $normalize($fileCol);
+                $mapNorm[$key] = $dbCol;
             }
             $tableColumns = Schema::getColumnListing('inspection_eef_registry');
             $allowedSet = array_flip(array_diff($tableColumns, ['id']));
             $indexMap = [];
             foreach ($fileHeaders as $i => $h) {
-                $hClean = strtoupper(str_replace(["\r", "\n"], ' ', trim((string) $h)));
-                if (isset($mapUpper[$hClean])) {
-                    $indexMap[$i] = $mapUpper[$hClean];
-                } elseif (isset($allowedSet[strtolower($hClean)])) {
-                    $indexMap[$i] = strtolower($hClean);
+                $hNorm = $normalize((string) $h);
+                if (isset($mapNorm[$hNorm])) {
+                    $indexMap[$i] = $mapNorm[$hNorm];
+                } elseif ($hNorm !== '' && isset($allowedSet[strtolower(str_replace(' ', '_', $hNorm))])) {
+                    $indexMap[$i] = strtolower(str_replace(' ', '_', $hNorm));
+                } elseif (isset($allowedSet[strtolower($hNorm)])) {
+                    $indexMap[$i] = strtolower($hNorm);
                 }
             }
             return $indexMap;
@@ -1222,7 +1241,13 @@ class InspectionDataController extends Controller
                         }
                     }
                     if ($val !== null) {
-                        $ordered[$dbCol] = isset($numericCols[$dbCol]) ? $val + 0 : $val;
+                        if (isset($numericCols[$dbCol])) {
+                            $ordered[$dbCol] = $val + 0;
+                        } else {
+                            $len = is_string($val) ? strlen($val) : 0;
+                            $max = ['subject' => 500, 'link' => 500, 'link_path' => 500, 'inspection_source_task' => 500, 'oem_communication_reference' => 500, 'latest_processing' => 255, 'location' => 255, 'assigned_engineering_engineer' => 255, 'open_continuation_raised_by_production_dates' => 255, 'answer_provided_by_engineering_dates' => 255, 'gaes_eo' => 255, 'manual_limits_out_within' => 255, 'backup_engineer' => 255, 'customer_name' => 255][$dbCol] ?? null;
+                            $ordered[$dbCol] = ($max !== null && $len > $max) ? substr((string) $val, 0, $max) : $val;
+                        }
                     }
                 }
                 $normalized[] = $ordered;
@@ -1277,6 +1302,8 @@ class InspectionDataController extends Controller
         array $dateCols,
         array $numericCols
     ): void {
+        $maxConsecutiveEmpty = 200;
+        $maxRowsWithoutData = 5000;
         if ($ext !== 'xlsx') {
             $reader = IOFactory::createReaderForFile($path);
             $reader->setReadDataOnly(true);
@@ -1286,6 +1313,9 @@ class InspectionDataController extends Controller
             $indexMap = [];
             $buffer = [];
             $first = true;
+            $consecutiveEmpty = 0;
+            $hasData = false;
+            $rowsRead = 0;
             foreach ($rowIter as $row) {
                 $vals = [];
                 foreach ($row->getCellIterator() as $cell) {
@@ -1296,11 +1326,21 @@ class InspectionDataController extends Controller
                     $first = false;
                     continue;
                 }
+                $rowsRead++;
                 $data = $buildRow($indexMap, $vals);
                 if ($data !== []) {
+                    $hasData = true;
+                    $consecutiveEmpty = 0;
                     $buffer[] = $data;
                     if (count($buffer) >= $chunkSize) {
                         $flush($buffer, $indexMap, $insertColumns, $dateCols, $numericCols);
+                    }
+                } else {
+                    if ($hasData && ++$consecutiveEmpty >= $maxConsecutiveEmpty) {
+                        break;
+                    }
+                    if (!$hasData && $rowsRead >= $maxRowsWithoutData) {
+                        break;
                     }
                 }
             }
@@ -1313,6 +1353,10 @@ class InspectionDataController extends Controller
         $indexMap = [];
         $buffer = [];
         $first = true;
+        $consecutiveEmpty = 0;
+        $hasData = false;
+        $rowsRead = 0;
+        $logPath = base_path('debug-ebc999.log');
         foreach ($reader->getSheetIterator() as $sheet) {
             foreach ($sheet->getRowIterator() as $row) {
                 $vals = [];
@@ -1320,21 +1364,41 @@ class InspectionDataController extends Controller
                     $vals[] = $cell->getValue();
                 }
                 if ($first) {
-                    $indexMap = $buildIndexMap(array_map(fn($v) => trim((string) $v), $vals));
+                    $fileHeaders = array_map(fn($v) => trim((string) $v), $vals);
+                    $indexMap = $buildIndexMap($fileHeaders);
+                    // #region agent log
+                    @file_put_contents($logPath, json_encode(['sessionId' => 'ebc999', 'hypothesisId' => 'H1', 'location' => 'InspectionDataController::importEefRegistryViaOpenspout', 'message' => 'after buildIndexMap', 'data' => ['indexMapSize' => count($indexMap), 'indexMap' => $indexMap, 'fileHeadersFirst10' => array_slice($fileHeaders, 0, 10)], 'timestamp' => round(microtime(true) * 1000)]) . "\n", FILE_APPEND | LOCK_EX);
+                    // #endregion
                     $first = false;
                     continue;
                 }
+                $rowsRead++;
                 $data = $buildRow($indexMap, $vals);
-                if ($data !== []) {
+                $eefVal = $data['eef_number'] ?? null;
+                $eefStr = $eefVal !== null ? trim((string) $eefVal) : '';
+                $hasEefNumber = $data !== [] && $eefStr !== '' && $eefStr !== '0' && $eefStr !== '-';
+                if ($data !== [] && $hasEefNumber) {
+                    $hasData = true;
+                    $consecutiveEmpty = 0;
                     $buffer[] = $data;
                     if (count($buffer) >= $chunkSize) {
                         $flush($buffer, $indexMap, $insertColumns, $dateCols, $numericCols);
+                    }
+                } else {
+                    if ($hasData && ++$consecutiveEmpty >= $maxConsecutiveEmpty) {
+                        break 2;
+                    }
+                    if (!$hasData && $rowsRead >= $maxRowsWithoutData) {
+                        break 2;
                     }
                 }
             }
             break;
         }
         $reader->close();
+        // #region agent log
+        @file_put_contents(base_path('debug-ebc999.log'), json_encode(['sessionId' => 'ebc999', 'hypothesisId' => 'H4', 'location' => 'InspectionDataController::importEefRegistryViaOpenspout', 'message' => 'before final flush', 'data' => ['bufferSize' => count($buffer), 'rowsRead' => $rowsRead, 'hasData' => $hasData], 'timestamp' => round(microtime(true) * 1000)]) . "\n", FILE_APPEND | LOCK_EX);
+        // #endregion
         $flush($buffer, $indexMap, $insertColumns, $dateCols, $numericCols);
     }
 
@@ -1357,23 +1421,57 @@ class InspectionDataController extends Controller
             return $n;
         }
         if ($ext === 'xlsx') {
-            // Точный подсчёт по строкам: dimension в XLSX часто завышен (остаток от старых данных)
-            $reader = new XlsxReader();
-            $reader->open($path);
-            $count = 0;
-            $first = true;
-            foreach ($reader->getSheetIterator() as $sheet) {
-                foreach ($sheet->getRowIterator() as $row) {
-                    if ($first) {
-                        $first = false;
+            // Быстрый подсчёт без OpenSpout: потоково читаем sheet XML, считаем строки с ячейками (<row>...</row> с <c r=" внутри)
+            try {
+                $zip = new \ZipArchive();
+                if ($zip->open($path) !== true) {
+                    return 0;
+                }
+                for ($i = 0; $i < $zip->numFiles; $i++) {
+                    $name = $zip->getNameIndex($i);
+                    if ($name === false || !preg_match('#xl/worksheets/sheet\d+\.xml$#', $name)) {
                         continue;
                     }
-                    $count++;
+                    $stream = $zip->getStream($name);
+                    if ($stream === false) {
+                        $zip->close();
+                        return 0;
+                    }
+                    $dataRowCount = 0;
+                    $buffer = '';
+                    $inRow = false;
+                    $rowHasCell = false;
+                    while (!feof($stream)) {
+                        $buffer .= fread($stream, 8192);
+                        // Обрабатываем только полные фрагменты до последнего </row>
+                        $lastRow = strrpos($buffer, '</row>');
+                        if ($lastRow !== false) {
+                            $chunk = substr($buffer, 0, $lastRow + 6);
+                            $buffer = substr($buffer, $lastRow + 6);
+                            $pos = 0;
+                            while (($r = strpos($chunk, '<row ', $pos)) !== false) {
+                                $end = strpos($chunk, '</row>', $r);
+                                if ($end === false) {
+                                    break;
+                                }
+                                $rowContent = substr($chunk, $r, $end - $r + 6);
+                                // Считаем только строки с непустым значением (<v>текст</v> или <v>число</v>)
+                                if (preg_match('/<v>[^<]+<\/v>/', $rowContent)) {
+                                    $dataRowCount++;
+                                }
+                                $pos = $end + 6;
+                            }
+                        }
+                    }
+                    fclose($stream);
+                    $zip->close();
+                    return max(0, $dataRowCount - 1); // минус заголовок
                 }
-                break;
+                $zip->close();
+            } catch (\Throwable) {
+                // fallback
             }
-            $reader->close();
-            return $count;
+            return 0;
         }
         if ($ext === 'xls') {
             $r = IOFactory::createReaderForFile($path);
@@ -1389,11 +1487,22 @@ class InspectionDataController extends Controller
     private function eefRegistryHeaderMap(): array
     {
         return [
+            // Формат из экспорта EEF (GAES WO / Source Card style)
+            'GAES WO#' => 'eef_number',
+            'GAES Source Card#' => 'inspection_source_task',
+            'CUST. CARD' => 'customer_name',
+            'PROJECT' => 'project_no',
+            'ORDER TYPE' => 'project_status',
+            'DESCRIPTION' => 'subject',
+            'CORRECTIVE ACTION' => 'remarks',
+            // Стандартный формат EEF Registry (EEF Number, NRC Number, AC Type, ATA, Project No., Subject, Remarks, Location, EEF Status, Link, Link Path, Man Hours, …)
             'EEF Number' => 'eef_number',
             'NRC Number' => 'nrc_number',
+            'NRC No.' => 'nrc_number',
             'AC Type' => 'ac_type',
             'ATA' => 'ata',
             'Project No.' => 'project_no',
+            'Project No' => 'project_no',
             'Subject' => 'subject',
             'Remarks' => 'remarks',
             'Location' => 'location',
@@ -1401,10 +1510,12 @@ class InspectionDataController extends Controller
             'Link' => 'link',
             'Link Path' => 'link_path',
             'Link' . "\n" . 'Path' => 'link_path',
+            'Link' . "\r\n" . 'Path' => 'link_path',
             'Man Hours' => 'man_hours',
             'Chargeable to Customer?' => 'chargeable_to_customer',
             'Customer Name' => 'customer_name',
             'Customer' . "\n" . 'Name' => 'customer_name',
+            'Customer' . "\r\n" . 'Name' => 'customer_name',
             'Inspection Source Task' => 'inspection_source_task',
             'RC#' => 'rc_number',
             'Open Date' => 'open_date',
