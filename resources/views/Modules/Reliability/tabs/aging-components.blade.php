@@ -4,7 +4,7 @@
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div class="d-flex gap-2 align-items-center flex-wrap">
                 <select class="form-select form-select-sm" style="width: auto;">
-                    <option>Л.Ч.</option>
+                    <option>FH</option>
                 </select>
                 <select class="form-select form-select-sm" style="width: auto;">
                     <option>100</option>
@@ -18,24 +18,24 @@
                 </select>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="trendCheckCI">
-                    <label class="form-check-label" for="trendCheckCI">Тренд</label>
+                    <label class="form-check-label" for="trendCheckCI">Trend</label>
                 </div>
                 <input type="number" class="form-control form-control-sm" value="2" style="width: 60px;">
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="polynomialCheckCI">
-                    <label class="form-check-label" for="polynomialCheckCI">Степень полинома</label>
+                    <label class="form-check-label" for="polynomialCheckCI">Polynomial degree</label>
                 </div>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="fleetSizeCheckCI">
-                    <label class="form-check-label" for="fleetSizeCheckCI">С учетом размера парка ВС</label>
+                    <label class="form-check-label" for="fleetSizeCheckCI">Account for fleet size</label>
                 </div>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="valuesCheckCI">
-                    <label class="form-check-label" for="valuesCheckCI">Значения</label>
+                    <label class="form-check-label" for="valuesCheckCI">Values</label>
                 </div>
             </div>
             <div class="d-flex gap-2">
-                <button class="btn btn-primary btn-sm">Отчет PDF</button>
+                <button class="btn btn-primary btn-sm">PDF Report</button>
                 <button class="btn btn-outline-secondary btn-sm">
                     <i class="fas fa-cog"></i>
                 </button>
@@ -56,15 +56,15 @@
     <div class="d-flex gap-4 flex-wrap">
         <div class="d-flex align-items-center gap-2">
             <div style="width: 20px; height: 20px; background-color: #ffc107; border: 1px solid #dee2e6;"></div>
-            <span>оперативное ТО</span>
+            <span>line maintenance</span>
         </div>
         <div class="d-flex align-items-center gap-2">
             <div style="width: 20px; height: 20px; background-color: #dc3545; border: 1px solid #dee2e6;"></div>
-            <span>в полете</span>
+            <span>in flight</span>
         </div>
         <div class="d-flex align-items-center gap-2">
             <div style="width: 20px; height: 20px; background-color: #0dcaf0; border: 1px solid #dee2e6;"></div>
-            <span>периодическое ТО</span>
+            <span>scheduled maintenance</span>
         </div>
     </div>
 </div>
@@ -101,21 +101,21 @@
         labels: labels,
         datasets: [
             {
-                label: 'оперативное ТО',
+                label: 'line maintenance',
                 data: operationalData,
                 backgroundColor: '#ffc107',
                 borderColor: '#ffc107',
                 borderWidth: 1
             },
             {
-                label: 'в полете',
+                label: 'in flight',
                 data: flightData,
                 backgroundColor: '#dc3545',
                 borderColor: '#dc3545',
                 borderWidth: 1
             },
             {
-                label: 'периодическое ТО',
+                label: 'scheduled maintenance',
                 data: periodicData,
                 backgroundColor: '#0dcaf0',
                 borderColor: '#0dcaf0',
@@ -130,7 +130,7 @@
                 stacked: true,
                 title: {
                     display: true,
-                    text: 'Наработка КИ (часы)'
+                    text: 'Component hours'
                 }
             },
             y: {

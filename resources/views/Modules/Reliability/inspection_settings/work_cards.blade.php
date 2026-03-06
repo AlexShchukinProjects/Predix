@@ -3,7 +3,7 @@
 @section('content')
 <div class="container-fluid py-3">
     <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-        <a href="{{ route('modules.reliability.settings.index') }}" class="back-button"><i class="fas fa-arrow-left me-2"></i>Настройки</a>
+        <a href="{{ route('modules.reliability.settings.index') }}" class="back-button"><i class="fas fa-arrow-left me-2"></i>Settings</a>
     </div>
     @if(session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
@@ -14,8 +14,8 @@
 
     <div class="efds-table-header">
         <div class="efds-table-header__stats text-muted">
-            <span class="me-2">На странице:</span>
-            <select class="form-select form-select-sm" id="work-cards-per-page" aria-label="Записей на странице">
+            <span class="me-2">Per page:</span>
+            <select class="form-select form-select-sm" id="work-cards-per-page" aria-label="Records per page">
                 @php $currentPerPage = (int) request('per_page', $perPage ?? 50); @endphp
                 <option value="10" {{ $currentPerPage === 10 ? 'selected' : '' }}>10</option>
                 <option value="25" {{ $currentPerPage === 25 ? 'selected' : '' }}>25</option>
@@ -24,14 +24,14 @@
                 <option value="500" {{ $currentPerPage === 500 ? 'selected' : '' }}>500</option>
                 <option value="1000" {{ $currentPerPage === 1000 ? 'selected' : '' }}>1000</option>
             </select>
-            <span class="ms-2">Всего записей: {{ $items->total() }}</span>
+            <span class="ms-2">Total records: {{ $items->total() }}</span>
         </div>
         <div class="efds-table-header__actions">
-            <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#workCardsUploadModal"><i class="fas fa-file-excel me-1"></i>Добавить из Excel / CSV</button>
-            <a href="#" class="btn efds-btn efds-btn--primary btn-sm"><i class="fas fa-plus me-1"></i>Добавить</a>
+            <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#workCardsUploadModal"><i class="fas fa-file-excel me-1"></i>Add from Excel / CSV</button>
+            <a href="#" class="btn efds-btn efds-btn--primary btn-sm"><i class="fas fa-plus me-1"></i>Add</a>
             <form id="form-delete-work-cards" action="{{ route('modules.reliability.settings.inspection.work-cards.delete') }}" method="post" class="d-none">
                 @csrf
-                <button type="submit" class="btn efds-btn efds-btn--danger btn-sm">Удалить выбранные</button>
+                <button type="submit" class="btn efds-btn efds-btn--danger btn-sm">Delete selected</button>
             </form>
         </div>
     </div>
@@ -45,7 +45,7 @@
                     <table class="table table-bordered table-sm mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th class="text-center" style="width: 2.5rem;"><input type="checkbox" id="work-cards-select-all" class="form-check-input" title="Выбрать все на странице"></th>
+                                <th class="text-center" style="width: 2.5rem;"><input type="checkbox" id="work-cards-select-all" class="form-check-input" title="Select all on page"></th>
                                 <th>id</th>
                                 <th>PROJECT</th>
                                 <th>PROJECT TYPE</th>
@@ -324,7 +324,7 @@
                                 <td>{{ $row->updated_at?->format('Y-m-d H:i') }}</td>
                             </tr>
                             @empty
-                            <tr><td colspan="136" class="text-muted">Нет данных. Загрузите CSV или XLSX.</td></tr>
+                            <tr><td colspan="136" class="text-muted">No data. Upload CSV or XLSX.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -345,8 +345,8 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="workCardsUploadModalLabel">Добавить из Excel / CSV</h5>
-                <button type="button" class="btn-close" id="wc-modal-close-btn" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                <h5 class="modal-title" id="workCardsUploadModalLabel">Add from Excel / CSV</h5>
+                <button type="button" class="btn-close" id="wc-modal-close-btn" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="form-upload-work-cards-modal" action="{{ route('modules.reliability.settings.inspection.work-cards.upload') }}" method="post" enctype="multipart/form-data">
                 @csrf
@@ -357,12 +357,12 @@
                         <ul class="nav nav-tabs mb-3" id="wc-upload-tabs">
                             <li class="nav-item">
                                 <button type="button" class="nav-link active" id="wc-tab-upload" onclick="wcSwitchTab('upload')">
-                                    <i class="fas fa-upload me-1"></i>Загрузить файл
+                                    <i class="fas fa-upload me-1"></i>Upload file
                                 </button>
                             </li>
                             <li class="nav-item">
                                 <button type="button" class="nav-link" id="wc-tab-local" onclick="wcSwitchTab('local')">
-                                    <i class="fas fa-server me-1"></i>С диска сервера
+                                    <i class="fas fa-server me-1"></i>From server disk
                                 </button>
                             </li>
                         </ul>
@@ -372,20 +372,20 @@
                             <input type="file" name="file" id="work-cards-upload-file" class="d-none" accept=".csv,.xlsx,.xls">
                             <div id="work-cards-upload-dropzone" class="inspection-upload-dropzone">
                                 <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
-                                <p class="mb-1">Перетащите файл сюда</p>
-                                <p class="small text-muted mb-0">или нажмите, чтобы выбрать файл (CSV, XLSX, XLS)</p>
+                                <p class="mb-1">Drag file here</p>
+                                <p class="small text-muted mb-0">or click to select file (CSV, XLSX, XLS)</p>
                             </div>
                         </div>
 
                         {{-- Панель: файл с диска --}}
                         <div id="wc-panel-local" class="d-none">
-                            <p class="small text-muted mb-2">Укажите путь к файлу относительно корня проекта:</p>
+                            <p class="small text-muted mb-2">Enter file path relative to project root:</p>
                             <input type="text" id="wc-local-path" class="form-control form-control-sm font-monospace"
                                    placeholder="excel/GAES Data/PR_0059_Work Cards_Data.xlsx"
                                    value="excel/GAES Data/PR_0059_Work Cards_Data.xlsx">
                             <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm mt-2" id="wc-local-check">
                                 <span class="spinner-border spinner-border-sm d-none me-1" id="wc-local-spin"></span>
-                                Проверить и подсчитать строки
+                                Check and count rows
                             </button>
                         </div>
 
@@ -396,10 +396,10 @@
                                 <span id="work-cards-upload-filename" class="small text-success fw-bold"></span>
                             </div>
                             <div id="wc-counting" class="small text-muted d-none">
-                                <span class="spinner-border spinner-border-sm me-1" role="status"></span>Подсчёт строк…
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span>Counting rows…
                             </div>
                             <div id="wc-count-result" class="d-none">
-                                <span class="small text-muted">Строк для загрузки: </span>
+                                <span class="small text-muted">Rows to upload: </span>
                                 <strong id="wc-total-rows" class="text-primary fs-6">—</strong>
                             </div>
                             <div id="wc-count-error" class="small text-danger mt-1 d-none"></div>
@@ -411,7 +411,7 @@
                             <i class="fas fa-file-excel text-success fa-2x mb-2"></i>
                             <p class="mb-0 small text-muted" id="wc-prog-filename"></p>
                         </div>
-                        <p class="mb-1 small">Загружается: <span id="wc-prog-processed" class="fw-bold">0</span> из <span id="wc-prog-total" class="fw-bold">—</span> строк</p>
+                        <p class="mb-1 small">Uploading: <span id="wc-prog-processed" class="fw-bold">0</span> of <span id="wc-prog-total" class="fw-bold">—</span> rows</p>
                         <div class="progress mb-2" style="height:1.4rem; border-radius:.5rem;">
                             <div id="wc-progress-bar"
                                  class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
@@ -421,14 +421,14 @@
                         </div>
                         <p id="wc-prog-error" class="small text-danger d-none mt-2"></p>
                         <p id="wc-prog-done" class="small text-success d-none mt-2">
-                            <i class="fas fa-check-circle me-1"></i>Загрузка завершена!
+                            <i class="fas fa-check-circle me-1"></i>Upload complete!
                         </p>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <div class="efds-actions mb-0">
-                        <button type="button" class="btn efds-btn efds-btn--outline-primary" id="wc-upload-cancel-btn" data-bs-dismiss="modal">Отмена</button>
-                        <button type="submit" id="work-cards-upload-submit" class="btn efds-btn efds-btn--primary" disabled>Загрузить</button>
+                        <button type="button" class="btn efds-btn efds-btn--outline-primary" id="wc-upload-cancel-btn" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="work-cards-upload-submit" class="btn efds-btn efds-btn--primary" disabled>Upload</button>
                     </div>
                 </div>
             </form>
@@ -476,10 +476,24 @@
     });
 
     var perPageSelect = document.getElementById('work-cards-per-page');
+    var PER_PAGE_STORAGE_KEY = 'reliability_inspection_per_page';
+    (function applyStoredPerPage() {
+        var url = new URL(window.location.href);
+        if (!url.searchParams.has('per_page')) {
+            var stored = localStorage.getItem(PER_PAGE_STORAGE_KEY);
+            if (stored && ['10','25','50','100','500','1000'].indexOf(stored) !== -1) {
+                url.searchParams.set('per_page', stored);
+                window.location.replace(url.toString());
+                return;
+            }
+        }
+    })();
     if (perPageSelect) {
         perPageSelect.addEventListener('change', function() {
+            var val = this.value;
+            try { localStorage.setItem(PER_PAGE_STORAGE_KEY, val); } catch (e) {}
             var url = new URL(window.location.href);
-            url.searchParams.set('per_page', this.value);
+            url.searchParams.set('per_page', val);
             url.searchParams.delete('page');
             window.location.href = url.toString();
         });
@@ -530,7 +544,7 @@
         localPathOk = false;
         fileInput.value = '';
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Загрузить';
+        submitBtn.textContent = 'Upload';
         cancelBtn.setAttribute('data-bs-dismiss', 'modal');
         stepSelect.classList.remove('d-none');
         stepProgress.classList.add('d-none');
@@ -561,7 +575,7 @@
         progError.classList.add('d-none');
         progDone.classList.add('d-none');
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Загружается…';
+        submitBtn.textContent = 'Uploading…';
         cancelBtn.removeAttribute('data-bs-dismiss');
 
         if (!response.ok) { throw new Error('HTTP ' + response.status); }
@@ -603,9 +617,9 @@
                             progDone.classList.remove('d-none');
                             importing = false;
                             cancelBtn.setAttribute('data-bs-dismiss', 'modal');
-                            submitBtn.textContent = 'Готово';
+                            submitBtn.textContent = 'Done';
                             setTimeout(function() {
-                                window.location.href = '{{ route("modules.reliability.settings.inspection.work-cards") }}?success=' + encodeURIComponent('Импортировано записей: ' + (d.count || 0));
+                                window.location.href = '{{ route("modules.reliability.settings.inspection.work-cards") }}?success=' + encodeURIComponent('Imported records: ' + (d.count || 0));
                             }, 1200);
                             return;
                         }
@@ -641,7 +655,7 @@
             submitBtn.disabled = false;
         }).catch(function(err) {
             countingEl.classList.add('d-none');
-            countErrorEl.textContent = 'Ошибка подсчёта: ' + err.message;
+            countErrorEl.textContent = 'Count error: ' + err.message;
             countErrorEl.classList.remove('d-none');
             submitBtn.disabled = false;
         });
@@ -718,7 +732,7 @@
                 }
                 return readFirst();
             }).catch(function(err) {
-                showLocalError(err.message || 'Ошибка соединения');
+                showLocalError(err.message || 'Connection error');
             });
         });
     }
@@ -756,7 +770,7 @@
                     method: 'POST', body: fd3, headers: { 'Accept': 'application/x-ndjson' }
                 }).then(function(r) { return readNdjsonStream(r, path.split('/').pop()); })
                 .catch(function(err) {
-                    progError.textContent = err.message || 'Ошибка';
+                    progError.textContent = err.message || 'Error';
                     progError.classList.remove('d-none');
                     importing = false;
                     cancelBtn.setAttribute('data-bs-dismiss', 'modal');
@@ -770,12 +784,12 @@
                     headers: { 'X-WC-Stream': '1', 'Accept': 'application/x-ndjson' }
                 }).then(function(r) { return readNdjsonStream(r, fileInput.files[0].name); })
                 .catch(function(err) {
-                    progError.textContent = err.message || 'Ошибка загрузки';
+                    progError.textContent = err.message || 'Upload error';
                     progError.classList.remove('d-none');
                     importing = false;
                     cancelBtn.setAttribute('data-bs-dismiss', 'modal');
                     submitBtn.disabled = false;
-                    submitBtn.textContent = 'Загрузить';
+                    submitBtn.textContent = 'Upload';
                 });
             }
         });

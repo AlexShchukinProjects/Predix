@@ -3,7 +3,7 @@
 @section('content')
 <div class="container-fluid py-3">
     <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-        <a href="{{ route('modules.reliability.settings.index') }}" class="back-button"><i class="fas fa-arrow-left me-2"></i>Настройки</a>
+        <a href="{{ route('modules.reliability.settings.index') }}" class="back-button"><i class="fas fa-arrow-left me-2"></i>Settings</a>
     </div>
     @if(session('success') || request('success'))
         <div class="alert alert-success">{{ session('success') ?? request('success') }}</div>
@@ -11,22 +11,24 @@
 
     <div class="efds-table-header">
         <div class="efds-table-header__stats text-muted">
-            <span class="me-2">На странице:</span>
-            <select class="form-select form-select-sm" id="eef-registry-per-page" aria-label="Записей на странице">
+            <span class="me-2">Per page:</span>
+            <select class="form-select form-select-sm" id="eef-registry-per-page" aria-label="Records per page">
                 @php $currentPerPage = (int) request('per_page', $perPage ?? 50); @endphp
                 <option value="10" {{ $currentPerPage === 10 ? 'selected' : '' }}>10</option>
                 <option value="25" {{ $currentPerPage === 25 ? 'selected' : '' }}>25</option>
                 <option value="50" {{ $currentPerPage === 50 ? 'selected' : '' }}>50</option>
                 <option value="100" {{ $currentPerPage === 100 ? 'selected' : '' }}>100</option>
+                <option value="500" {{ $currentPerPage === 500 ? 'selected' : '' }}>500</option>
+                <option value="1000" {{ $currentPerPage === 1000 ? 'selected' : '' }}>1000</option>
             </select>
-            <span class="ms-2">Всего записей: {{ $items->total() }}</span>
+            <span class="ms-2">Total records: {{ $items->total() }}</span>
         </div>
         <div class="efds-table-header__actions">
-            <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#eefRegistryUploadModal"><i class="fas fa-file-excel me-1"></i>Добавить из Excel / CSV</button>
-            <a href="#" class="btn efds-btn efds-btn--primary btn-sm"><i class="fas fa-plus me-1"></i>Добавить</a>
+            <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#eefRegistryUploadModal"><i class="fas fa-file-excel me-1"></i>Add from Excel / CSV</button>
+            <a href="#" class="btn efds-btn efds-btn--primary btn-sm"><i class="fas fa-plus me-1"></i>Add</a>
             <form id="form-delete-eef-registry" action="{{ route('modules.reliability.settings.inspection.eef-registry.delete') }}" method="post" class="d-none">
                 @csrf
-                <button type="submit" class="btn efds-btn efds-btn--danger btn-sm">Удалить выбранные</button>
+                <button type="submit" class="btn efds-btn efds-btn--danger btn-sm">Delete selected</button>
             </form>
         </div>
     </div>
@@ -40,7 +42,7 @@
                     <table class="table table-bordered table-sm mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th class="text-center" style="width: 2.5rem;"><input type="checkbox" id="eef-registry-select-all" class="form-check-input" title="Выбрать все на странице"></th>
+                                <th class="text-center" style="width: 2.5rem;"><input type="checkbox" id="eef-registry-select-all" class="form-check-input" title="Select all on page"></th>
                                 <th>id</th>
                                 <th>EEF Number</th>
                                 <th>NRC Number</th>
@@ -111,7 +113,7 @@
                                 <td>{{ $row->updated_at?->format('Y-m-d H:i') }}</td>
                             </tr>
                             @empty
-                            <tr><td colspan="33" class="text-muted">Нет данных. Загрузите CSV или XLSX.</td></tr>
+                            <tr><td colspan="33" class="text-muted">No data. Upload CSV or XLSX.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -132,49 +134,49 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="eefRegistryUploadModalLabel">Добавить из Excel / CSV</h5>
-                <button type="button" class="btn-close" id="eef-modal-close-btn" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                <h5 class="modal-title" id="eefRegistryUploadModalLabel">Add from Excel / CSV</h5>
+                <button type="button" class="btn-close" id="eef-modal-close-btn" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="form-upload-eef-registry-modal" action="{{ route('modules.reliability.settings.inspection.eef-registry.upload') }}" method="post" enctype="multipart/form-data">
                 @csrf
                 <div class="modal-body">
                     <div id="eef-step-select">
                         <ul class="nav nav-tabs mb-3" id="eef-upload-tabs">
-                            <li class="nav-item"><button type="button" class="nav-link active" id="eef-tab-upload" onclick="eefSwitchTab('upload')"><i class="fas fa-upload me-1"></i>Загрузить файл</button></li>
-                            <li class="nav-item"><button type="button" class="nav-link" id="eef-tab-local" onclick="eefSwitchTab('local')"><i class="fas fa-server me-1"></i>С диска сервера</button></li>
+                            <li class="nav-item"><button type="button" class="nav-link active" id="eef-tab-upload" onclick="eefSwitchTab('upload')"><i class="fas fa-upload me-1"></i>Upload file</button></li>
+                            <li class="nav-item"><button type="button" class="nav-link" id="eef-tab-local" onclick="eefSwitchTab('local')"><i class="fas fa-server me-1"></i>From server disk</button></li>
                         </ul>
                         <div id="eef-panel-upload">
                             <input type="file" name="file" id="eef-registry-upload-file" class="d-none" accept=".csv,.xlsx,.xls">
                             <div id="eef-registry-upload-dropzone" class="inspection-upload-dropzone">
                                 <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
-                                <p class="mb-1">Перетащите файл сюда</p>
-                                <p class="small text-muted mb-0">или нажмите, чтобы выбрать файл (CSV, XLSX, XLS)</p>
+                                <p class="mb-1">Drag file here</p>
+                                <p class="small text-muted mb-0">or click to select file (CSV, XLSX, XLS)</p>
                             </div>
                         </div>
                         <div id="eef-panel-local" class="d-none">
-                            <p class="small text-muted mb-2">Путь относительно корня проекта:</p>
-                            <input type="text" id="eef-local-path" class="form-control form-control-sm font-monospace" placeholder="excel/GAES Data/EEF — копия.xlsx" value="excel/GAES Data/EEF — копия.xlsx">
+                            <p class="small text-muted mb-2">Path relative to project root:</p>
+                            <input type="text" id="eef-local-path" class="form-control form-control-sm font-monospace" placeholder="excel/GAES Data/EEF.xlsx" value="excel/GAES Data/EEF.xlsx">
                         </div>
                         <div id="eef-file-info" class="mt-3 d-none">
                             <div class="d-flex align-items-center gap-2 mb-1"><i class="fas fa-file-excel text-success"></i><span id="eef-registry-upload-filename" class="small text-success fw-bold"></span></div>
                         </div>
                         <div class="form-check mt-2">
                             <input type="checkbox" class="form-check-input" id="eef-clear-before-upload" checked>
-                            <label class="form-check-label small" for="eef-clear-before-upload">Очистить таблицу перед загрузкой</label>
+                            <label class="form-check-label small" for="eef-clear-before-upload">Clear table before upload</label>
                         </div>
                     </div>
                     <div id="eef-step-progress" class="d-none">
                         <p class="small text-muted mb-1"><span id="eef-prog-filename"></span></p>
-                        <p class="small mb-1">Обработано: <span id="eef-prog-processed">0</span><span id="eef-prog-total-wrap"> из <span id="eef-prog-total">—</span></span></p>
+                        <p class="small mb-1">Processed: <span id="eef-prog-processed">0</span><span id="eef-prog-total-wrap"> of <span id="eef-prog-total">—</span></span></p>
                         <div class="progress mb-2"><div class="progress-bar progress-bar-striped progress-bar-animated" id="eef-progress-bar" role="progressbar" style="width: 100%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div></div>
                         <div id="eef-prog-error" class="small text-danger d-none"></div>
-                        <div id="eef-prog-done" class="small text-success d-none">Готово.</div>
+                        <div id="eef-prog-done" class="small text-success d-none">Done.</div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <div class="efds-actions mb-0">
-                        <button type="button" class="btn efds-btn efds-btn--outline-primary" id="eef-upload-cancel-btn" data-bs-dismiss="modal">Отмена</button>
-                        <button type="submit" id="eef-registry-upload-submit" class="btn efds-btn efds-btn--primary" disabled>Загрузить</button>
+                        <button type="button" class="btn efds-btn efds-btn--outline-primary" id="eef-upload-cancel-btn" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="eef-registry-upload-submit" class="btn efds-btn efds-btn--primary" disabled>Upload</button>
                     </div>
                 </div>
             </form>
@@ -222,10 +224,24 @@
     });
 
     var perPageSelect = document.getElementById('eef-registry-per-page');
+    var PER_PAGE_STORAGE_KEY = 'reliability_inspection_per_page';
+    (function applyStoredPerPage() {
+        var url = new URL(window.location.href);
+        if (!url.searchParams.has('per_page')) {
+            var stored = localStorage.getItem(PER_PAGE_STORAGE_KEY);
+            if (stored && ['10','25','50','100','500','1000'].indexOf(stored) !== -1) {
+                url.searchParams.set('per_page', stored);
+                window.location.replace(url.toString());
+                return;
+            }
+        }
+    })();
     if (perPageSelect) {
         perPageSelect.addEventListener('change', function() {
+            var val = this.value;
+            try { localStorage.setItem(PER_PAGE_STORAGE_KEY, val); } catch (e) {}
             var url = new URL(window.location.href);
-            url.searchParams.set('per_page', this.value);
+            url.searchParams.set('per_page', val);
             url.searchParams.delete('page');
             window.location.href = url.toString();
         });
@@ -277,7 +293,7 @@
         localPathOk = false;
         fileInput.value = '';
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Загрузить';
+        submitBtn.textContent = 'Upload';
         cancelBtn.setAttribute('data-bs-dismiss', 'modal');
         stepSelect.classList.remove('d-none');
         stepProgress.classList.add('d-none');
@@ -310,9 +326,20 @@
         progError.classList.add('d-none');
         progDone.classList.add('d-none');
         submitBtn.disabled = true;
-        submitBtn.textContent = 'Загружается…';
+        submitBtn.textContent = 'Uploading…';
         cancelBtn.removeAttribute('data-bs-dismiss');
-        if (!response.ok) throw new Error('HTTP ' + response.status);
+        if (!response.ok) {
+            return response.text().then(function(t) {
+                var msg = 'HTTP ' + response.status;
+                try {
+                    var j = JSON.parse(t);
+                    if (j.message) msg = j.message;
+                    else if (j.error) msg = j.error;
+                    else if (j.errors && typeof j.errors.file !== 'undefined') msg = Array.isArray(j.errors.file) ? j.errors.file[0] : j.errors.file;
+                } catch (e) {}
+                throw new Error(msg);
+            });
+        }
         var reader = response.body.getReader();
         var decoder = new TextDecoder();
         var buf = '';
@@ -341,8 +368,8 @@
                             progDone.classList.remove('d-none');
                             importing = false;
                             cancelBtn.setAttribute('data-bs-dismiss', 'modal');
-                            submitBtn.textContent = 'Готово';
-                            setTimeout(function() { window.location.href = '{{ route("modules.reliability.settings.inspection.eef-registry") }}?success=' + encodeURIComponent('Импортировано записей: ' + (d.count || 0)); }, 1200);
+                            submitBtn.textContent = 'Done';
+                            setTimeout(function() { window.location.href = '{{ route("modules.reliability.settings.inspection.eef-registry") }}?success=' + encodeURIComponent('Imported records: ' + (d.count || 0)); }, 1200);
                             return;
                         }
                     } catch (err) {}
@@ -398,13 +425,13 @@
                     fd3.append('path', path);
                     fetch('{{ route("modules.reliability.settings.inspection.eef-registry.import-local") }}', { method: 'POST', body: fd3, headers: { 'Accept': 'application/x-ndjson' } })
                     .then(function(r) { return readNdjsonStream(r, path.split('/').pop()); })
-                    .catch(function(err) { progError.textContent = err.message || 'Ошибка'; progError.classList.remove('d-none'); importing = false; cancelBtn.setAttribute('data-bs-dismiss', 'modal'); });
+                    .catch(function(err) { progError.textContent = err.message || 'Error'; progError.classList.remove('d-none'); importing = false; cancelBtn.setAttribute('data-bs-dismiss', 'modal'); });
                 } else {
                     if (!fileInput.files || !fileInput.files[0]) return;
                     var fd = new FormData(formUpload);
                     fetch(formUpload.action, { method: 'POST', body: fd, headers: { 'X-EEF-Stream': '1', 'Accept': 'application/x-ndjson' } })
                     .then(function(r) { return readNdjsonStream(r, fileInput.files[0].name); })
-                    .catch(function(err) { progError.textContent = err.message || 'Ошибка'; progError.classList.remove('d-none'); importing = false; cancelBtn.setAttribute('data-bs-dismiss', 'modal'); submitBtn.disabled = false; submitBtn.textContent = 'Загрузить'; });
+                    .catch(function(err) { progError.textContent = err.message || 'Error'; progError.classList.remove('d-none'); importing = false; cancelBtn.setAttribute('data-bs-dismiss', 'modal'); submitBtn.disabled = false; submitBtn.textContent = 'Upload'; });
                 }
             }
             if (clearCheck && clearCheck.checked) {
@@ -416,7 +443,7 @@
                     if (data.error) throw new Error(data.error);
                     doUpload();
                 })
-                .catch(function(err) { progError.textContent = err.message || 'Ошибка очистки'; progError.classList.remove('d-none'); importing = false; cancelBtn.setAttribute('data-bs-dismiss', 'modal'); });
+                .catch(function(err) { progError.textContent = err.message || 'Clear error'; progError.classList.remove('d-none'); importing = false; cancelBtn.setAttribute('data-bs-dismiss', 'modal'); });
             } else {
                 doUpload();
             }

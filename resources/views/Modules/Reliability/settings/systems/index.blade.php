@@ -3,11 +3,11 @@
 @section('content')
 <div class="container-fluid">
     <div class="mb-3">
-        <h1 class="h4 mb-2">Системы / подсистемы</h1>
+        <h1 class="h4 mb-2">Systems / subsystems</h1>
         <div class="d-flex align-items-center gap-2">
-            <label class="form-label mb-0 text-nowrap">Тип ВС</label>
-            <select name="aircraft_type_id" id="aircraft_type_id" class="form-select form-select-sm" style="width: auto; min-width: 180px;" aria-label="Тип ВС">
-                <option value="">— все —</option>
+            <label class="form-label mb-0 text-nowrap">Aircraft type</label>
+            <select name="aircraft_type_id" id="aircraft_type_id" class="form-select form-select-sm" style="width: auto; min-width: 180px;" aria-label="Aircraft type">
+                <option value="">— all —</option>
                 @foreach($aircraftTypes ?? [] as $type)
                     <option value="{{ $type->id }}" {{ (int)($selectedAircraftTypeId ?? 0) === (int)$type->id ? 'selected' : '' }}>
                         {{ $type->name_rus ?? $type->icao ?? $type->id }}
@@ -29,7 +29,7 @@
         <div class="rel-systems-col">
             <div class="rel-systems-card">
                 <div class="rel-systems-header">
-                    <span class="rel-systems-title">Системы</span>
+                    <span class="rel-systems-title">Systems</span>
                 </div>
                 <div class="rel-systems-list">
                     @forelse($systems as $system)
@@ -53,7 +53,7 @@
                             </button>
                         </a>
                     @empty
-                        <div class="rel-system-item text-muted">Нет систем</div>
+                        <div class="rel-system-item text-muted">No systems</div>
                     @endforelse
                 </div>
                 <div class="rel-systems-footer">
@@ -61,7 +61,7 @@
                             class="btn-add-section-sidebar"
                             data-bs-toggle="modal"
                             data-bs-target="#createSystemModal">
-                        + Добавить систему
+                        + Add system
                     </button>
                 </div>
             </div>
@@ -75,7 +75,7 @@
                         @if($selectedSystem)
                             {{ $selectedSystem }}
                         @else
-                            Подсистемы
+                            Subsystems
                         @endif
                     </div>
                 </div>
@@ -109,9 +109,9 @@
                             </a>
                         @endforeach
                     @elseif(!$selectedSystem)
-                        <div class="text-muted py-3 text-center rel-subsystems-list-placeholder">Выберите систему слева</div>
+                        <div class="text-muted py-3 text-center rel-subsystems-list-placeholder">Select a system on the left</div>
                     @else
-                        <div class="text-muted py-3 text-center rel-subsystems-list-placeholder">Подсистем нет</div>
+                        <div class="text-muted py-3 text-center rel-subsystems-list-placeholder">No subsystems</div>
                     @endif
                 </div>
 
@@ -122,8 +122,8 @@
                                 data-system-full="{{ $selectedSystem }}"
                                 data-bs-toggle="modal"
                                 data-bs-target="#createSubsystemModal">
-                            +  Добавить подсистему
-                        </button>
++ Add subsystem
+        </button>
                     </div>
                 @endif
             </div>
@@ -134,7 +134,7 @@
             <div class="rel-subsystems-card">
                 <div class="rel-subsystems-header">
                     <div class="rel-subsystems-title">
-                        Агрегаты
+                        Aggregates
                     </div>
                 </div>
                 <div class="rel-subsystems-list">
@@ -154,9 +154,9 @@
                             </div>
                         @endforeach
                     @elseif(isset($selectedSubsystemId) && $selectedSubsystemId)
-                        <div class="text-muted py-3 text-center rel-subsystems-list-placeholder">Агрегатов нет</div>
+                        <div class="text-muted py-3 text-center rel-subsystems-list-placeholder">No aggregates</div>
                     @else
-                        <div class="text-muted py-3 text-center rel-subsystems-list-placeholder">Выберите подсистему по центру</div>
+                        <div class="text-muted py-3 text-center rel-subsystems-list-placeholder">Select a subsystem in the center</div>
                     @endif
                 </div>
 
@@ -172,7 +172,7 @@
                                 @endphp
                                 data-subsystem-full="{{ $selectedSubsystem->subsystem_name ?? '' }}"
                                 data-failure-system-id="{{ $selectedSubsystemId }}">
-                            +  Добавить агрегат
+                            + Add aggregate
                         </button>
                     @endif
                 </div>
@@ -184,7 +184,7 @@
             <div class="rel-subsystems-card">
                 <div class="rel-subsystems-header">
                     <div class="rel-subsystems-title">
-                        Агрегаты вне систем
+                        Aggregates outside systems
                     </div>
                 </div>
                 <div class="rel-subsystems-list">
@@ -195,7 +195,7 @@
                             </div>
                         @endforeach
                     @else
-                        <div class="text-muted py-3 text-center rel-subsystems-list-placeholder">Агрегатов нет</div>
+                        <div class="text-muted py-3 text-center rel-subsystems-list-placeholder">No aggregates</div>
                     @endif
                 </div>
                 <div class="rel-subsystems-footer">
@@ -203,10 +203,10 @@
                             class="btn-add-section-sidebar"
                             data-bs-toggle="modal"
                             data-bs-target="#createAggregateModal"
-                            data-system-full="Агрегаты вне систем"
+                            data-system-full="Aggregates outside systems"
                             data-subsystem-full=""
                             data-failure-system-id="">
-                        + Добавить агрегат
+                        + Add aggregate
                     </button>
                 </div>
             </div>
@@ -214,23 +214,23 @@
     </div>
 </div>
 
-<!-- Модальное окно добавления системы -->
+<!-- Add system modal -->
 <div class="modal fade" id="createSystemModal" tabindex="-1" aria-labelledby="createSystemModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="createSystemModalLabel">Добавить систему</h5>
+                <h5 class="modal-title" id="createSystemModalLabel">Add system</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST" action="{{ route('modules.reliability.settings.systems.store') }}" id="createSystemForm" data-store-url="{{ route('modules.reliability.settings.systems.store') }}">
                 @csrf
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="system_code" class="form-label">Код системы</label>
+                        <label for="system_code" class="form-label">System code</label>
                         <input type="text" class="form-control" id="system_code" name="system_code" placeholder="01">
                     </div>
                     <div class="mb-3">
-                        <label for="system_name_display" class="form-label">Название системы <span class="text-danger">*</span></label>
+                        <label for="system_name_display" class="form-label">System name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="system_name_display" name="system_name_display" required>
                     </div>
                     <!-- Скрытое поле, которое реально уходит в БД -->
@@ -240,8 +240,8 @@
                     <input type="hidden" name="_method" id="system_method" value="POST">
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" style="margin-left: 10px;" class="btn btn-primary">Сохранить</button>
-                    <button type="button" style="margin-left: 10px;" class="btn btn-outline-primary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" style="margin-left: 10px;" class="btn btn-primary">Save</button>
+                    <button type="button" style="margin-left: 10px;" class="btn btn-outline-primary" data-bs-dismiss="modal">Cancel</button>
               
                 </div>
             </form>
@@ -249,12 +249,12 @@
     </div>
 </div>
 
-<!-- Модальное окно добавления подсистемы -->
+<!-- Add subsystem modal -->
 <div class="modal fade" id="createSubsystemModal" tabindex="-1" aria-labelledby="createSubsystemModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="createSubsystemModalLabel">Добавить подсистему</h5>
+                <h5 class="modal-title" id="createSubsystemModalLabel">Add subsystem</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST"
@@ -264,18 +264,18 @@
                 @csrf
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Система</label>
+                        <label class="form-label">System</label>
                         <input type="text"
                                class="form-control"
                                id="subsystem_system_display"
                                readonly>
                     </div>
                     <div class="mb-3">
-                        <label for="subsystem_code" class="form-label">Код подсистемы</label>
+                        <label for="subsystem_code" class="form-label">Subsystem code</label>
                         <input type="text" class="form-control" id="subsystem_code" name="subsystem_code" placeholder="01">
                     </div>
                     <div class="mb-3">
-                        <label for="subsystem_name_display" class="form-label">Название подсистемы <span class="text-danger">*</span></label>
+                        <label for="subsystem_name_display" class="form-label">Subsystem name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="subsystem_name_display" name="subsystem_name_display" required>
                     </div>
                     <!-- реальные поля для контроллера -->
@@ -286,8 +286,8 @@
                     <input type="hidden" name="_method" id="subsystem_form_method" value="POST">
                 </div>
                 <div class="modal-footer">
-                <button type="submit" style="margin-left: 10px;" class="btn btn-primary">Сохранить</button>    
-                <button type="button" style="margin-left: 10px;" class="btn btn-outline-primary" data-bs-dismiss="modal">Отмена</button>
+                <button type="submit" style="margin-left: 10px;" class="btn btn-primary">Save</button>    
+                <button type="button" style="margin-left: 10px;" class="btn btn-outline-primary" data-bs-dismiss="modal">Cancel</button>
                   
                 </div>
             </form>
@@ -295,12 +295,12 @@
     </div>
 </div>
 
-<!-- Модальное окно добавления агрегата -->
+<!-- Add aggregate modal -->
 <div class="modal fade" id="createAggregateModal" tabindex="-1" aria-labelledby="createAggregateModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="createAggregateModalLabel">Добавить агрегат</h5>
+                <h5 class="modal-title" id="createAggregateModalLabel">Add aggregate</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST"
@@ -309,33 +309,33 @@
                 @csrf
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label class="form-label">Система</label>
+                        <label class="form-label">System</label>
                         <input type="text"
                                class="form-control"
                                id="aggregate_system_display"
                                readonly>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Подсистема</label>
+                        <label class="form-label">Subsystem</label>
                         <input type="text"
                                class="form-control"
                                id="aggregate_subsystem_display"
                                readonly>
                     </div>
                     <div class="mb-3">
-                        <label for="aggregate_code" class="form-label">Код агрегата</label>
+                        <label for="aggregate_code" class="form-label">Aggregate code</label>
                         <input type="text" class="form-control" id="aggregate_code" name="aggregate_code" placeholder="01">
                     </div>
                     <div class="mb-3">
-                        <label for="aggregate_name_display" class="form-label">Название агрегата <span class="text-danger">*</span></label>
+                        <label for="aggregate_name_display" class="form-label">Aggregate name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="aggregate_name_display" name="aggregate_name_display" required>
                     </div>
                     <input type="hidden" name="failure_system_id" id="aggregate_failure_system_id">
                     <input type="hidden" name="aircraft_type_id" id="createAggregateAircraftTypeId" value="{{ $selectedAircraftTypeId ?? '' }}">
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" style="margin-left: 10px;" class="btn btn-primary">Сохранить</button>
-                    <button type="button" style="margin-left: 10px;" class="btn btn-outline-primary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" style="margin-left: 10px;" class="btn btn-primary">Save</button>
+                    <button type="button" style="margin-left: 10px;" class="btn btn-outline-primary" data-bs-dismiss="modal">Cancel</button>
                 </div>
             </form>
         </div>

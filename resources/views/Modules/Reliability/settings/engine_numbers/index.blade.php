@@ -3,8 +3,8 @@
 @section('content')
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4 mb-0">Номера двигателей</h1>
-        <a href="{{ route('modules.reliability.settings.engine-numbers.create') }}" class="btn btn-primary">Добавить</a>
+        <h1 class="h4 mb-0">Engine numbers</h1>
+        <a href="{{ route('modules.reliability.settings.engine-numbers.create') }}" class="btn btn-primary">Add</a>
     </div>
 
     @if(session('success'))
@@ -19,10 +19,10 @@
             <table class="table table-striped align-middle mb-0">
                 <thead class="table-blue">
                     <tr>
-                        <th>Номер</th>
-                        <th>Тип двигателя</th>
-                        <th>Активен</th>
-                        <th class="text-end">Действия</th>
+                        <th>Number</th>
+                        <th>Engine type</th>
+                        <th>Active</th>
+                        <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -30,14 +30,14 @@
                         <tr>
                             <td>{{ $item->number }}</td>
                             <td>{{ $item->engineType->name ?? '' }}</td>
-                            <td>{{ $item->active ? 'Да' : 'Нет' }}</td>
+                            <td>{{ $item->active ? 'Yes' : 'No' }}</td>
                             <td class="text-end">
-                                <a href="{{ route('modules.reliability.settings.engine-numbers.edit', $item) }}" class="btn btn-sm btn-outline-primary">Редактировать</a>
+                                <a href="{{ route('modules.reliability.settings.engine-numbers.edit', $item) }}" class="btn btn-sm btn-outline-primary">Edit</a>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="text-center text-muted py-3">Нет записей</td>
+                            <td colspan="4" class="text-center text-muted py-3">No records</td>
                         </tr>
                     @endforelse
                 </tbody>

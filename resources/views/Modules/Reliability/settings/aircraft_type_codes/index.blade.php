@@ -5,9 +5,9 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <a href="{{ route('modules.reliability.settings.index') }}" class="back-link" style="color: #007bff; text-decoration: none; font-size: 16px;">
-                ← Назад к настройкам надежности
+                ← Back to reliability settings
             </a>
-            <h2 class="mb-0 mt-2" style="font-weight: 600; color: #2d3748; font-size: 24px;">Коды Типа ВС</h2>
+            <h2 class="mb-0 mt-2" style="font-weight: 600; color: #2d3748; font-size: 24px;">Aircraft type codes</h2>
         </div>
     </div>
 
@@ -30,8 +30,8 @@
     @endif
 
     <p class="text-muted small mb-3">
-        Здесь можно задать <strong>код Типа ВС</strong> для типов из справочника «Типы воздушных судов» (таблица <code>aircrafts_types</code>).
-        Код сохраняется в поле <code>rus</code> и может использоваться модулем «Надёжность» в отчётах и выгрузках.
+        You can set the <strong>aircraft type code</strong> for types from the aircraft types reference (table <code>aircrafts_types</code>).
+        The code is stored in the <code>rus</code> field and can be used by the Reliability module in reports and exports.
     </p>
 
     <div class="card">
@@ -41,17 +41,17 @@
 
                 <div class="efds-table-header mb-2">
                     <div class="efds-table-header__stats text-muted">
-                        <span class="me-2">На странице:</span>
+                        <span class="me-2">Per page:</span>
                         @php $currentPerPage = request()->get('per_page', $perPage ?? 50); @endphp
                         <select class="form-select form-select-sm d-inline-block" style="width: auto;"
                                 name="per_page_selector"
                                 onchange="updateAircraftTypeCodesPerPage(this.value)"
-                                aria-label="Записей на странице">
+                                aria-label="Records per page">
                             <option value="25" {{ $currentPerPage == 25 ? 'selected' : '' }}>25</option>
                             <option value="50" {{ $currentPerPage == 50 ? 'selected' : '' }}>50</option>
                             <option value="100" {{ $currentPerPage == 100 ? 'selected' : '' }}>100</option>
                         </select>
-                        <span class="ms-2">Всего типов: {{ $types->total() }}</span>
+                        <span class="ms-2">Total types: {{ $types->total() }}</span>
                     </div>
                 </div>
 
@@ -59,9 +59,9 @@
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-blue">
                         <tr>
-                            <th style="width: 40%;">Тип ВС (RU)</th>
+                            <th style="width: 40%;">Aircraft type (RU)</th>
                             <th style="width: 20%;">ICAO</th>
-                            <th style="width: 40%;">Код типа ВС</th>
+                            <th style="width: 40%;">Aircraft type code</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -77,12 +77,12 @@
                                            class="form-control form-control-sm"
                                            maxlength="50"
                                            value="{{ old('codes.'.$type->id, $type->rus) }}"
-                                           placeholder="Введите код типа ВС">
+                                           placeholder="Enter aircraft type code">
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="3" class="text-center text-muted py-3">Типы ВС не найдены</td>
+                                <td colspan="3" class="text-center text-muted py-3">No aircraft types found</td>
                             </tr>
                         @endforelse
                         </tbody>
@@ -96,8 +96,8 @@
                 @endif
 
                 <div class="efds-actions mt-3">
-                    <button type="submit" class="btn efds-btn efds-btn--primary">Сохранить</button>
-                    <a href="{{ route('modules.reliability.settings.index') }}" class="btn efds-btn efds-btn--outline-primary">Отмена</a>
+                    <button type="submit" class="btn efds-btn efds-btn--primary">Save</button>
+                    <a href="{{ route('modules.reliability.settings.index') }}" class="btn efds-btn efds-btn--outline-primary">Cancel</a>
                 </div>
             </form>
         </div>

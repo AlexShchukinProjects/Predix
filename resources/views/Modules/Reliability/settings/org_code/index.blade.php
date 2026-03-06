@@ -5,9 +5,9 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <a href="{{ route('modules.reliability.settings.index') }}" class="back-link" style="color: #007bff; text-decoration: none; font-size: 16px;">
-                ← Назад к настройкам надежности
+                ← Back to reliability settings
             </a>
-            <h2 class="mb-0 mt-2" style="font-weight: 600; color: #2d3748; font-size: 24px;">Код организации</h2>
+            <h2 class="mb-0 mt-2" style="font-weight: 600; color: #2d3748; font-size: 24px;">Organization code</h2>
         </div>
     </div>
 
@@ -35,20 +35,20 @@
                 @csrf
 
                 <div class="mb-3">
-                    <label for="org_code" class="form-label fw-semibold">Код организации</label>
+                    <label for="org_code" class="form-label fw-semibold">Organization code</label>
                     <input type="text"
                            class="form-control"
                            id="org_code"
                            name="org_code"
                            value="{{ old('org_code', $orgCode) }}"
-                           placeholder="Например: 0130"
+                           placeholder="E.g.: 0130"
                            maxlength="100"
                            style="max-width: 300px;">
-                    <div class="form-text text-muted">Код используется в отчётах и выгрузках модуля «Надёжность».</div>
+                    <div class="form-text text-muted">The code is used in Reliability module reports and exports.</div>
                 </div>
 
                 <button type="submit" class="btn efds-btn efds-btn--primary">
-                    <i class="fas fa-save me-1"></i>Сохранить
+                    <i class="fas fa-save me-1"></i>Save
                 </button>
             </form>
         </div>

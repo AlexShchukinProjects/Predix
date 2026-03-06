@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container-fluid mt-3">
-    <h4 class="mb-3">Структура отчёта BUF</h4>
+    <h4 class="mb-3">BUF report structure</h4>
 
     @if(session('success'))
         <div class="alert alert-success py-1 px-2 mb-2">
@@ -19,14 +19,14 @@
                     <table class="table table-sm table-bordered align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th style="width: 45%;">Параметр</th>
-                            <th style="width: 30%;">Настройки</th>
-                            <th style="width: 25%;">Пример (вывод на печать)</th>
+                            <th style="width: 45%;">Parameter</th>
+                            <th style="width: 30%;">Settings</th>
+                            <th style="width: 25%;">Example (print output)</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td>1. № записи (начиная с …)</td>
+                            <td>1. Record no. (starting from…)</td>
                             <td>
                                 <input
                                     type="number"
@@ -39,23 +39,23 @@
                             <td>{{ $bufSetting->start_number_prefix }}51788</td>
                         </tr>
                         <tr>
-                            <td>2. Дата обнаружения</td>
+                            <td>2. Detection date</td>
                             <td>
-                                <input type="text" class="form-control form-control-sm" placeholder="ДД.ММ.ГГГГ">
+                                <input type="text" class="form-control form-control-sm" placeholder="DD.MM.YYYY">
                             </td>
                             <td>05.04.2025</td>
                         </tr>
                         <tr>
-                            <td>3. Регистрационный номер ВС</td>
+                            <td>3. Aircraft registration number</td>
                             <td>
-                                <input type="text" class="form-control form-control-sm" placeholder="Номер борта (например, 06012)">
+                                <input type="text" class="form-control form-control-sm" placeholder="Registration (e.g. 06012)">
                             </td>
                             <td>06012</td>
                         </tr>
                         <tr>
-                            <td>4. Модификация типа ВС</td>
+                            <td>4. Aircraft type modification</td>
                             <td>
-                                <input type="text" class="form-control form-control-sm" placeholder="Код модификации (например, 7600)">
+                                <input type="text" class="form-control form-control-sm" placeholder="Modification code (e.g. 7600)">
                             </td>
                             <td>7600</td>
                         </tr>
@@ -67,91 +67,91 @@
                             <td>00</td>
                         </tr>
                         <tr>
-                            <td>6. Проявление неисправности ВС</td>
+                            <td>6. Aircraft malfunction manifestation</td>
                             <td>
-                                <textarea class="form-control form-control-sm" rows="2" placeholder="Краткое описание проявления неисправности"></textarea>
+                                <textarea class="form-control form-control-sm" rows="2" placeholder="Brief malfunction description"></textarea>
                             </td>
                             <td>механическое повреждение антенны CI-205-3 из комплекта KN-62А №29057</td>
                         </tr>
                         <tr>
-                            <td>7. Этап обнаружения отказа (на земле 10, в полете 20)</td>
+                            <td>7. Failure detection stage (on ground 10, in flight 20)</td>
                             <td>
-                                <input type="text" class="form-control form-control-sm" placeholder="10 или 20">
+                                <input type="text" class="form-control form-control-sm" placeholder="10 or 20">
                             </td>
                             <td>10</td>
                         </tr>
                         <tr>
-                            <td>8. Функциональная система/подсистема</td>
+                            <td>8. Functional system/subsystem</td>
                             <td>
-                                <input type="text" class="form-control form-control-sm" placeholder="Код системы/подсистемы (например, 110122)">
+                                <input type="text" class="form-control form-control-sm" placeholder="System/subsystem code (e.g. 110122)">
                             </td>
                             <td>110122</td>
                         </tr>
                         <tr>
-                            <td>9. Причина неисправности КИ</td>
+                            <td>9. Component malfunction cause</td>
                             <td>
-                                <textarea class="form-control form-control-sm" rows="2" placeholder="Причина неисправности КИ"></textarea>
+                                <textarea class="form-control form-control-sm" rows="2" placeholder="Component malfunction cause"></textarea>
                             </td>
                             <td>-</td>
                         </tr>
                         <tr>
-                            <td>10. Тип КИ</td>
+                            <td>10. Component type</td>
                             <td>
-                                <input type="text" class="form-control form-control-sm" placeholder="Тип КИ">
+                                <input type="text" class="form-control form-control-sm" placeholder="Component type">
                             </td>
                             <td>CI-205-3</td>
                         </tr>
                         <tr>
-                            <td>11. Зав. № КИ</td>
+                            <td>11. Component serial no.</td>
                             <td>
-                                <input type="text" class="form-control form-control-sm" placeholder="Заводской номер">
+                                <input type="text" class="form-control form-control-sm" placeholder="Serial number">
                             </td>
                             <td>441794</td>
                         </tr>
                         <tr>
-                            <td>12. Наработка КИ СНЭ (ч.)</td>
+                            <td>12. Component TSN (hrs)</td>
                             <td>
-                                <input type="number" class="form-control form-control-sm" placeholder="Часы СНЭ">
+                                <input type="number" class="form-control form-control-sm" placeholder="TSN hours">
                             </td>
                             <td>5951.2</td>
                         </tr>
                         <tr>
-                            <td>13. Наработка КИ ППР (ч.)</td>
+                            <td>13. Component TSO (hrs)</td>
                             <td>
-                                <input type="number" class="form-control form-control-sm" placeholder="Часы ППР">
+                                <input type="number" class="form-control form-control-sm" placeholder="TSO hours">
                             </td>
                             <td>-</td>
                         </tr>
                         <tr>
-                            <td>14. Ед. наработки (всегда прочерк)</td>
+                            <td>14. Hours unit (always dash)</td>
                             <td>
                                 <input type="text" class="form-control form-control-sm" value="-" readonly>
                             </td>
                             <td>-</td>
                         </tr>
                         <tr>
-                            <td>15. Наработка ВС в часах</td>
+                            <td>15. Aircraft hours</td>
                             <td>
-                                <input type="number" class="form-control form-control-sm" placeholder="Часы налёта ВС">
+                                <input type="number" class="form-control form-control-sm" placeholder="Aircraft flight hours">
                             </td>
                             <td>3333.1</td>
                         </tr>
                         <tr>
-                            <td>16. Наработка ВС в посадках</td>
+                            <td>16. Aircraft landings</td>
                             <td>
-                                <input type="number" class="form-control form-control-sm" placeholder="Посадки ВС">
+                                <input type="number" class="form-control form-control-sm" placeholder="Aircraft landings">
                             </td>
                             <td>1785</td>
                         </tr>
                         <tr>
-                            <td>17. — (всегда прочерк)</td>
+                            <td>17. — (always dash)</td>
                             <td>
                                 <input type="text" class="form-control form-control-sm" value="-" readonly>
                             </td>
                             <td>-</td>
                         </tr>
                         <tr>
-                            <td>18. — (всегда прочерк)</td>
+                            <td>18. — (always dash)</td>
                             <td>
                                 <input type="text" class="form-control form-control-sm" value="-" readonly>
                             </td>
@@ -161,11 +161,11 @@
                 </table>
                 <div class="mt-2 text-end">
                     <button type="submit" class="btn btn-sm btn-primary">
-                        Сохранить префикс
+                        Save prefix
                     </button>
                 </div>
                 <div class="mt-1 text-muted" style="font-size: 0.8rem;">
-                    Итоговый номер записи = префикс (из колонки «Настройки») + ID отказа, например: {{ $bufSetting->start_number_prefix }} + 51788 → {{ $bufSetting->start_number_prefix }}51788.
+                    Final record number = prefix (from Settings column) + failure ID, e.g. {{ $bufSetting->start_number_prefix }} + 51788 → {{ $bufSetting->start_number_prefix }}51788.
                 </div>
             </form>
         </div>

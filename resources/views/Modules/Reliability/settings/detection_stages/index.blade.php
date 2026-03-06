@@ -3,8 +3,8 @@
 @section('content')
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4 mb-0">Этап обнаружения отказа</h1>
-        <a href="{{ route('modules.reliability.settings.detection-stages.create') }}" class="btn efds-btn efds-btn--primary">Добавить</a>
+        <h1 class="h4 mb-0">Failure detection stage</h1>
+        <a href="{{ route('modules.reliability.settings.detection-stages.create') }}" class="btn efds-btn efds-btn--primary">Add</a>
     </div>
 
     @if(session('success'))
@@ -19,8 +19,8 @@
             <table class="table table-striped align-middle mb-0">
                 <thead class="table-blue">
                     <tr>
-                        <th>Наименование</th>
-                        <th>Активен</th>
+                        <th>Name</th>
+                        <th>Active</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -28,19 +28,19 @@
                         <tr class="clickable-row"
                             data-href="{{ route('modules.reliability.settings.detection-stages.edit', $item) }}">
                             <td><strong>{{ $item->name }}</strong></td>
-                            <td>{{ $item->active ? 'Да' : 'Нет' }}</td>
+                            <td>{{ $item->active ? 'Yes' : 'No' }}</td>
                         </tr>
 
                         @foreach($item->children as $child)
                             <tr class="clickable-row"
                                 data-href="{{ route('modules.reliability.settings.detection-stages.edit', $child) }}">
                                 <td>&nbsp;&nbsp;&nbsp;— {{ $child->name }}</td>
-                                <td>{{ $child->active ? 'Да' : 'Нет' }}</td>
+                                <td>{{ $child->active ? 'Yes' : 'No' }}</td>
                             </tr>
                         @endforeach
                     @empty
                         <tr>
-                            <td colspan="3" class="text-center text-muted py-3">Нет записей</td>
+                            <td colspan="3" class="text-center text-muted py-3">No records</td>
                         </tr>
                     @endforelse
                 </tbody>

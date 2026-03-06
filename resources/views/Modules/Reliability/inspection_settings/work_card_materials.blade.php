@@ -3,7 +3,7 @@
 @section('content')
 <div class="container-fluid py-3">
     <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-        <a href="{{ route('modules.reliability.settings.index') }}" class="back-button"><i class="fas fa-arrow-left me-2"></i>Настройки</a>
+        <a href="{{ route('modules.reliability.settings.index') }}" class="back-button"><i class="fas fa-arrow-left me-2"></i>Settings</a>
     </div>
     @if(session('success'))
         <div class="alert alert-success">{{ session('success') }}</div>
@@ -11,22 +11,24 @@
 
     <div class="efds-table-header">
         <div class="efds-table-header__stats text-muted">
-            <span class="me-2">На странице:</span>
-            <select class="form-select form-select-sm" id="work-card-materials-per-page" aria-label="Записей на странице">
+            <span class="me-2">Per page:</span>
+            <select class="form-select form-select-sm" id="work-card-materials-per-page" aria-label="Records per page">
                 @php $currentPerPage = (int) request('per_page', $perPage ?? 50); @endphp
                 <option value="10" {{ $currentPerPage === 10 ? 'selected' : '' }}>10</option>
                 <option value="25" {{ $currentPerPage === 25 ? 'selected' : '' }}>25</option>
                 <option value="50" {{ $currentPerPage === 50 ? 'selected' : '' }}>50</option>
                 <option value="100" {{ $currentPerPage === 100 ? 'selected' : '' }}>100</option>
+                <option value="500" {{ $currentPerPage === 500 ? 'selected' : '' }}>500</option>
+                <option value="1000" {{ $currentPerPage === 1000 ? 'selected' : '' }}>1000</option>
             </select>
-            <span class="ms-2">Всего записей: {{ $items->total() }}</span>
+            <span class="ms-2">Total records: {{ $items->total() }}</span>
         </div>
         <div class="efds-table-header__actions">
-            <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#workCardMaterialsUploadModal"><i class="fas fa-file-excel me-1"></i>Добавить из Excel / CSV</button>
-            <a href="#" class="btn efds-btn efds-btn--primary btn-sm"><i class="fas fa-plus me-1"></i>Добавить</a>
+            <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#workCardMaterialsUploadModal"><i class="fas fa-file-excel me-1"></i>Add from Excel / CSV</button>
+            <a href="#" class="btn efds-btn efds-btn--primary btn-sm"><i class="fas fa-plus me-1"></i>Add</a>
             <form id="form-delete-work-card-materials" action="{{ route('modules.reliability.settings.inspection.work-card-materials.delete') }}" method="post" class="d-none">
                 @csrf
-                <button type="submit" class="btn efds-btn efds-btn--danger btn-sm">Удалить выбранные</button>
+                <button type="submit" class="btn efds-btn efds-btn--danger btn-sm">Delete selected</button>
             </form>
         </div>
     </div>
@@ -40,7 +42,7 @@
                     <table class="table table-bordered table-sm mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th class="text-center" style="width: 2.5rem;"><input type="checkbox" id="work-card-materials-select-all" class="form-check-input" title="Выбрать все на странице"></th>
+                                <th class="text-center" style="width: 2.5rem;"><input type="checkbox" id="work-card-materials-select-all" class="form-check-input" title="Select all on page"></th>
                                 <th>id</th>
                                 <th>PROJECT #</th>
                                 <th>WORK ORDER #</th>
@@ -131,7 +133,7 @@
                                 <td>{{ $row->updated_at?->format('Y-m-d H:i') }}</td>
                             </tr>
                             @empty
-                            <tr><td colspan="42" class="text-muted">Нет данных. Загрузите CSV или XLSX (формат IC_0097).</td></tr>
+                            <tr><td colspan="42" class="text-muted">No data. Upload CSV or XLSX (format IC_0097).</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -152,24 +154,41 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="workCardMaterialsUploadModalLabel">Добавить из Excel / CSV</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                <h5 class="modal-title" id="workCardMaterialsUploadModalLabel">Add from Excel / CSV</h5>
+                <button type="button" class="btn-close" id="wcm-modal-close-btn" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form id="form-upload-work-card-materials-modal" action="{{ route('modules.reliability.settings.inspection.work-card-materials.upload') }}" method="post" enctype="multipart/form-data">
                 @csrf
                 <div class="modal-body">
-                    <input type="file" name="file" id="work-card-materials-upload-file" class="d-none" accept=".csv,.xlsx,.xls" required>
-                    <div id="work-card-materials-upload-dropzone" class="inspection-upload-dropzone">
-                        <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
-                        <p class="mb-1">Перетащите файл сюда</p>
-                        <p class="small text-muted mb-0">или нажмите, чтобы выбрать файл (CSV, XLSX, XLS)</p>
-                        <p id="work-card-materials-upload-filename" class="mt-2 mb-0 small text-success fw-bold d-none"></p>
+                    <div id="wcm-step-select">
+                        <input type="file" name="file" id="work-card-materials-upload-file" class="d-none" accept=".csv,.xlsx,.xls">
+                        <div id="work-card-materials-upload-dropzone" class="inspection-upload-dropzone">
+                            <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
+                            <p class="mb-1">Drag file here</p>
+                            <p class="small text-muted mb-0">or click to select file (CSV, XLSX, XLS)</p>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <i class="fas fa-file-excel text-success"></i>
+                            <span id="work-card-materials-upload-filename" class="small text-success fw-bold d-none"></span>
+                        </div>
+                    </div>
+                    <div id="wcm-step-progress" class="d-none">
+                        <div class="text-center mb-3">
+                            <i class="fas fa-file-excel text-success fa-2x mb-2"></i>
+                            <p class="mb-0 small text-muted" id="wcm-prog-filename"></p>
+                        </div>
+                        <p class="mb-1 small">Uploading: <span id="wcm-prog-processed" class="fw-bold">0</span><span id="wcm-prog-total-wrap"> of <span id="wcm-prog-total" class="fw-bold">—</span> rows</span></p>
+                        <div class="progress mb-2" style="height:1.4rem; border-radius:.5rem;">
+                            <div id="wcm-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width:0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                        </div>
+                        <p id="wcm-prog-error" class="small text-danger d-none mt-2"></p>
+                        <p id="wcm-prog-done" class="small text-success d-none mt-2"><i class="fas fa-check-circle me-1"></i>Upload complete!</p>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <div class="efds-actions mb-0">
-                        <button type="button" class="btn efds-btn efds-btn--outline-primary" data-bs-dismiss="modal">Отмена</button>
-                        <button type="submit" id="work-card-materials-upload-submit" class="btn efds-btn efds-btn--primary" disabled>Загрузить</button>
+                        <button type="button" class="btn efds-btn efds-btn--outline-primary" id="wcm-upload-cancel-btn" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="work-card-materials-upload-submit" class="btn efds-btn efds-btn--primary" disabled>Upload</button>
                     </div>
                 </div>
             </form>
@@ -217,10 +236,24 @@
     });
 
     var perPageSelect = document.getElementById('work-card-materials-per-page');
+    var PER_PAGE_STORAGE_KEY = 'reliability_inspection_per_page';
+    (function applyStoredPerPage() {
+        var url = new URL(window.location.href);
+        if (!url.searchParams.has('per_page')) {
+            var stored = localStorage.getItem(PER_PAGE_STORAGE_KEY);
+            if (stored && ['10','25','50','100','500','1000'].indexOf(stored) !== -1) {
+                url.searchParams.set('per_page', stored);
+                window.location.replace(url.toString());
+                return;
+            }
+        }
+    })();
     if (perPageSelect) {
         perPageSelect.addEventListener('change', function() {
+            var val = this.value;
+            try { localStorage.setItem(PER_PAGE_STORAGE_KEY, val); } catch (e) {}
             var url = new URL(window.location.href);
-            url.searchParams.set('per_page', this.value);
+            url.searchParams.set('per_page', val);
             url.searchParams.delete('page');
             window.location.href = url.toString();
         });
@@ -230,6 +263,19 @@
     var fileInput = document.getElementById('work-card-materials-upload-file');
     var filenameEl = document.getElementById('work-card-materials-upload-filename');
     var submitBtn = document.getElementById('work-card-materials-upload-submit');
+    var stepSelect = document.getElementById('wcm-step-select');
+    var stepProgress = document.getElementById('wcm-step-progress');
+    var progFilename = document.getElementById('wcm-prog-filename');
+    var progProcessed = document.getElementById('wcm-prog-processed');
+    var progTotalWrap = document.getElementById('wcm-prog-total-wrap');
+    var progTotal = document.getElementById('wcm-prog-total');
+    var progressBar = document.getElementById('wcm-progress-bar');
+    var progError = document.getElementById('wcm-prog-error');
+    var progDone = document.getElementById('wcm-prog-done');
+    var cancelBtn = document.getElementById('wcm-upload-cancel-btn');
+    var formUpload = document.getElementById('form-upload-work-card-materials-modal');
+    var importing = false;
+
     function setFile(file) {
         if (!file) return;
         var dt = new DataTransfer();
@@ -244,10 +290,91 @@
         filenameEl.classList.add('d-none');
         filenameEl.textContent = '';
         submitBtn.disabled = true;
+        stepSelect.classList.remove('d-none');
+        stepProgress.classList.add('d-none');
+        progError.classList.add('d-none');
+        progDone.classList.add('d-none');
+        importing = false;
+        cancelBtn.setAttribute('data-bs-dismiss', 'modal');
+        submitBtn.textContent = 'Upload';
+    }
+    function setProgressBar(pct) {
+        progressBar.style.width = pct + '%';
+        progressBar.textContent = pct + '%';
+        progressBar.setAttribute('aria-valuenow', pct);
+    }
+    function readNdjsonStream(response, displayName) {
+        stepSelect.classList.add('d-none');
+        stepProgress.classList.remove('d-none');
+        progFilename.textContent = displayName;
+        progProcessed.textContent = '0';
+        progTotal.textContent = '—';
+        setProgressBar(0);
+        progError.classList.add('d-none');
+        progDone.classList.add('d-none');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Uploading…';
+        cancelBtn.removeAttribute('data-bs-dismiss');
+        if (!response.ok) {
+            return response.text().then(function(t) {
+                var msg = 'HTTP ' + response.status;
+                try { var j = JSON.parse(t); if (j.message) msg = j.message; else if (j.error) msg = j.error; } catch (e) {}
+                throw new Error(msg);
+            });
+        }
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var buf = '';
+        function pump() {
+            return reader.read().then(function(res) {
+                if (res.done) return;
+                buf += decoder.decode(res.value, { stream: true });
+                var lines = buf.split('\n');
+                buf = lines.pop();
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i].trim();
+                    if (!line) continue;
+                    try {
+                        var d = JSON.parse(line);
+                        if (d.error) {
+                            progError.textContent = d.error;
+                            progError.classList.remove('d-none');
+                            importing = false;
+                            cancelBtn.setAttribute('data-bs-dismiss', 'modal');
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Upload';
+                            return;
+                        }
+                        if (typeof d.processed !== 'undefined') {
+                            progProcessed.textContent = d.processed.toLocaleString();
+                            if (d.total > 0) {
+                                progTotal.textContent = d.total.toLocaleString();
+                                setProgressBar(Math.min(100, Math.round(100 * d.processed / d.total)));
+                            }
+                        }
+                        if (d.done) {
+                            setProgressBar(100);
+                            progProcessed.textContent = (d.count || 0).toLocaleString();
+                            progressBar.classList.remove('progress-bar-animated');
+                            progDone.classList.remove('d-none');
+                            importing = false;
+                            cancelBtn.setAttribute('data-bs-dismiss', 'modal');
+                            submitBtn.textContent = 'Done';
+                            setTimeout(function() {
+                                window.location.href = '{{ route("modules.reliability.settings.inspection.work-card-materials") }}?success=' + encodeURIComponent('Imported records: ' + (d.count || 0));
+                            }, 1200);
+                            return;
+                        }
+                    } catch (err) {}
+                }
+                return pump();
+            });
+        }
+        return pump();
     }
     if (uploadModal) uploadModal.addEventListener('show.bs.modal', resetUploadModal);
     if (dropzone && fileInput) {
-        dropzone.addEventListener('click', function() { fileInput.click(); });
+        dropzone.addEventListener('click', function() { if (!importing) fileInput.click(); });
         fileInput.addEventListener('change', function() {
             if (this.files && this.files[0]) setFile(this.files[0]);
         });
@@ -259,6 +386,28 @@
             dropzone.classList.remove('drag-over');
             var file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
             if (file) setFile(file);
+        });
+    }
+    if (formUpload) {
+        formUpload.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (!fileInput.files || !fileInput.files[0]) return;
+            importing = true;
+            var fd = new FormData(formUpload);
+            fetch(formUpload.action, {
+                method: 'POST',
+                body: fd,
+                headers: { 'X-WCM-Stream': '1', 'Accept': 'application/x-ndjson' }
+            })
+            .then(function(r) { return readNdjsonStream(r, fileInput.files[0].name); })
+            .catch(function(err) {
+                progError.textContent = err.message || 'Upload error';
+                progError.classList.remove('d-none');
+                importing = false;
+                cancelBtn.setAttribute('data-bs-dismiss', 'modal');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Upload';
+            });
         });
     }
 })();

@@ -4,14 +4,14 @@
         <div class="d-flex justify-content-between align-items-center">
             <div class="d-flex gap-2 align-items-center">
                 <select class="form-select form-select-sm" style="width: auto;">
-                    <option>АБС</option>
+                    <option>ABS</option>
                 </select>
                 <select class="form-select form-select-sm" style="width: auto;">
-                    <option>Л.Ч.</option>
+                    <option>FH</option>
                 </select>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="valuesCheckSystems">
-                    <label class="form-check-label" for="valuesCheckSystems">Значения</label>
+                    <label class="form-check-label" for="valuesCheckSystems">Values</label>
                 </div>
             </div>
             <button class="btn btn-outline-secondary btn-sm">
@@ -26,7 +26,7 @@
     <div class="card-body p-2">
         <div class="row align-items-center">
             <div class="col-6">
-                <strong>СИСТЕМЫ</strong>
+                <strong>SYSTEMS</strong>
             </div>
             <div class="col-6 text-end">
                 <button class="btn btn-outline-secondary btn-sm">
@@ -42,13 +42,13 @@
     <div class="card-body p-0">
         @php
             $systems = [
-                ['code' => '034', 'name' => 'ПИЛОТАЖНО-НАВИГАЦИОННОЕ ОБОРУДОВАНИЕ', 'green' => 85, 'blue' => 45],
-                ['code' => '023', 'name' => 'СВЯЗНОЕ ОБОРУДОВАНИЕ', 'green' => 70, 'blue' => 60],
-                ['code' => '142', 'name' => 'БОРТОВЫЕ СРЕДСТВА КОНТРОЛЯ И РЕГИСТРАЦИИ ПОЛЕТНЫХ ДАННЫХ', 'green' => 50, 'blue' => 30],
-                ['code' => '065', 'name' => 'ВИНТЫ ВЕРТОЛЕТОВ', 'green' => 90, 'blue' => 80],
-                ['code' => '072', 'name' => 'ГАЗОТУРБИННЫЙ ДВИГАТЕЛЬ', 'green' => 75, 'blue' => 70],
-                ['code' => '024', 'name' => 'ЭЛЕКТРОСНАБЖЕНИЕ', 'green' => 60, 'blue' => 55],
-                ['code' => '028', 'name' => 'ТОПЛИВНАЯ СИСТЕМА', 'green' => 40, 'blue' => 65],
+                ['code' => '034', 'name' => 'FLIGHT-NAVIGATION EQUIPMENT', 'green' => 85, 'blue' => 45],
+                ['code' => '023', 'name' => 'COMMUNICATION EQUIPMENT', 'green' => 70, 'blue' => 60],
+                ['code' => '142', 'name' => 'ONBOARD FLIGHT DATA RECORDING', 'green' => 50, 'blue' => 30],
+                ['code' => '065', 'name' => 'HELICOPTER ROTORS', 'green' => 90, 'blue' => 80],
+                ['code' => '072', 'name' => 'GAS TURBINE ENGINE', 'green' => 75, 'blue' => 70],
+                ['code' => '024', 'name' => 'POWER SUPPLY', 'green' => 60, 'blue' => 55],
+                ['code' => '028', 'name' => 'FUEL SYSTEM', 'green' => 40, 'blue' => 65],
             ];
         @endphp
         

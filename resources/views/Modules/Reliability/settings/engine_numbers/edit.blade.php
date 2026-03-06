@@ -4,7 +4,7 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h4 mb-0">
-            {{ isset($item) ? 'Редактировать номер двигателя' : 'Добавить номер двигателя' }}
+            {{ isset($item) ? 'Edit engine number' : 'Add engine number' }}
         </h1>
     </div>
 
@@ -44,7 +44,7 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label">Описание</label>
+                    <label class="form-label">Description</label>
                     <textarea name="description" class="form-control @error('description') is-invalid @enderror" rows="3">{{ old('description', $item->description ?? '') }}</textarea>
                     @error('description')
                         <div class="invalid-feedback">{{ $message }}</div>
@@ -62,15 +62,15 @@
 
             <div class="card-footer d-flex justify-content-between align-items-center">
                 <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">Сохранить</button>
-                    <a href="{{ route('modules.reliability.settings.engine-numbers.index') }}" class="btn btn-outline-primary">Отмена</a>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <a href="{{ route('modules.reliability.settings.engine-numbers.index') }}" class="btn btn-outline-primary">Cancel</a>
                 </div>
 
                 @if(isset($item))
-                    <form method="POST" action="{{ route('modules.reliability.settings.engine-numbers.destroy', $item) }}" onsubmit="return confirm('Удалить запись?');">
+                    <form method="POST" action="{{ route('modules.reliability.settings.engine-numbers.destroy', $item) }}" onsubmit="return confirm('Delete record?');">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-danger">Удалить</button>
+                        <button type="submit" class="btn btn-danger">Delete</button>
                     </form>
                 @endif
             </div>

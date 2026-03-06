@@ -4,27 +4,27 @@
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div class="d-flex gap-2 align-items-center flex-wrap">
                 <select class="form-select form-select-sm" style="width: 120px;" id="monitoringUnitSelect">
-                    <option value="abs">АБС</option>
-                    <option value="k1000">К1000 (полетов)</option>
-                    <option value="k1000h">К1000 налет</option>
+                    <option value="abs">ABS</option>
+                    <option value="k1000">K1000 (flights)</option>
+                    <option value="k1000h">K1000 flight hours</option>
                 </select>
                 <select class="form-select form-select-sm" style="width:150px;" id="monitoringPeriodSelect">
-                    <option value="month">Месяц</option>
-                    <option value="quarter">Квартал</option>
-                    <option value="year">Год</option>
+                    <option value="month">Month</option>
+                    <option value="quarter">Quarter</option>
+                    <option value="year">Year</option>
                 </select>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="trendCheck">
-                    <label class="form-check-label" for="trendCheck">Тренд</label>
+                    <label class="form-check-label" for="trendCheck">Trend</label>
                 </div>
                 <input type="number" class="form-control form-control-sm" value="2" style="width: 60px;" id="polynomialDegree">
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="valuesCheck">
-                    <label class="form-check-label" for="valuesCheck">Значения</label>
+                    <label class="form-check-label" for="valuesCheck">Values</label>
                 </div>
             </div>
             <div class="d-flex gap-2">
-                <button type="button" class="btn btn-primary btn-sm" id="monitoringPdfBtn" title="Сохранить диаграмму в PDF">Отчет PDF</button>
+                <button type="button" class="btn btn-primary btn-sm" id="monitoringPdfBtn" title="Save chart as PDF">PDF Report</button>
               
                
             </div>
@@ -169,11 +169,11 @@
 
         var yLabel;
         if (data.unit === 'k1000') {
-            yLabel = 'К1000 (отказов на 1000 полётов)';
+            yLabel = 'K1000 (failures per 1000 flights)';
         } else if (data.unit === 'k1000h') {
-            yLabel = 'К1000 налет (отказов на 1000 часов налёта)';
+            yLabel = 'K1000 flight hours (failures per 1000 flight hours)';
         } else {
-            yLabel = 'Количество отказов';
+            yLabel = 'Number of failures';
         }
 
         var datasets = [];
@@ -210,7 +210,7 @@
         if (showTrend && n > 1) {
             var trendData = polyFit(totals, polyDegree);
             datasets.push({
-                label: 'Тренд (полином ' + polyDegree + ')',
+                label: 'Trend (polynomial ' + polyDegree + ')',
                 data: trendData,
                 type: 'line',
                 borderColor: '#000',
@@ -222,7 +222,7 @@
                 stack: false,
                 datalabels: { display: false }
             });
-            legendItems.push({ name: 'Тренд (полином ' + polyDegree + ')', color: '#000' });
+            legendItems.push({ name: 'Trend (polynomial ' + polyDegree + ')', color: '#000' });
         }
 
         var pluginsList = {
@@ -314,13 +314,13 @@
     function exportChartToPdf() {
         var chart = window.monitoringChartInstance;
         if (!chart || typeof chart.toBase64Image !== 'function') {
-            alert('График ещё не загружен. Дождитесь отображения диаграммы.');
+            alert('Chart not loaded yet. Wait for the chart to display.');
             return;
         }
         function doExport() {
             var JsPDF = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : (window.jsPDF || null);
             if (!JsPDF) {
-                alert('Библиотека PDF не загружена.');
+                alert('PDF library not loaded.');
                 return;
             }
             var canvas = document.getElementById('monitoringChart');
@@ -338,13 +338,13 @@
 
             var unitLabel;
             if (lastData && lastData.unit === 'k1000') {
-                unitLabel = 'К1000 (отказов на 1000 полётов)';
+                unitLabel = 'K1000 (failures per 1000 flights)';
             } else if (lastData && lastData.unit === 'k1000h') {
-                unitLabel = 'К1000 налет (отказов на 1000 часов налёта)';
+                unitLabel = 'K1000 flight hours (failures per 1000 flight hours)';
             } else {
-                unitLabel = 'АБС (количество отказов)';
+                unitLabel = 'ABS (number of failures)';
             }
-            var periodLabel = (lastData && lastData.period === 'quarter') ? 'по кварталам' : ((lastData && lastData.period === 'year') ? 'по годам' : 'по месяцам');
+            var periodLabel = (lastData && lastData.period === 'quarter') ? 'by quarter' : ((lastData && lastData.period === 'year') ? 'by year' : 'by month');
 
             // Заголовок и подзаголовок на canvas (с отступом между ними)
             var headerW = 1000;
@@ -357,7 +357,7 @@
             ctx.fillRect(0, 0, headerW, headerH);
             ctx.fillStyle = '#000';
             ctx.font = 'bold 28px sans-serif';
-            ctx.fillText('Мониторинг отказов', 0, 32);
+            ctx.fillText('Failure monitoring', 0, 32);
             ctx.font = '14px sans-serif';
             ctx.fillStyle = '#333';
             ctx.fillText(unitLabel + ', ' + periodLabel, 0, 58);
@@ -428,7 +428,7 @@
             yPos += imgH + 4;
 
             doc.addImage(legendData, 'PNG', margin, yPos, contentW, legendImgH);
-            doc.save('мониторинг-отказов-' + (new Date().toISOString().slice(0, 10)) + '.pdf');
+            doc.save('failure-monitoring-' + (new Date().toISOString().slice(0, 10)) + '.pdf');
         }
         if ((window.jspdf && window.jspdf.jsPDF) || window.jsPDF) {
             doExport();
@@ -440,7 +440,7 @@
             doExport();
         };
         s.onerror = function() {
-            alert('Не удалось загрузить библиотеку для экспорта PDF.');
+            alert('Failed to load PDF export library.');
         };
         document.head.appendChild(s);
     }

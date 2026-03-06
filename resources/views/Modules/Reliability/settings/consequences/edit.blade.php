@@ -4,7 +4,7 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h4 mb-0">
-            {{ isset($item) ? 'Редактировать последствие' : 'Добавить последствие' }}
+            {{ isset($item) ? 'Edit consequence' : 'Add consequence' }}
         </h1>
     </div>
 
@@ -19,7 +19,7 @@
 
             <div class="card-body">
                 <div class="mb-3">
-                    <label class="form-label">Наименование <span class="text-danger">*</span></label>
+                    <label class="form-label">Name <span class="text-danger">*</span></label>
                     <input type="text" name="name" class="form-control @error('name') is-invalid @enderror"
                            value="{{ old('name', $item->name ?? '') }}" required>
                     @error('name')
@@ -28,7 +28,7 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label">Описание</label>
+                    <label class="form-label">Description</label>
                     <textarea name="description" class="form-control @error('description') is-invalid @enderror" rows="3">{{ old('description', $item->description ?? '') }}</textarea>
                     @error('description')
                         <div class="invalid-feedback">{{ $message }}</div>
@@ -39,22 +39,22 @@
                     <input class="form-check-input" type="checkbox" name="active" id="active"
                            value="1" {{ old('active', $item->active ?? true) ? 'checked' : '' }}>
                     <label class="form-check-label" for="active">
-                        Активно
+                        Active
                     </label>
                 </div>
             </div>
 
             <div class="card-footer d-flex justify-content-between align-items-center">
                 <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">Сохранить</button>
-                    <a href="{{ route('modules.reliability.settings.consequences.index') }}" class="btn btn-outline-primary">Отмена</a>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                    <a href="{{ route('modules.reliability.settings.consequences.index') }}" class="btn btn-outline-primary">Cancel</a>
                 </div>
 
                 @if(isset($item))
-                    <form method="POST" action="{{ route('modules.reliability.settings.consequences.destroy', $item) }}" onsubmit="return confirm('Удалить запись?');">
+                    <form method="POST" action="{{ route('modules.reliability.settings.consequences.destroy', $item) }}" onsubmit="return confirm('Delete record?');">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="btn btn-danger">Удалить</button>
+                        <button type="submit" class="btn btn-danger">Delete</button>
                     </form>
                 @endif
             </div>

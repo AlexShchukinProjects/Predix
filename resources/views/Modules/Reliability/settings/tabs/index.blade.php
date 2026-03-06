@@ -5,9 +5,9 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <a href="{{ route('modules.reliability.settings.index') }}" class="back-link" style="color: #007bff; text-decoration: none; font-size: 16px;">
-                ← Назад к настройкам надежности
+                ← Back to reliability settings
             </a>
-            <h2 class="mb-0 mt-2" style="font-weight: 600; color: #2d3748; font-size: 24px;">Вкладки модуля «Надёжность»</h2>
+            <h2 class="mb-0 mt-2" style="font-weight: 600; color: #2d3748; font-size: 24px;">Reliability module tabs</h2>
         </div>
     </div>
 
@@ -19,7 +19,7 @@
     @endif
 
     <p class="text-muted small mb-3">
-        Отметьте вкладки, которые должны отображаться на странице модуля «Надёжность». Снятая галочка скрывает вкладку и её содержимое.
+        Select the tabs to show on the Reliability module page. Unchecking a tab hides it and its content.
     </p>
 
     <div class="card">
@@ -47,8 +47,8 @@
                 </div>
 
                 <div class="efds-actions mt-3">
-                    <button type="submit" class="btn efds-btn efds-btn--primary">Сохранить</button>
-                    <a href="{{ route('modules.reliability.settings.index') }}" class="btn efds-btn efds-btn--outline-primary">Отмена</a>
+                    <button type="submit" class="btn efds-btn efds-btn--primary">Save</button>
+                    <a href="{{ route('modules.reliability.settings.index') }}" class="btn efds-btn efds-btn--outline-primary">Cancel</a>
                 </div>
             </form>
         </div>

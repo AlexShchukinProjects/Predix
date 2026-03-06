@@ -454,8 +454,8 @@
                             </li>
                             @endif
                         @elseif($currentModule === 'reliability')
-                            @if($can('modules.reliability.index'))<li class="nav-ul nav-item"><a href="{{ route('modules.reliability.index') }}" class="nav_link_nav {{ $currentRoute === 'modules.reliability.index' ? 'active' : '' }}">ОТКАЗЫ</a></li>@endif
-                            @if($can('modules.reliability.settings.index'))<li class="nav-ul nav-item"><a href="{{ route('modules.reliability.settings.index') }}" class="nav_link_nav {{ str_starts_with($currentRoute, 'modules.reliability.settings') ? 'active' : '' }}">НАСТРОЙКИ</a></li>@endif
+                                @if($can('modules.reliability.index'))<li class="nav-ul nav-item"><a href="{{ route('modules.reliability.index') }}" class="nav_link_nav {{ $currentRoute === 'modules.reliability.index' ? 'active' : '' }}">ANALYSIS</a></li>@endif
+                            @if($can('modules.reliability.settings.index'))<li class="nav-ul nav-item"><a href="{{ route('modules.reliability.settings.index') }}" class="nav_link_nav {{ str_starts_with($currentRoute, 'modules.reliability.settings') ? 'active' : '' }}">DATA</a></li>@endif
                         @endif
 
 
@@ -473,12 +473,12 @@
             @endif
 
             <div style="display:flex; align-items:center; {{ ($isPersonalPage || $isInspectionAppPage) ? 'margin-left:auto;' : '' }}">
-            @if(!$isInspectionAppPage)
+            @if(false) {{-- чат в хидере пока скрыт --}}
             <!-- Чат -->
             <div class="chat-container" style="margin-right: 15px; margin-left: 15px;">
                 <a href="{{ route('chat.index') }}" class="chat-link">
                     <i class="fas fa-comments"></i>
-                    <span>ЧАТ</span>
+                    <span>CHAT</span>
                     <span class="chat-unread-badge" id="chatUnreadBadge" style="display: none;">0</span>
                 </a>
             </div>

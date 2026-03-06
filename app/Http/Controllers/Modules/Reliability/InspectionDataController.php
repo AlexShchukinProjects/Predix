@@ -34,7 +34,7 @@ class InspectionDataController extends Controller
     public function projects(Request $request): View
     {
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
         $items = InspectionProject::orderBy('id')->paginate($perPage)->withQueryString();
@@ -48,7 +48,7 @@ class InspectionDataController extends Controller
         $count = $this->importFromFile($request->file('file'), $this->projectsHeaderMap(), function (array $row) {
             InspectionProject::create($this->sanitizeProjectRow($row));
         });
-        return redirect()->route('modules.reliability.settings.inspection.projects')->with('success', "Импортировано записей: {$count}");
+        return redirect()->route('modules.reliability.settings.inspection.projects')->with('success', "Imported records: {$count}");
     }
 
     public function projectsDelete(Request $request)
@@ -266,7 +266,7 @@ class InspectionDataController extends Controller
     public function aircrafts(Request $request): View
     {
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
         $items = InspectionAircraft::orderBy('id')->paginate($perPage)->withQueryString();
@@ -280,7 +280,7 @@ class InspectionDataController extends Controller
         $count = $this->importFromFile($request->file('file'), $this->aircraftHeaderMap(), function (array $row) {
             InspectionAircraft::create($row);
         });
-        return redirect()->route('modules.reliability.settings.inspection.aircrafts')->with('success', "Импортировано записей: {$count}");
+        return redirect()->route('modules.reliability.settings.inspection.aircrafts')->with('success', "Imported records: {$count}");
     }
 
     /** Aircraft: маппинг заголовков файла на поля БД */
@@ -470,7 +470,7 @@ class InspectionDataController extends Controller
 
         try {
             $count = $this->importWorkCardsChunked($file, null, null);
-            return redirect()->route('modules.reliability.settings.inspection.work-cards')->with('success', "Импортировано записей: {$count}");
+            return redirect()->route('modules.reliability.settings.inspection.work-cards')->with('success', "Imported records: {$count}");
         } catch (\Throwable $e) {
             report($e);
             $msg = $e->getMessage();
@@ -1033,7 +1033,7 @@ class InspectionDataController extends Controller
     public function eefRegistry(Request $request): View
     {
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
         $items = InspectionEefRegistry::orderBy('id')->paginate($perPage)->withQueryString();
@@ -1046,13 +1046,20 @@ class InspectionDataController extends Controller
         if (function_exists('ini_set')) {
             @ini_set('memory_limit', '768M');
         }
-        $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls|max:204800']);
+        $request->validate(['file' => 'required|file|max:204800']);
         $file = $request->file('file');
+        $ext = strtolower($file->getClientOriginalExtension());
+        if (!in_array($ext, ['csv', 'txt', 'xlsx', 'xls'], true)) {
+            if ($request->header('Accept') === 'application/x-ndjson') {
+                return response()->json(['error' => 'Invalid file type. Use CSV, TXT, XLSX or XLS.'], 422);
+            }
+            return redirect()->route('modules.reliability.settings.inspection.eef-registry')->with('error', 'Invalid file type. Use CSV, TXT, XLSX or XLS.');
+        }
         if ($request->header('X-EEF-Stream') === '1') {
             return $this->eefRegistryUploadStream($file);
         }
         $count = $this->importEefRegistryChunked($file, null, null);
-        return redirect()->route('modules.reliability.settings.inspection.eef-registry')->with('success', "Импортировано записей: {$count}");
+        return redirect()->route('modules.reliability.settings.inspection.eef-registry')->with('success', "Imported records: {$count}");
     }
 
     /** Подсчёт строк файла EEF без импорта (JSON). */
@@ -1062,7 +1069,7 @@ class InspectionDataController extends Controller
         if (function_exists('ini_set')) {
             @ini_set('memory_limit', '512M');
         }
-        $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls|max:204800']);
+        $request->validate(['file' => 'required|file|max:204800']);
         try {
             $file = $request->file('file');
             $total = $this->countEefRegistryRows($file->getRealPath(), strtolower($file->getClientOriginalExtension()));
@@ -1172,6 +1179,7 @@ class InspectionDataController extends Controller
         $buildIndexMap = function (array $fileHeaders): array {
             $map = $this->eefRegistryHeaderMap();
             $normalize = static function (string $s): string {
+                $s = preg_replace('/^\xEF\xBB\xBF/', '', (string) $s); // BOM
                 $s = str_replace(["\r", "\n", "\t"], ' ', $s);
                 $s = preg_replace('/[.,;:?]+/', ' ', $s);
                 $s = preg_replace('/\s+/', ' ', trim($s));
@@ -1230,13 +1238,29 @@ class InspectionDataController extends Controller
                         $val = $val->format('Y-m-d');
                     } elseif (isset($numericCols[$dbCol]) && !is_numeric(trim((string) $val))) {
                         continue;
-                    } elseif (in_array($dbCol, $dateCols, true) && is_string($val)) {
-                        try {
-                            $dt = \DateTime::createFromFormat('Y-m-d', $val) ?: \DateTime::createFromFormat('d-m-Y', $val) ?: \DateTime::createFromFormat('d/m/Y', $val);
-                            if ($dt) {
-                                $val = $dt->format('Y-m-d');
+                    } elseif (in_array($dbCol, $dateCols, true)) {
+                        $valStr = trim((string) $val);
+                        if ($valStr === '' || $valStr === '-' || $valStr === '0') {
+                            $val = null;
+                        } elseif (is_string($val) && $valStr !== '') {
+                            try {
+                                $dt = \DateTime::createFromFormat('Y-m-d', $valStr) ?: \DateTime::createFromFormat('d-m-Y', $valStr) ?: \DateTime::createFromFormat('d/m/Y', $valStr);
+                                if ($dt) {
+                                    $val = $dt->format('Y-m-d');
+                                } else {
+                                    $val = null;
+                                }
+                            } catch (\Throwable) {
+                                $val = null;
                             }
-                        } catch (\Throwable) {
+                        } elseif (is_numeric($val) && $val > 0) {
+                            try {
+                                $dt = \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((float) $val);
+                                $val = $dt->format('Y-m-d');
+                            } catch (\Throwable) {
+                                $val = null;
+                            }
+                        } else {
                             $val = null;
                         }
                     }
@@ -1245,8 +1269,8 @@ class InspectionDataController extends Controller
                             $ordered[$dbCol] = $val + 0;
                         } else {
                             $len = is_string($val) ? strlen($val) : 0;
-                            $max = ['subject' => 500, 'link' => 500, 'link_path' => 500, 'inspection_source_task' => 500, 'oem_communication_reference' => 500, 'latest_processing' => 255, 'location' => 255, 'assigned_engineering_engineer' => 255, 'open_continuation_raised_by_production_dates' => 255, 'answer_provided_by_engineering_dates' => 255, 'gaes_eo' => 255, 'manual_limits_out_within' => 255, 'backup_engineer' => 255, 'customer_name' => 255][$dbCol] ?? null;
-                            $ordered[$dbCol] = ($max !== null && $len > $max) ? substr((string) $val, 0, $max) : $val;
+                            $max = ['subject' => 500, 'link' => 500, 'link_path' => 500, 'inspection_source_task' => 500, 'oem_communication_reference' => 500, 'latest_processing' => 255, 'location' => 255, 'assigned_engineering_engineer' => 255, 'open_continuation_raised_by_production_dates' => 255, 'answer_provided_by_engineering_dates' => 255, 'gaes_eo' => 255, 'manual_limits_out_within' => 255, 'backup_engineer' => 255, 'customer_name' => 255, 'eef_number' => 100, 'nrc_number' => 100, 'ac_type' => 100, 'ata' => 50, 'project_no' => 100, 'eef_status' => 100, 'eef_priority' => 100, 'project_status' => 100, 'project_status2' => 100, 'rc_number' => 100, 'chargeable_to_customer' => 50][$dbCol] ?? 255;
+                            $ordered[$dbCol] = ($len > $max) ? substr((string) $val, 0, $max) : $val;
                         }
                     }
                 }
@@ -1286,9 +1310,73 @@ class InspectionDataController extends Controller
             fclose($fh);
             $flush($buffer, $indexMap, $insertColumns, $dateCols, $numericCols);
         } else {
-            $this->importEefRegistryViaOpenspout($path, $ext, $chunkSize, $buildIndexMap, $buildRow, $flush, $insertColumns, $dateCols, $numericCols);
+            try {
+                $this->importEefRegistryViaOpenspout($path, $ext, $chunkSize, $buildIndexMap, $buildRow, $flush, $insertColumns, $dateCols, $numericCols);
+            } catch (\OpenSpout\Reader\Exception\InvalidValueException $e) {
+                // EEF.xlsx может содержать ячейки с числом в формате «дата» (напр. 81613747) — OpenSpout бросает; читаем через PhpSpreadsheet
+                $this->importEefRegistryViaPhpSpreadsheet($path, $chunkSize, $buildIndexMap, $buildRow, $flush, $insertColumns, $dateCols, $numericCols);
+            }
         }
         return $count;
+    }
+
+    /** Импорт EEF через PhpSpreadsheet (xls или xlsx при fallback из-за InvalidValueException в OpenSpout). */
+    private function importEefRegistryViaPhpSpreadsheet(
+        string $path,
+        int $chunkSize,
+        callable $buildIndexMap,
+        callable $buildRow,
+        callable $flush,
+        array $insertColumns,
+        array $dateCols,
+        array $numericCols
+    ): void {
+        $maxConsecutiveEmpty = 200;
+        $maxRowsWithoutData = 5000;
+        $reader = IOFactory::createReaderForFile($path);
+        $reader->setReadDataOnly(true);
+        $spreadsheet = $reader->load($path);
+        $sheet = $spreadsheet->getActiveSheet();
+        $rowIter = $sheet->getRowIterator();
+        $indexMap = [];
+        $buffer = [];
+        $first = true;
+        $consecutiveEmpty = 0;
+        $hasData = false;
+        $rowsRead = 0;
+        foreach ($rowIter as $row) {
+            $vals = [];
+            foreach ($row->getCellIterator() as $cell) {
+                $vals[] = $cell->getValue();
+            }
+            if ($first) {
+                $indexMap = $buildIndexMap(array_map(fn($v) => trim((string) $v), $vals));
+                $first = false;
+                continue;
+            }
+            $rowsRead++;
+            $data = $buildRow($indexMap, $vals);
+            $eefVal = $data['eef_number'] ?? null;
+            $eefStr = $eefVal !== null ? trim((string) $eefVal) : '';
+            $hasEefNumber = $data !== [] && $eefStr !== '' && $eefStr !== '0' && $eefStr !== '-';
+            if ($data !== [] && $hasEefNumber) {
+                $hasData = true;
+                $consecutiveEmpty = 0;
+                $buffer[] = $data;
+                if (count($buffer) >= $chunkSize) {
+                    $flush($buffer, $indexMap, $insertColumns, $dateCols, $numericCols);
+                }
+            } else {
+                if ($hasData && ++$consecutiveEmpty >= $maxConsecutiveEmpty) {
+                    break;
+                }
+                if (!$hasData && $rowsRead >= $maxRowsWithoutData) {
+                    break;
+                }
+            }
+        }
+        unset($spreadsheet, $sheet);
+        $flush($buffer, $indexMap, $insertColumns, $dateCols, $numericCols);
     }
 
     private function importEefRegistryViaOpenspout(
@@ -1305,47 +1393,7 @@ class InspectionDataController extends Controller
         $maxConsecutiveEmpty = 200;
         $maxRowsWithoutData = 5000;
         if ($ext !== 'xlsx') {
-            $reader = IOFactory::createReaderForFile($path);
-            $reader->setReadDataOnly(true);
-            $spreadsheet = $reader->load($path);
-            $sheet = $spreadsheet->getActiveSheet();
-            $rowIter = $sheet->getRowIterator();
-            $indexMap = [];
-            $buffer = [];
-            $first = true;
-            $consecutiveEmpty = 0;
-            $hasData = false;
-            $rowsRead = 0;
-            foreach ($rowIter as $row) {
-                $vals = [];
-                foreach ($row->getCellIterator() as $cell) {
-                    $vals[] = $cell->getValue();
-                }
-                if ($first) {
-                    $indexMap = $buildIndexMap(array_map(fn($v) => trim((string) $v), $vals));
-                    $first = false;
-                    continue;
-                }
-                $rowsRead++;
-                $data = $buildRow($indexMap, $vals);
-                if ($data !== []) {
-                    $hasData = true;
-                    $consecutiveEmpty = 0;
-                    $buffer[] = $data;
-                    if (count($buffer) >= $chunkSize) {
-                        $flush($buffer, $indexMap, $insertColumns, $dateCols, $numericCols);
-                    }
-                } else {
-                    if ($hasData && ++$consecutiveEmpty >= $maxConsecutiveEmpty) {
-                        break;
-                    }
-                    if (!$hasData && $rowsRead >= $maxRowsWithoutData) {
-                        break;
-                    }
-                }
-            }
-            unset($spreadsheet, $sheet);
-            $flush($buffer, $indexMap, $insertColumns, $dateCols, $numericCols);
+            $this->importEefRegistryViaPhpSpreadsheet($path, $chunkSize, $buildIndexMap, $buildRow, $flush, $insertColumns, $dateCols, $numericCols);
             return;
         }
         $reader = new XlsxReader();
@@ -1356,19 +1404,15 @@ class InspectionDataController extends Controller
         $consecutiveEmpty = 0;
         $hasData = false;
         $rowsRead = 0;
-        $logPath = base_path('debug-ebc999.log');
         foreach ($reader->getSheetIterator() as $sheet) {
             foreach ($sheet->getRowIterator() as $row) {
                 $vals = [];
-                foreach ($row->getCells() as $cell) {
-                    $vals[] = $cell->getValue();
+                foreach ($row->getCells() as $colIndex => $cell) {
+                    $vals[$colIndex] = $cell->getValue();
                 }
                 if ($first) {
                     $fileHeaders = array_map(fn($v) => trim((string) $v), $vals);
                     $indexMap = $buildIndexMap($fileHeaders);
-                    // #region agent log
-                    @file_put_contents($logPath, json_encode(['sessionId' => 'ebc999', 'hypothesisId' => 'H1', 'location' => 'InspectionDataController::importEefRegistryViaOpenspout', 'message' => 'after buildIndexMap', 'data' => ['indexMapSize' => count($indexMap), 'indexMap' => $indexMap, 'fileHeadersFirst10' => array_slice($fileHeaders, 0, 10)], 'timestamp' => round(microtime(true) * 1000)]) . "\n", FILE_APPEND | LOCK_EX);
-                    // #endregion
                     $first = false;
                     continue;
                 }
@@ -1396,9 +1440,6 @@ class InspectionDataController extends Controller
             break;
         }
         $reader->close();
-        // #region agent log
-        @file_put_contents(base_path('debug-ebc999.log'), json_encode(['sessionId' => 'ebc999', 'hypothesisId' => 'H4', 'location' => 'InspectionDataController::importEefRegistryViaOpenspout', 'message' => 'before final flush', 'data' => ['bufferSize' => count($buffer), 'rowsRead' => $rowsRead, 'hasData' => $hasData], 'timestamp' => round(microtime(true) * 1000)]) . "\n", FILE_APPEND | LOCK_EX);
-        // #endregion
         $flush($buffer, $indexMap, $insertColumns, $dateCols, $numericCols);
     }
 
@@ -1483,11 +1524,13 @@ class InspectionDataController extends Controller
         return 0;
     }
 
-    /** EEF registry: маппинг заголовков файла (в т.ч. с переносами строк) на поля БД */
+    /** EEF registry: маппинг заголовков файла на поля БД.
+     * Два формата: (1) GAES/краткий — "EEF — копия.xlsx": 7 колонок (GAES WO#, GAES Source Card#, CUST. CARD, PROJECT, ORDER TYPE, DESCRIPTION, CORRECTIVE ACTION).
+     * (2) Полный EEF Registry — "EEF.xlsx" (Договора): 28 колонок (EEF Number, NRC Number, AC Type, ATA, Project No., Subject, Remarks, Location, EEF Status, Link, Link Path, Man Hours, …). */
     private function eefRegistryHeaderMap(): array
     {
         return [
-            // Формат из экспорта EEF (GAES WO / Source Card style)
+            // Формат 1: EEF — копия.xlsx (GAES / Договора), 7 колонок
             'GAES WO#' => 'eef_number',
             'GAES Source Card#' => 'inspection_source_task',
             'CUST. CARD' => 'customer_name',
@@ -1495,7 +1538,7 @@ class InspectionDataController extends Controller
             'ORDER TYPE' => 'project_status',
             'DESCRIPTION' => 'subject',
             'CORRECTIVE ACTION' => 'remarks',
-            // Стандартный формат EEF Registry (EEF Number, NRC Number, AC Type, ATA, Project No., Subject, Remarks, Location, EEF Status, Link, Link Path, Man Hours, …)
+            // Формат 2: EEF.xlsx (Договора), полный EEF Registry, 28 колонок
             'EEF Number' => 'eef_number',
             'NRC Number' => 'nrc_number',
             'NRC No.' => 'nrc_number',
@@ -1538,7 +1581,7 @@ class InspectionDataController extends Controller
     public function workCardMaterials(Request $request): View
     {
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
         $items = InspectionWorkCardMaterial::orderBy('id')->paginate($perPage)->withQueryString();
@@ -1618,15 +1661,75 @@ class InspectionDataController extends Controller
     public function workCardMaterialsUpload(Request $request)
     {
         set_time_limit(0);
-        $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls|max:102400']);
-        $path = $request->file('file')->getRealPath();
-        $ext = strtolower($request->file('file')->getClientOriginalExtension());
+        if (function_exists('ini_set')) {
+            @ini_set('memory_limit', '768M');
+        }
+        $request->validate(['file' => 'required|file|max:204800']);
+        $file = $request->file('file');
+        $ext = strtolower($file->getClientOriginalExtension());
+        if (!in_array($ext, ['csv', 'txt', 'xlsx', 'xls'], true)) {
+            return redirect()->route('modules.reliability.settings.inspection.work-card-materials')->with('error', 'Invalid file type. Use CSV, TXT, XLSX or XLS.');
+        }
+        if ($request->header('X-WCM-Stream') === '1') {
+            return $this->workCardMaterialsUploadStream($file);
+        }
+        try {
+            $count = $this->importWorkCardMaterialsChunked($file, null, null);
+            return redirect()->route('modules.reliability.settings.inspection.work-card-materials')->with('success', "Imported records: {$count}");
+        } catch (\Throwable $e) {
+            report($e);
+            $msg = strlen($e->getMessage()) > 200 ? substr($e->getMessage(), 0, 200) . '…' : $e->getMessage();
+            return redirect()->route('modules.reliability.settings.inspection.work-card-materials')->with('error', 'Upload error: ' . $msg);
+        }
+    }
+
+    private function workCardMaterialsUploadStream($file): StreamedResponse
+    {
+        $send = function (array $data) {
+            echo json_encode($data, JSON_UNESCAPED_UNICODE) . "\n";
+            if (ob_get_level()) {
+                ob_flush();
+            }
+            flush();
+        };
+        return new StreamedResponse(function () use ($file, $send) {
+            try {
+                $count = $this->importWorkCardMaterialsChunked(
+                    $file,
+                    function (int $processed, int $total) use ($send) {
+                        $send(['processed' => $processed, 'total' => $total]);
+                    },
+                    null
+                );
+                $send(['done' => true, 'count' => $count]);
+            } catch (\Throwable $e) {
+                report($e);
+                $msg = strlen($e->getMessage()) > 300 ? substr($e->getMessage(), 0, 300) . '…' : $e->getMessage();
+                $send(['error' => $msg]);
+            }
+        }, 200, [
+            'Content-Type' => 'application/x-ndjson; charset=utf-8',
+            'Cache-Control' => 'no-cache',
+            'X-Accel-Buffering' => 'no',
+        ]);
+    }
+
+    /**
+     * Импорт Work card materials пачками (CSV построчно, XLSX через OpenSpout или PhpSpreadsheet).
+     * @param callable(int,int)|null $onProgress  (processed, total) total может быть 0 для CSV
+     */
+    private function importWorkCardMaterialsChunked($file, ?callable $onProgress = null, ?int $knownTotal = null): int
+    {
+        $path = is_string($file) ? $file : $file->getRealPath();
+        $ext = is_string($file) ? strtolower(pathinfo($file, PATHINFO_EXTENSION)) : strtolower($file->getClientOriginalExtension());
+        $chunkSize = 500;
         $count = 0;
+        $now = now()->toDateTimeString();
 
         if ($ext === 'csv' || $ext === 'txt') {
             $fh = fopen($path, 'r');
             if ($fh === false) {
-                return redirect()->route('modules.reliability.settings.inspection.work-card-materials')->with('error', 'Не удалось открыть файл.');
+                throw new \RuntimeException('Cannot open file.');
             }
             $firstLine = fgetcsv($fh, 0, ',');
             if ($firstLine !== false && isset($firstLine[0]) && str_starts_with(trim((string) $firstLine[0]), 'sep=')) {
@@ -1634,6 +1737,7 @@ class InspectionDataController extends Controller
             }
             $headers = $firstLine !== false ? array_map('trim', $firstLine) : [];
             $indexToKey = $this->workCardMaterialsIndexToKey($headers);
+            $buffer = [];
             while (($row = fgetcsv($fh, 0, ',')) !== false) {
                 $data = [];
                 foreach ($headers as $i => $h) {
@@ -1643,34 +1747,122 @@ class InspectionDataController extends Controller
                     }
                 }
                 if (!empty($data)) {
-                    InspectionWorkCardMaterial::create($data);
-                    $count++;
+                    $data['created_at'] = $now;
+                    $data['updated_at'] = $now;
+                    $buffer[] = $data;
+                    if (count($buffer) >= $chunkSize) {
+                        DB::table('inspection_work_card_materials')->insert($buffer);
+                        $count += count($buffer);
+                        $buffer = [];
+                        if ($onProgress !== null) {
+                            $onProgress($count, $knownTotal ?? 0);
+                        }
+                    }
                 }
             }
             fclose($fh);
-        } else {
-            $spreadsheet = IOFactory::load($path);
-            $sheet = $spreadsheet->getActiveSheet();
-            $rows = $sheet->toArray();
-            $headers = array_shift($rows);
-            $headers = array_map('trim', $headers);
-            $indexToKey = $this->workCardMaterialsIndexToKey($headers);
-            foreach ($rows as $row) {
-                $data = [];
-                foreach ($headers as $i => $h) {
-                    $key = $indexToKey[$i] ?? null;
-                    if ($key !== null && isset($row[$i]) && (string)$row[$i] !== '') {
-                        $data[$key] = $this->castMaterialValue($key, (string)$row[$i]);
+            if (!empty($buffer)) {
+                DB::table('inspection_work_card_materials')->insert($buffer);
+                $count += count($buffer);
+            }
+            if ($onProgress !== null) {
+                $onProgress($count, $knownTotal ?? 0);
+            }
+            return $count;
+        }
+
+        // XLSX / XLS: потоково через OpenSpout для xlsx, иначе PhpSpreadsheet
+        if ($ext === 'xlsx') {
+            $reader = new XlsxReader();
+            $reader->open($path);
+            $headers = [];
+            $indexToKey = [];
+            $buffer = [];
+            $first = true;
+            foreach ($reader->getSheetIterator() as $sheet) {
+                foreach ($sheet->getRowIterator() as $row) {
+                    $vals = [];
+                    foreach ($row->getCells() as $colIndex => $cell) {
+                        $vals[$colIndex] = $cell->getValue();
+                    }
+                    if ($first) {
+                        $headers = array_map('trim', array_map(fn($v) => (string) $v, $vals));
+                        $indexToKey = $this->workCardMaterialsIndexToKey($headers);
+                        $first = false;
+                        continue;
+                    }
+                    $data = [];
+                    foreach ($headers as $i => $h) {
+                        $key = $indexToKey[$i] ?? null;
+                        if ($key !== null && isset($vals[$i]) && (string) $vals[$i] !== '') {
+                            $data[$key] = $this->castMaterialValue($key, (string) $vals[$i]);
+                        }
+                    }
+                    if (!empty($data)) {
+                        $data['created_at'] = $now;
+                        $data['updated_at'] = $now;
+                        $buffer[] = $data;
+                        if (count($buffer) >= $chunkSize) {
+                            DB::table('inspection_work_card_materials')->insert($buffer);
+                            $count += count($buffer);
+                            $buffer = [];
+                            if ($onProgress !== null) {
+                                $onProgress($count, $knownTotal ?? 0);
+                            }
+                        }
                     }
                 }
-                if (!empty($data)) {
-                    InspectionWorkCardMaterial::create($data);
-                    $count++;
+                break;
+            }
+            $reader->close();
+            if (!empty($buffer)) {
+                DB::table('inspection_work_card_materials')->insert($buffer);
+                $count += count($buffer);
+            }
+            if ($onProgress !== null) {
+                $onProgress($count, $knownTotal ?? 0);
+            }
+            return $count;
+        }
+
+        // XLS: PhpSpreadsheet (файлы обычно меньше)
+        $spreadsheet = IOFactory::load($path);
+        $sheet = $spreadsheet->getActiveSheet();
+        $rows = $sheet->toArray();
+        $headers = array_map('trim', (array) array_shift($rows));
+        $indexToKey = $this->workCardMaterialsIndexToKey($headers);
+        $buffer = [];
+        foreach ($rows as $row) {
+            $data = [];
+            foreach ($headers as $i => $h) {
+                $key = $indexToKey[$i] ?? null;
+                if ($key !== null && isset($row[$i]) && (string) $row[$i] !== '') {
+                    $data[$key] = $this->castMaterialValue($key, (string) $row[$i]);
+                }
+            }
+            if (!empty($data)) {
+                $data['created_at'] = $now;
+                $data['updated_at'] = $now;
+                $buffer[] = $data;
+                if (count($buffer) >= $chunkSize) {
+                    DB::table('inspection_work_card_materials')->insert($buffer);
+                    $count += count($buffer);
+                    $buffer = [];
+                    if ($onProgress !== null) {
+                        $onProgress($count, $knownTotal ?? 0);
+                    }
                 }
             }
         }
-
-        return redirect()->route('modules.reliability.settings.inspection.work-card-materials')->with('success', "Импортировано записей: {$count}");
+        if (!empty($buffer)) {
+            DB::table('inspection_work_card_materials')->insert($buffer);
+            $count += count($buffer);
+        }
+        if ($onProgress !== null) {
+            $onProgress($count, $knownTotal ?? 0);
+        }
+        unset($spreadsheet, $sheet);
+        return $count;
     }
 
     private function castMaterialValue(string $key, string $value): mixed
@@ -1688,7 +1880,7 @@ class InspectionDataController extends Controller
     public function sourceCardRefs(Request $request): View
     {
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
         $items = InspectionSourceCardRef::orderBy('id')->paginate($perPage)->withQueryString();
@@ -1705,13 +1897,13 @@ class InspectionDataController extends Controller
         ], function (array $row) {
             InspectionSourceCardRef::create($row);
         });
-        return redirect()->route('modules.reliability.settings.inspection.source-card-refs')->with('success', "Импортировано записей: {$count}");
+        return redirect()->route('modules.reliability.settings.inspection.source-card-refs')->with('success', "Imported records: {$count}");
     }
 
     public function caseAnalyses(Request $request): View
     {
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
         $items = InspectionCaseAnalysis::with('workCard')->orderBy('id')->paginate($perPage)->withQueryString();
@@ -1737,7 +1929,7 @@ class InspectionDataController extends Controller
             }
             InspectionCaseAnalysis::create($row);
         });
-        return redirect()->route('modules.reliability.settings.inspection.case-analyses')->with('success', "Импортировано записей: {$count}");
+        return redirect()->route('modules.reliability.settings.inspection.case-analyses')->with('success', "Imported records: {$count}");
     }
 
     /**

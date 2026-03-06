@@ -7,51 +7,51 @@
             @php
                 $settingsModules = [
                     [
-                        'name' => 'ФОРМА ОТКАЗА',
+                        'name' => 'FAILURE FORM',
                         'route' => route('modules.reliability.settings.failure-form.index'),
                     ],
                     [
-                        'name' => 'ВКЛАДКИ',
+                        'name' => 'TABS',
                         'route' => route('modules.reliability.settings.tabs.index'),
                     ],
                     [
-                        'name' => 'ЭТАП ОБНАРУЖЕНИЯ ОТКАЗА',
+                        'name' => 'FAILURE DETECTION STAGE',
                         'route' => route('modules.reliability.settings.detection-stages.index'),
                     ],
                     [
-                        'name' => 'СТРУКТУРА ОТЧЁТА BUF',
+                        'name' => 'BUF REPORT STRUCTURE',
                         'route' => route('modules.reliability.settings.report-structure-buf.index'),
                     ],
                     [
-                        'name' => 'ПОСЛЕДСТВИЯ',
+                        'name' => 'CONSEQUENCES',
                         'route' => route('modules.reliability.settings.consequences.index'),
                     ],
                     [
-                        'name' => 'СТАТУС WO',
+                        'name' => 'WO STATUS',
                         'route' => route('modules.reliability.settings.wo-statuses.index'),
                     ],
                     [
-                        'name' => 'СИСТЕМЫ / ПОДСИСТЕМЫ',
+                        'name' => 'SYSTEMS / SUBSYSTEMS',
                         'route' => route('modules.reliability.settings.systems.index'),
                     ],
                     [
-                        'name' => 'ТИПЫ ДВИГАТЕЛЕЙ',
+                        'name' => 'ENGINE TYPES',
                         'route' => route('modules.reliability.settings.engine-types.index'),
                     ],
                     [
-                        'name' => 'НОМЕРА ДВИГАТЕЛЕЙ',
+                        'name' => 'ENGINE NUMBERS',
                         'route' => route('modules.reliability.settings.engine-numbers.index'),
                     ],
                     [
-                        'name' => 'КОДЫ ТИПА ВС',
+                        'name' => 'AIRCRAFT TYPE CODES',
                         'route' => route('modules.reliability.settings.aircraft-type-codes.index'),
                     ],
                     [
-                        'name' => 'ПРИНЯТЫЕ МЕРЫ',
+                        'name' => 'TAKEN MEASURES',
                         'route' => route('modules.reliability.settings.taken-measures.index'),
                     ],
                     [
-                        'name' => 'КОД ОРГАНИЗАЦИИ',
+                        'name' => 'ORGANIZATION CODE',
                         'route' => route('modules.reliability.settings.org-code.index'),
                     ],
                 ];

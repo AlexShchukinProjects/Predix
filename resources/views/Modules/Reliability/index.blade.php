@@ -10,7 +10,7 @@
         </div>
     </div>
 
-    <!-- Панель фильтров -->
+    <!-- Filters panel -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
@@ -20,7 +20,7 @@
                         <div class="row g-3">
                             <!-- Первая строка фильтров -->
                             <div class="col-md-2">
-                                <label class="form-label">Дата</label>
+                                <label class="form-label">Date</label>
                                 <input type="date" class="form-control form-control-sm filter-date-input" name="date_from" value="{{ request('date_from', \Carbon\Carbon::now()->subYear()->format('Y-m-d')) }}">
                             </div>
                             <div class="col-md-2">
@@ -32,7 +32,7 @@
                                 <input type="text" class="form-control form-control-sm" name="id" value="{{ request('id') }}" placeholder="">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Описание</label>
+                                <label class="form-label">Description</label>
                                 <input type="text" class="form-control form-control-sm" name="description" value="{{ request('description') }}" placeholder="">
                             </div>
                             @php
@@ -40,10 +40,10 @@
                                 $aircraftNumberOptions = collect($aircraftList ?? [])->map(fn($ac) => ['value' => $ac->RegN, 'label' => $ac->RegN, 'data_type' => $ac->Type ?? ''])->all();
                             @endphp
                             <div class="col-md-2">
-                                <label class="form-label">Типы ВС</label>
+                                <label class="form-label">Aircraft types</label>
                                 <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="aircraft_type" data-placeholder="Все" tabindex="0" role="button" id="trigger_aircraft_type">
-                                        <span class="filter-multiselect-label">{{ count((array)request('aircraft_type', [])) ? 'Выбрано: ' . count((array)request('aircraft_type', [])) : 'Все' }}</span>
+                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="aircraft_type" data-placeholder="All" tabindex="0" role="button" id="trigger_aircraft_type">
+                                        <span class="filter-multiselect-label">{{ count((array)request('aircraft_type', [])) ? 'Selected: ' . count((array)request('aircraft_type', [])) : 'All' }}</span>
                                     </div>
                                     <div class="filter-multiselect-values" data-name="aircraft_type">
                                         @foreach((array)request('aircraft_type', []) as $val)
@@ -56,10 +56,10 @@
                                 <script type="application/json" id="options_aircraft_type">@json($aircraftTypesOptions)</script>
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Номера ВС</label>
+                                <label class="form-label">Aircraft numbers</label>
                                 <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="aircraft_number" data-placeholder="Все" tabindex="0" role="button" id="trigger_aircraft_number">
-                                        <span class="filter-multiselect-label">{{ count((array)request('aircraft_number', [])) ? 'Выбрано: ' . count((array)request('aircraft_number', [])) : 'Все' }}</span>
+                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="aircraft_number" data-placeholder="All" tabindex="0" role="button" id="trigger_aircraft_number">
+                                        <span class="filter-multiselect-label">{{ count((array)request('aircraft_number', [])) ? 'Selected: ' . count((array)request('aircraft_number', [])) : 'All' }}</span>
                                     </div>
                                     <div class="filter-multiselect-values" data-name="aircraft_number">
                                         @foreach((array)request('aircraft_number', []) as $val)
@@ -72,7 +72,7 @@
                                 <script type="application/json" id="options_aircraft_number">@json($aircraftNumberOptions)</script>
                             </div>
                             
-                            <!-- Вторая строка фильтров -->
+                            <!-- Second row of filters -->
                             @php
                                 $systemOptions = ($failureSystems ?? collect())->map(fn($s) => ['value' => $s->system_name, 'label' => $s->system_name])->all();
                                 $subsystemsFilter = collect($failureSubsystems ?? [])->unique(fn($i) => $i->system_name . '||' . $i->subsystem_name)->sortBy('subsystem_name')->values();
@@ -83,10 +83,10 @@
                                 $engineNumberOptions = ($engineNumbers ?? collect())->map(fn($e) => ['value' => (string)$e->id, 'label' => $e->number . ($e->engineType ? ' (' . $e->engineType->name . ')' : '')])->all();
                             @endphp
                             <div class="col-md-2">
-                                <label class="form-label">Системы</label>
+                                <label class="form-label">Systems</label>
                                 <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="system" data-placeholder="Все" tabindex="0" role="button">
-                                        <span class="filter-multiselect-label">{{ count((array)request('system', [])) ? 'Выбрано: ' . count((array)request('system', [])) : 'Все' }}</span>
+                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="system" data-placeholder="All" tabindex="0" role="button">
+                                        <span class="filter-multiselect-label">{{ count((array)request('system', [])) ? 'Selected: ' . count((array)request('system', [])) : 'All' }}</span>
                                     </div>
                                     <div class="filter-multiselect-values" data-name="system">
                                         @foreach((array)request('system', []) as $val)
@@ -97,10 +97,10 @@
                                 <script type="application/json" id="options_system">@json($systemOptions)</script>
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Подсистемы</label>
+                                <label class="form-label">Subsystems</label>
                                 <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="subsystem" data-placeholder="Все" tabindex="0" role="button">
-                                        <span class="filter-multiselect-label">{{ count((array)request('subsystem', [])) ? 'Выбрано: ' . count((array)request('subsystem', [])) : 'Все' }}</span>
+                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="subsystem" data-placeholder="All" tabindex="0" role="button">
+                                        <span class="filter-multiselect-label">{{ count((array)request('subsystem', [])) ? 'Selected: ' . count((array)request('subsystem', [])) : 'All' }}</span>
                                     </div>
                                     <div class="filter-multiselect-values" data-name="subsystem">
                                         @foreach((array)request('subsystem', []) as $val)
@@ -111,10 +111,10 @@
                                 <script type="application/json" id="options_subsystem">@json($subsystemOptions)</script>
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Тип агрегата</label>
+                                <label class="form-label">Aggregate type</label>
                                 <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="aggregate_type" data-placeholder="Все" data-options-ajax="1" tabindex="0" role="button">
-                                        <span class="filter-multiselect-label">{{ count((array)request('aggregate_type', [])) ? 'Выбрано: ' . count((array)request('aggregate_type', [])) : 'Все' }}</span>
+                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="aggregate_type" data-placeholder="All" data-options-ajax="1" tabindex="0" role="button">
+                                        <span class="filter-multiselect-label">{{ count((array)request('aggregate_type', [])) ? 'Selected: ' . count((array)request('aggregate_type', [])) : 'All' }}</span>
                                     </div>
                                     <div class="filter-multiselect-values" data-name="aggregate_type">
                                         @foreach((array)request('aggregate_type', []) as $val)
@@ -125,10 +125,10 @@
                                 <script type="application/json" id="options_aggregate_type">@json($aggregateOptions)</script>
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Этап обнаружения</label>
+                                <label class="form-label">Detection stage</label>
                                 <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="detection_stage" data-placeholder="Все" tabindex="0" role="button">
-                                        <span class="filter-multiselect-label">{{ count((array)request('detection_stage', [])) ? 'Выбрано: ' . count((array)request('detection_stage', [])) : 'Все' }}</span>
+                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="detection_stage" data-placeholder="All" tabindex="0" role="button">
+                                        <span class="filter-multiselect-label">{{ count((array)request('detection_stage', [])) ? 'Selected: ' . count((array)request('detection_stage', [])) : 'All' }}</span>
                                     </div>
                                     <div class="filter-multiselect-values" data-name="detection_stage">
                                         @foreach((array)request('detection_stage', []) as $val)
@@ -139,10 +139,10 @@
                                 <script type="application/json" id="options_detection_stage">@json($detectionStageOptions)</script>
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Типы двигателей</label>
+                                <label class="form-label">Engine types</label>
                                 <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="engine_type" data-placeholder="Все" tabindex="0" role="button">
-                                        <span class="filter-multiselect-label">{{ count((array)request('engine_type', [])) ? 'Выбрано: ' . count((array)request('engine_type', [])) : 'Все' }}</span>
+                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="engine_type" data-placeholder="All" tabindex="0" role="button">
+                                        <span class="filter-multiselect-label">{{ count((array)request('engine_type', [])) ? 'Selected: ' . count((array)request('engine_type', [])) : 'All' }}</span>
                                     </div>
                                     <div class="filter-multiselect-values" data-name="engine_type">
                                         @foreach((array)request('engine_type', []) as $val)
@@ -153,10 +153,10 @@
                                 <script type="application/json" id="options_engine_type">@json($engineTypeOptions)</script>
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Двигатели</label>
+                                <label class="form-label">Engines</label>
                                 <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="engine" data-placeholder="Все" tabindex="0" role="button">
-                                        <span class="filter-multiselect-label">{{ count((array)request('engine', [])) ? 'Выбрано: ' . count((array)request('engine', [])) : 'Все' }}</span>
+                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="engine" data-placeholder="All" tabindex="0" role="button">
+                                        <span class="filter-multiselect-label">{{ count((array)request('engine', [])) ? 'Selected: ' . count((array)request('engine', [])) : 'All' }}</span>
                                     </div>
                                     <div class="filter-multiselect-values" data-name="engine">
                                         @foreach((array)request('engine', []) as $val)
@@ -167,32 +167,32 @@
                                 <script type="application/json" id="options_engine">@json($engineNumberOptions)</script>
                             </div>
                             
-                            <!-- Кнопка сброса фильтров -->
+                            <!-- Reset filters button -->
                             <div class="col-12">
                                 <div>
-                                    <button type="button" style="border:none; box-shadow:none; color:gray;" class="btn btn-outline-primary btn-sm rel-reset-filters-btn" onclick="resetFilters()">Сбросить</button>
+                                    <button type="button" style="border:none; box-shadow:none; color:gray;" class="btn btn-outline-primary btn-sm rel-reset-filters-btn" onclick="resetFilters()">Reset</button>
                                 </div>
                             </div>
                         </div>
                     </form>
 
-                    <!-- Модальное окно множественного выбора для фильтров -->
+                    <!-- Multi-select modal for filters -->
                     <div class="modal fade" id="filterMultiSelectModal" tabindex="-1" aria-labelledby="filterMultiSelectModalLabel" aria-hidden="true">
                         <div class="modal-dialog modal-dialog-scrollable">
                             <div class="modal-content">
                                 <div class="modal-header">
-                                    <h5 class="modal-title" id="filterMultiSelectModalLabel">Выбор</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                                    <h5 class="modal-title" id="filterMultiSelectModalLabel">Select</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                 </div>
                                 <div class="modal-body">
                                     <div class="filter-multiselect-search mb-2">
-                                        <input type="text" class="form-control form-control-sm" placeholder="Поиск..." id="filterMultiSelectSearch">
+                                        <input type="text" class="form-control form-control-sm" placeholder="Search..." id="filterMultiSelectSearch">
                                     </div>
                                     <div id="filterMultiSelectCheckboxes" class="filter-multiselect-list"></div>
                                 </div>
                                 <div class="modal-footer">
-                                    <button type="button" class="btn efds-btn efds-btn--primary" id="filterMultiSelectApply">Применить</button>
-                                    <button type="button" class="btn efds-btn efds-btn--outline-primary" data-bs-dismiss="modal">Отмена</button>
+                                    <button type="button" class="btn efds-btn efds-btn--primary" id="filterMultiSelectApply">Apply</button>
+                                    <button type="button" class="btn efds-btn efds-btn--outline-primary" data-bs-dismiss="modal">Cancel</button>
                                 </div>
                             </div>
                         </div>
@@ -202,7 +202,7 @@
         </div>
     </div>
 
-    <!-- Переключалка табов в стиле nav-tabs (синяя полоска снизу) -->
+    <!-- Tab switcher (nav-tabs style) -->
     <div class="row mb-3">
         <div class="col-12">
             <div class="doc-mode-tabs">
@@ -224,7 +224,7 @@
                                     data-tab="failures"
                                     role="tab"
                                     onclick="switchReliabilityTab('failures')">
-                                Отказы
+                                Failures
                             </button>
                         </li>
                     @endif
@@ -235,7 +235,7 @@
                                     data-tab="defects"
                                     role="tab"
                                     onclick="switchReliabilityTab('defects')">
-                                Дефекты
+                                Defects
                             </button>
                         </li>
                     @endif
@@ -246,7 +246,7 @@
                                     data-tab="monitoring"
                                     role="tab"
                                     onclick="switchReliabilityTab('monitoring')">
-                                Мониторинг
+                                Monitoring
                             </button>
                         </li>
                     @endif
@@ -257,7 +257,7 @@
                                     data-tab="aging_aircraft"
                                     role="tab"
                                     onclick="switchReliabilityTab('aging_aircraft')">
-                                Старение ВС
+                                Aircraft aging
                             </button>
                         </li>
                     @endif
@@ -268,7 +268,7 @@
                                     data-tab="aging_components"
                                     role="tab"
                                     onclick="switchReliabilityTab('aging_components')">
-                                Старение КИ
+                                Component aging
                             </button>
                         </li>
                     @endif
@@ -279,7 +279,7 @@
                                     data-tab="systems"
                                     role="tab"
                                     onclick="switchReliabilityTab('systems')">
-                                Системы
+                                Systems
                             </button>
                         </li>
                     @endif
@@ -288,47 +288,47 @@
         </div>
     </div>
 
-    <!-- Контент табов -->
+    <!-- Tab content -->
     <div class="row">
         <div class="col-12">
             <div class="tab-content" id="reliabilityTabContent">
                 @if($tabsVisibility['failures'] ?? true)
-                    <!-- Таб Отказы -->
+                    <!-- Tab Failures -->
                     <div class="tab-pane fade {{ $activeTab === 'failures' ? 'show active' : '' }}" id="failures" role="tabpanel" aria-labelledby="failures-tab">
                         @include('Modules.Reliability.tabs.failures')
                     </div>
                 @endif
 
                 @if($tabsVisibility['defects'] ?? true)
-                    <!-- Таб Дефекты -->
+                    <!-- Tab Defects -->
                     <div class="tab-pane fade {{ $activeTab === 'defects' ? 'show active' : '' }}" id="defects" role="tabpanel" aria-labelledby="defects-tab">
                         @include('Modules.Reliability.tabs.defects')
                     </div>
                 @endif
 
                 @if($tabsVisibility['monitoring'] ?? true)
-                    <!-- Таб Мониторинг -->
+                    <!-- Tab Monitoring -->
                     <div class="tab-pane fade {{ $activeTab === 'monitoring' ? 'show active' : '' }}" id="monitoring" role="tabpanel" aria-labelledby="monitoring-tab">
                         @include('Modules.Reliability.tabs.monitoring')
                     </div>
                 @endif
 
                 @if($tabsVisibility['aging_aircraft'] ?? true)
-                    <!-- Таб Старение ВС -->
+                    <!-- Tab Aircraft aging -->
                     <div class="tab-pane fade {{ $activeTab === 'aging_aircraft' ? 'show active' : '' }}" id="aging-aircraft" role="tabpanel" aria-labelledby="aging-aircraft-tab">
                         @include('Modules.Reliability.tabs.aging-aircraft')
                     </div>
                 @endif
 
                 @if($tabsVisibility['aging_components'] ?? true)
-                    <!-- Таб Старение КИ -->
+                    <!-- Tab Component aging -->
                     <div class="tab-pane fade {{ $activeTab === 'aging_components' ? 'show active' : '' }}" id="aging-components" role="tabpanel" aria-labelledby="aging-components-tab">
                         @include('Modules.Reliability.tabs.aging-components')
                     </div>
                 @endif
 
                 @if($tabsVisibility['systems'] ?? true)
-                    <!-- Таб Системы -->
+                    <!-- Tab Systems -->
                     <div class="tab-pane fade {{ $activeTab === 'systems' ? 'show active' : '' }}" id="systems" role="tabpanel" aria-labelledby="systems-tab">
                         @include('Modules.Reliability.tabs.systems')
                     </div>
@@ -384,7 +384,7 @@ function switchReliabilityTab(tabValue) {
         }
     }
 
-    // Инициализация графика мониторинга при переключении на вкладку "Мониторинг"
+    // Init monitoring chart when switching to Monitoring tab
     if (tabValue === 'monitoring' && typeof window.initMonitoringChart === 'function') {
         if (typeof waitForChartConfig !== 'undefined') {
             waitForChartConfig(function () {
@@ -409,7 +409,7 @@ function switchReliabilityTab(tabValue) {
 
 // Логика переключения табов без перезагрузки страницы
 document.addEventListener('DOMContentLoaded', function() {
-    // Маппинг значений табов на их ID элементов
+    // Tab value to element ID mapping
     const tabMapping = {
         'failures': 'failures',
         'defects': 'defects',
@@ -419,21 +419,21 @@ document.addEventListener('DOMContentLoaded', function() {
         'systems': 'systems'
     };
 
-    // Функция переключения таба
+    // Tab switch function
     function switchTab(tabValue) {
-        // Скрываем все табы
+        // Hide all tabs
         document.querySelectorAll('.tab-pane').forEach(function(pane) {
             pane.classList.remove('show', 'active');
         });
 
-        // Показываем выбранный таб
+        // Show selected tab
         const targetTabId = tabMapping[tabValue];
         if (targetTabId) {
             const targetPane = document.getElementById(targetTabId);
             if (targetPane) {
                 targetPane.classList.add('show', 'active');
                 
-                // Инициализируем графики для табов с графиками
+                // Init charts for tabs that have charts
                 if (tabValue === 'monitoring' && typeof window.initMonitoringChart === 'function') {
                     const canvas = document.getElementById('monitoringChart');
                     if (canvas) {
@@ -490,7 +490,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Обработка кнопок "Назад/Вперед" браузера
+    // Browser back/forward handling
     window.addEventListener('popstate', function(event) {
         const urlParams = new URLSearchParams(window.location.search);
         const tab = urlParams.get('tab') || 'failures';
@@ -502,7 +502,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Логика фильтров: множественный выбор через модальное окно
+// Filters: multi-select via modal
 document.addEventListener('DOMContentLoaded', function() {
     const filtersForm = document.getElementById('filtersForm');
     const filterTabInput = document.getElementById('filterTab');
@@ -538,9 +538,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function openModal(trigger) {
         currentTrigger = trigger;
         currentFilterName = trigger.getAttribute('data-name');
-        const placeholder = trigger.getAttribute('data-placeholder') || 'Все';
+        const placeholder = trigger.getAttribute('data-placeholder') || 'All';
         var col = trigger.closest('.col-md-2');
-        modalTitle.textContent = col && col.querySelector('.form-label') ? col.querySelector('.form-label').textContent : 'Выбор';
+        modalTitle.textContent = col && col.querySelector('.form-label') ? col.querySelector('.form-label').textContent : 'Select';
 
         let options = getOptionsForFilter(currentFilterName);
         if (options === null && currentFilterName === 'aggregate_type') {
@@ -579,7 +579,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (currentOptions.length === 0) {
             var empty = document.createElement('p');
             empty.className = 'text-muted mb-0';
-            empty.textContent = 'Нет вариантов для выбора';
+            empty.textContent = 'No options to select';
             checkboxesContainer.appendChild(empty);
             return;
         }
@@ -626,7 +626,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!currentFilterName || !currentTrigger) return;
             const container = document.querySelector('.filter-multiselect-values[data-name="' + currentFilterName + '"]');
             const labelSpan = currentTrigger.querySelector('.filter-multiselect-label');
-            const placeholder = currentTrigger.getAttribute('data-placeholder') || 'Все';
+            const placeholder = currentTrigger.getAttribute('data-placeholder') || 'All';
             const checked = checkboxesContainer.querySelectorAll('input:checked');
             const values = Array.from(checked).map(function(cb) { return cb.value; });
             container.innerHTML = '';
@@ -638,7 +638,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 container.appendChild(inp);
             });
             if (labelSpan) {
-                labelSpan.textContent = values.length ? ('Выбрано: ' + values.length) : placeholder;
+                labelSpan.textContent = values.length ? ('Selected: ' + values.length) : placeholder;
             }
             bootstrap.Modal.getInstance(modalEl).hide();
             currentFilterName = null;
@@ -664,7 +664,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Отправка формы при изменении селектов и мультиселектов (не при вводе в текстовых/дата полях)
+    // Submit form on select/multiselect change (not on text/date input)
     filtersForm.addEventListener('change', function(e) {
         if (e.target && e.target.classList && e.target.classList.contains('filter-date-input')) {
             return;
@@ -674,7 +674,7 @@ document.addEventListener('DOMContentLoaded', function() {
         filtersForm.submit();
     });
 
-    // Поля даты: применяем фильтр только по blur (клик вне поля) или Enter
+    // Date fields: apply filter on blur or Enter
     function submitFiltersForm() {
         var tabRadio = document.querySelector('input[name="tab"]:checked');
         if (tabRadio && filterTabInput) filterTabInput.value = tabRadio.value;

@@ -2,9 +2,9 @@
     <div class="efds-pagination-row">
         <div class="efds-pagination-row__info text-muted">
             @if ($paginator->firstItem())
-                Показано {{ $paginator->firstItem() }} — {{ $paginator->lastItem() }} из {{ $paginator->total() }} записей
+                Showing {{ $paginator->firstItem() }} — {{ $paginator->lastItem() }} of {{ $paginator->total() }} records
             @else
-                Нет записей
+                No records
             @endif
         </div>
         <nav class="efds-pagination-row__nav" aria-label="@lang('pagination.previous')">

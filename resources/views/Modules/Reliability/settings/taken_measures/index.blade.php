@@ -3,7 +3,7 @@
 @section('content')
 <div class="container-fluid">
     <div class="mb-3">
-        <h2 class="mb-0">Принятые меры</h2>
+        <h2 class="mb-0">Taken measures</h2>
     </div>
 
     @if(session('success'))
@@ -16,21 +16,21 @@
     <div class="efds-table-header">
         @if(method_exists($items, 'total'))
             <div class="efds-table-header__stats text-muted">
-                <span class="me-2">На странице:</span>
+                <span class="me-2">Per page:</span>
                 @php $currentPerPage = request()->get('per_page', $items->perPage()); @endphp
-                <select class="form-select form-select-sm d-inline-block" style="width: auto;" onchange="window.location.href='{{ request()->url() }}?per_page='+this.value" aria-label="Записей на странице">
+                <select class="form-select form-select-sm d-inline-block" style="width: auto;" onchange="window.location.href='{{ request()->url() }}?per_page='+this.value" aria-label="Records per page">
                     <option value="10" {{ $currentPerPage == 10 ? 'selected' : '' }}>10</option>
                     <option value="25" {{ $currentPerPage == 25 ? 'selected' : '' }}>25</option>
                     <option value="50" {{ $currentPerPage == 50 ? 'selected' : '' }}>50</option>
                     <option value="100" {{ $currentPerPage == 100 ? 'selected' : '' }}>100</option>
                 </select>
-                <span class="ms-2">Всего записей: {{ $items->total() }}</span>
+                <span class="ms-2">Total records: {{ $items->total() }}</span>
             </div>
         @else
             <div class="efds-table-header__stats text-muted"></div>
         @endif
         <div class="efds-table-header__actions">
-            <a href="{{ route('modules.reliability.settings.taken-measures.create') }}" class="btn efds-btn efds-btn--primary">Добавить</a>
+            <a href="{{ route('modules.reliability.settings.taken-measures.create') }}" class="btn efds-btn efds-btn--primary">Add</a>
         </div>
     </div>
 
@@ -39,8 +39,8 @@
             <table class="table table-striped align-middle mb-0">
                 <thead class="table-blue">
                     <tr>
-                        <th>Наименование</th>
-                        <th style="text-align: center;">Активность</th>
+                        <th>Name</th>
+                        <th style="text-align: center;">Active</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -58,7 +58,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="2" class="text-center text-muted py-3">Нет записей</td>
+                            <td colspan="2" class="text-center text-muted py-3">No records</td>
                         </tr>
                     @endforelse
                 </tbody>
