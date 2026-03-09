@@ -18,185 +18,51 @@
                     <form method="GET" action="{{ route('modules.reliability.index') }}" id="filtersForm">
                         <input type="hidden" name="tab" id="filterTab" value="{{ request('tab', 'failures') }}">
                         <div class="row g-3">
-                            <!-- Первая строка фильтров -->
                             <div class="col-md-2">
-                                <label class="form-label">Date</label>
+                                <label class="form-label">Date from</label>
                                 <input type="date" class="form-control form-control-sm filter-date-input" name="date_from" value="{{ request('date_from', \Carbon\Carbon::now()->subYear()->format('Y-m-d')) }}">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">&nbsp;</label>
+                                <label class="form-label">Date to</label>
                                 <input type="date" class="form-control form-control-sm filter-date-input" name="date_to" value="{{ request('date_to', \Carbon\Carbon::now()->format('Y-m-d')) }}">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">ID</label>
+                                <label class="form-label">SEQ / ID</label>
                                 <input type="text" class="form-control form-control-sm" name="id" value="{{ request('id') }}" placeholder="">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Description</label>
-                                <input type="text" class="form-control form-control-sm" name="description" value="{{ request('description') }}" placeholder="">
-                            </div>
-                            @php
-                                $aircraftTypesOptions = ($aircraftTypesForFilter ?? collect())->map(fn($t) => ['value' => $t, 'label' => $t])->values()->all();
-                                $aircraftNumberOptions = collect($aircraftList ?? [])->map(fn($ac) => ['value' => $ac->RegN, 'label' => $ac->RegN, 'data_type' => $ac->Type ?? ''])->all();
-                            @endphp
-                            <div class="col-md-2">
-                                <label class="form-label">Aircraft types</label>
-                                <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="aircraft_type" data-placeholder="All" tabindex="0" role="button" id="trigger_aircraft_type">
-                                        <span class="filter-multiselect-label">{{ count((array)request('aircraft_type', [])) ? 'Selected: ' . count((array)request('aircraft_type', [])) : 'All' }}</span>
-                                    </div>
-                                    <div class="filter-multiselect-values" data-name="aircraft_type">
-                                        @foreach((array)request('aircraft_type', []) as $val)
-                                            @if($val !== '')
-                                                <input type="hidden" name="aircraft_type[]" value="{{ $val }}">
-                                            @endif
-                                        @endforeach
-                                    </div>
-                                </div>
-                                <script type="application/json" id="options_aircraft_type">@json($aircraftTypesOptions)</script>
+                                <label class="form-label">TASK CARD</label>
+                                <input type="text" class="form-control form-control-sm" name="task_card" value="{{ request('task_card') }}" placeholder="">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Aircraft numbers</label>
-                                <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="aircraft_number" data-placeholder="All" tabindex="0" role="button" id="trigger_aircraft_number">
-                                        <span class="filter-multiselect-label">{{ count((array)request('aircraft_number', [])) ? 'Selected: ' . count((array)request('aircraft_number', [])) : 'All' }}</span>
-                                    </div>
-                                    <div class="filter-multiselect-values" data-name="aircraft_number">
-                                        @foreach((array)request('aircraft_number', []) as $val)
-                                            @if($val !== '')
-                                                <input type="hidden" name="aircraft_number[]" value="{{ $val }}">
-                                            @endif
-                                        @endforeach
-                                    </div>
-                                </div>
-                                <script type="application/json" id="options_aircraft_number">@json($aircraftNumberOptions)</script>
-                            </div>
-                            
-                            <!-- Second row of filters -->
-                            @php
-                                $systemOptions = ($failureSystems ?? collect())->map(fn($s) => ['value' => $s->system_name, 'label' => $s->system_name])->all();
-                                $subsystemsFilter = collect($failureSubsystems ?? [])->unique(fn($i) => $i->system_name . '||' . $i->subsystem_name)->sortBy('subsystem_name')->values();
-                                $subsystemOptions = $subsystemsFilter->map(fn($s) => ['value' => $s->subsystem_name, 'label' => $s->subsystem_name, 'data_system' => $s->system_name])->all();
-                                $aggregateOptions = ($aggregateTypes ?? collect())->map(fn($a) => ['value' => $a->name, 'label' => $a->name])->all();
-                                $detectionStageOptions = ($detectionStages ?? collect())->map(fn($s) => ['value' => (string)$s->id, 'label' => $s->name])->all();
-                                $engineTypeOptions = ($engineTypes ?? collect())->map(fn($e) => ['value' => (string)$e->id, 'label' => ($e->code ? $e->code . ' - ' : '') . $e->name])->all();
-                                $engineNumberOptions = ($engineNumbers ?? collect())->map(fn($e) => ['value' => (string)$e->id, 'label' => $e->number . ($e->engineType ? ' (' . $e->engineType->name . ')' : '')])->all();
-                            @endphp
-                            <div class="col-md-2">
-                                <label class="form-label">Systems</label>
-                                <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="system" data-placeholder="All" tabindex="0" role="button">
-                                        <span class="filter-multiselect-label">{{ count((array)request('system', [])) ? 'Selected: ' . count((array)request('system', [])) : 'All' }}</span>
-                                    </div>
-                                    <div class="filter-multiselect-values" data-name="system">
-                                        @foreach((array)request('system', []) as $val)
-                                            @if($val !== '')<input type="hidden" name="system[]" value="{{ $val }}">@endif
-                                        @endforeach
-                                    </div>
-                                </div>
-                                <script type="application/json" id="options_system">@json($systemOptions)</script>
+                                <label class="form-label">TASK CARD DESCRIPTION</label>
+                                <input type="text" class="form-control form-control-sm" name="task_card_description" value="{{ request('task_card_description') }}" placeholder="">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Subsystems</label>
-                                <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="subsystem" data-placeholder="All" tabindex="0" role="button">
-                                        <span class="filter-multiselect-label">{{ count((array)request('subsystem', [])) ? 'Selected: ' . count((array)request('subsystem', [])) : 'All' }}</span>
-                                    </div>
-                                    <div class="filter-multiselect-values" data-name="subsystem">
-                                        @foreach((array)request('subsystem', []) as $val)
-                                            @if($val !== '')<input type="hidden" name="subsystem[]" value="{{ $val }}">@endif
-                                        @endforeach
-                                    </div>
-                                </div>
-                                <script type="application/json" id="options_subsystem">@json($subsystemOptions)</script>
+                                <label class="form-label">Task</label>
+                                <input type="text" class="form-control form-control-sm" name="mpd" value="{{ request('mpd') }}" placeholder="">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Aggregate type</label>
-                                <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="aggregate_type" data-placeholder="All" data-options-ajax="1" tabindex="0" role="button">
-                                        <span class="filter-multiselect-label">{{ count((array)request('aggregate_type', [])) ? 'Selected: ' . count((array)request('aggregate_type', [])) : 'All' }}</span>
-                                    </div>
-                                    <div class="filter-multiselect-values" data-name="aggregate_type">
-                                        @foreach((array)request('aggregate_type', []) as $val)
-                                            @if($val !== '')<input type="hidden" name="aggregate_type[]" value="{{ $val }}">@endif
-                                        @endforeach
-                                    </div>
-                                </div>
-                                <script type="application/json" id="options_aggregate_type">@json($aggregateOptions)</script>
+                                <label class="form-label"># of RC</label>
+                                <input type="text" class="form-control form-control-sm" name="num_rc" value="{{ request('num_rc') }}" placeholder="">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Detection stage</label>
-                                <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="detection_stage" data-placeholder="All" tabindex="0" role="button">
-                                        <span class="filter-multiselect-label">{{ count((array)request('detection_stage', [])) ? 'Selected: ' . count((array)request('detection_stage', [])) : 'All' }}</span>
-                                    </div>
-                                    <div class="filter-multiselect-values" data-name="detection_stage">
-                                        @foreach((array)request('detection_stage', []) as $val)
-                                            @if($val !== '')<input type="hidden" name="detection_stage[]" value="{{ $val }}">@endif
-                                        @endforeach
-                                    </div>
-                                </div>
-                                <script type="application/json" id="options_detection_stage">@json($detectionStageOptions)</script>
+                                <label class="form-label">Max Hours on RC</label>
+                                <input type="text" class="form-control form-control-sm" name="max_hours_rc" value="{{ request('max_hours_rc') }}" placeholder="">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Engine types</label>
-                                <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="engine_type" data-placeholder="All" tabindex="0" role="button">
-                                        <span class="filter-multiselect-label">{{ count((array)request('engine_type', [])) ? 'Selected: ' . count((array)request('engine_type', [])) : 'All' }}</span>
-                                    </div>
-                                    <div class="filter-multiselect-values" data-name="engine_type">
-                                        @foreach((array)request('engine_type', []) as $val)
-                                            @if($val !== '')<input type="hidden" name="engine_type[]" value="{{ $val }}">@endif
-                                        @endforeach
-                                    </div>
-                                </div>
-                                <script type="application/json" id="options_engine_type">@json($engineTypeOptions)</script>
+                                <label class="form-label"># of STR NRCs</label>
+                                <input type="text" class="form-control form-control-sm" name="num_str_nrcs" value="{{ request('num_str_nrcs') }}" placeholder="">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Engines</label>
-                                <div class="filter-multiselect-wrap">
-                                    <div class="filter-multiselect-trigger form-control form-control-sm" data-name="engine" data-placeholder="All" tabindex="0" role="button">
-                                        <span class="filter-multiselect-label">{{ count((array)request('engine', [])) ? 'Selected: ' . count((array)request('engine', [])) : 'All' }}</span>
-                                    </div>
-                                    <div class="filter-multiselect-values" data-name="engine">
-                                        @foreach((array)request('engine', []) as $val)
-                                            @if($val !== '')<input type="hidden" name="engine[]" value="{{ $val }}">@endif
-                                        @endforeach
-                                    </div>
-                                </div>
-                                <script type="application/json" id="options_engine">@json($engineNumberOptions)</script>
+                                <label class="form-label">REF</label>
+                                <input type="text" class="form-control form-control-sm" name="ref" value="{{ request('ref') }}" placeholder="">
                             </div>
-                            
-                            <!-- Reset filters button -->
                             <div class="col-12">
-                                <div>
-                                    <button type="button" style="border:none; box-shadow:none; color:gray;" class="btn btn-outline-primary btn-sm rel-reset-filters-btn" onclick="resetFilters()">Reset</button>
-                                </div>
+                                <button type="button" style="border:none; box-shadow:none; color:gray;" class="btn btn-outline-primary btn-sm rel-reset-filters-btn" onclick="resetFilters()">Reset</button>
                             </div>
                         </div>
                     </form>
-
-                    <!-- Multi-select modal for filters -->
-                    <div class="modal fade" id="filterMultiSelectModal" tabindex="-1" aria-labelledby="filterMultiSelectModalLabel" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-scrollable">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="filterMultiSelectModalLabel">Select</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <div class="filter-multiselect-search mb-2">
-                                        <input type="text" class="form-control form-control-sm" placeholder="Search..." id="filterMultiSelectSearch">
-                                    </div>
-                                    <div id="filterMultiSelectCheckboxes" class="filter-multiselect-list"></div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn efds-btn efds-btn--primary" id="filterMultiSelectApply">Apply</button>
-                                    <button type="button" class="btn efds-btn efds-btn--outline-primary" data-bs-dismiss="modal">Cancel</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -207,82 +73,18 @@
         <div class="col-12">
             <div class="doc-mode-tabs">
                 @php
-                    $tabsVisibility = $tabsVisibility ?? [
-                        'failures' => true,
-                        'defects' => true,
-                        'monitoring' => true,
-                        'aging_aircraft' => true,
-                        'aging_components' => true,
-                        'systems' => true,
-                    ];
+                    $tabsVisibility = ['failures' => true];
                 @endphp
                 <ul class="nav nav-tabs" role="tablist">
-                    @if($tabsVisibility['failures'] ?? true)
-                        <li class="nav-item" role="presentation">
-                            <button type="button"
-                                    class="nav-link {{ $activeTab === 'failures' ? 'active' : '' }}"
-                                    data-tab="failures"
-                                    role="tab"
-                                    onclick="switchReliabilityTab('failures')">
-                                Failures
-                            </button>
-                        </li>
-                    @endif
-                    @if($tabsVisibility['defects'] ?? true)
-                        <li class="nav-item" role="presentation">
-                            <button type="button"
-                                    class="nav-link {{ $activeTab === 'defects' ? 'active' : '' }}"
-                                    data-tab="defects"
-                                    role="tab"
-                                    onclick="switchReliabilityTab('defects')">
-                                Defects
-                            </button>
-                        </li>
-                    @endif
-                    @if($tabsVisibility['monitoring'] ?? true)
-                        <li class="nav-item" role="presentation">
-                            <button type="button"
-                                    class="nav-link {{ $activeTab === 'monitoring' ? 'active' : '' }}"
-                                    data-tab="monitoring"
-                                    role="tab"
-                                    onclick="switchReliabilityTab('monitoring')">
-                                Monitoring
-                            </button>
-                        </li>
-                    @endif
-                    @if($tabsVisibility['aging_aircraft'] ?? true)
-                        <li class="nav-item" role="presentation">
-                            <button type="button"
-                                    class="nav-link {{ $activeTab === 'aging_aircraft' ? 'active' : '' }}"
-                                    data-tab="aging_aircraft"
-                                    role="tab"
-                                    onclick="switchReliabilityTab('aging_aircraft')">
-                                Aircraft aging
-                            </button>
-                        </li>
-                    @endif
-                    @if($tabsVisibility['aging_components'] ?? true)
-                        <li class="nav-item" role="presentation">
-                            <button type="button"
-                                    class="nav-link {{ $activeTab === 'aging_components' ? 'active' : '' }}"
-                                    data-tab="aging_components"
-                                    role="tab"
-                                    onclick="switchReliabilityTab('aging_components')">
-                                Component aging
-                            </button>
-                        </li>
-                    @endif
-                    @if($tabsVisibility['systems'] ?? true)
-                        <li class="nav-item" role="presentation">
-                            <button type="button"
-                                    class="nav-link {{ $activeTab === 'systems' ? 'active' : '' }}"
-                                    data-tab="systems"
-                                    role="tab"
-                                    onclick="switchReliabilityTab('systems')">
-                                Systems
-                            </button>
-                        </li>
-                    @endif
+                    <li class="nav-item" role="presentation">
+                        <button type="button"
+                                class="nav-link active"
+                                data-tab="failures"
+                                role="tab"
+                                onclick="switchReliabilityTab('failures')">
+                            Task
+                        </button>
+                    </li>
                 </ul>
             </div>
         </div>
@@ -292,47 +94,10 @@
     <div class="row">
         <div class="col-12">
             <div class="tab-content" id="reliabilityTabContent">
-                @if($tabsVisibility['failures'] ?? true)
-                    <!-- Tab Failures -->
-                    <div class="tab-pane fade {{ $activeTab === 'failures' ? 'show active' : '' }}" id="failures" role="tabpanel" aria-labelledby="failures-tab">
-                        @include('Modules.Reliability.tabs.failures')
-                    </div>
-                @endif
-
-                @if($tabsVisibility['defects'] ?? true)
-                    <!-- Tab Defects -->
-                    <div class="tab-pane fade {{ $activeTab === 'defects' ? 'show active' : '' }}" id="defects" role="tabpanel" aria-labelledby="defects-tab">
-                        @include('Modules.Reliability.tabs.defects')
-                    </div>
-                @endif
-
-                @if($tabsVisibility['monitoring'] ?? true)
-                    <!-- Tab Monitoring -->
-                    <div class="tab-pane fade {{ $activeTab === 'monitoring' ? 'show active' : '' }}" id="monitoring" role="tabpanel" aria-labelledby="monitoring-tab">
-                        @include('Modules.Reliability.tabs.monitoring')
-                    </div>
-                @endif
-
-                @if($tabsVisibility['aging_aircraft'] ?? true)
-                    <!-- Tab Aircraft aging -->
-                    <div class="tab-pane fade {{ $activeTab === 'aging_aircraft' ? 'show active' : '' }}" id="aging-aircraft" role="tabpanel" aria-labelledby="aging-aircraft-tab">
-                        @include('Modules.Reliability.tabs.aging-aircraft')
-                    </div>
-                @endif
-
-                @if($tabsVisibility['aging_components'] ?? true)
-                    <!-- Tab Component aging -->
-                    <div class="tab-pane fade {{ $activeTab === 'aging_components' ? 'show active' : '' }}" id="aging-components" role="tabpanel" aria-labelledby="aging-components-tab">
-                        @include('Modules.Reliability.tabs.aging-components')
-                    </div>
-                @endif
-
-                @if($tabsVisibility['systems'] ?? true)
-                    <!-- Tab Systems -->
-                    <div class="tab-pane fade {{ $activeTab === 'systems' ? 'show active' : '' }}" id="systems" role="tabpanel" aria-labelledby="systems-tab">
-                        @include('Modules.Reliability.tabs.systems')
-                    </div>
-                @endif
+                <!-- Tab Failures -->
+                <div class="tab-pane fade show active" id="failures" role="tabpanel" aria-labelledby="failures-tab">
+                    @include('Modules.Reliability.tabs.failures')
+                </div>
             </div>
         </div>
     </div>
@@ -364,16 +129,7 @@ function switchReliabilityTab(tabValue) {
         filterTabInput.value = tabValue;
     }
 
-    // Переключаем контент табов на странице (без перезагрузки)
-    var tabMapping = {
-        'failures': 'failures',
-        'defects': 'defects',
-        'monitoring': 'monitoring',
-        'aging_aircraft': 'aging-aircraft',
-        'aging_components': 'aging-components',
-        'systems': 'systems'
-    };
-    var targetId = tabMapping[tabValue];
+    var targetId = tabValue === 'failures' ? 'failures' : null;
     if (targetId) {
         document.querySelectorAll('.tab-pane').forEach(function(pane) {
             pane.classList.remove('show', 'active');
@@ -381,23 +137,6 @@ function switchReliabilityTab(tabValue) {
         var targetPane = document.getElementById(targetId);
         if (targetPane) {
             targetPane.classList.add('show', 'active');
-        }
-    }
-
-    // Init monitoring chart when switching to Monitoring tab
-    if (tabValue === 'monitoring' && typeof window.initMonitoringChart === 'function') {
-        if (typeof waitForChartConfig !== 'undefined') {
-            waitForChartConfig(function () {
-                if (!window.monitoringChartInstance) {
-                    window.initMonitoringChart();
-                    window.monitoringChartInstance = true;
-                }
-            });
-        } else {
-            if (!window.monitoringChartInstance) {
-                window.initMonitoringChart();
-                window.monitoringChartInstance = true;
-            }
         }
     }
 
@@ -409,76 +148,17 @@ function switchReliabilityTab(tabValue) {
 
 // Логика переключения табов без перезагрузки страницы
 document.addEventListener('DOMContentLoaded', function() {
-    // Tab value to element ID mapping
-    const tabMapping = {
-        'failures': 'failures',
-        'defects': 'defects',
-        'monitoring': 'monitoring',
-        'aging_aircraft': 'aging-aircraft',
-        'aging_components': 'aging-components',
-        'systems': 'systems'
-    };
-
-    // Tab switch function
     function switchTab(tabValue) {
-        // Hide all tabs
         document.querySelectorAll('.tab-pane').forEach(function(pane) {
             pane.classList.remove('show', 'active');
         });
-
-        // Show selected tab
-        const targetTabId = tabMapping[tabValue];
-        if (targetTabId) {
-            const targetPane = document.getElementById(targetTabId);
-            if (targetPane) {
-                targetPane.classList.add('show', 'active');
-                
-                // Init charts for tabs that have charts
-                if (tabValue === 'monitoring' && typeof window.initMonitoringChart === 'function') {
-                    const canvas = document.getElementById('monitoringChart');
-                    if (canvas) {
-                        // Проверяем, не инициализирован ли уже график
-                        if (!window.monitoringChartInstance) {
-                            if (typeof waitForChartConfig !== 'undefined') {
-                                waitForChartConfig(function() {
-                                    window.initMonitoringChart();
-                                    window.monitoringChartInstance = true;
-                                });
-                            }
-                        }
-                    }
-                } else if (tabValue === 'aging_aircraft' && typeof window.initAgingAircraftChart === 'function') {
-                    const canvas = document.getElementById('agingAircraftChart');
-                    if (canvas) {
-                        if (!window.agingAircraftChartInstance) {
-                            if (typeof waitForChartConfig !== 'undefined') {
-                                waitForChartConfig(function() {
-                                    window.initAgingAircraftChart();
-                                    window.agingAircraftChartInstance = true;
-                                });
-                            }
-                        }
-                    }
-                } else if (tabValue === 'aging_components' && typeof window.initAgingComponentsChart === 'function') {
-                    const canvas = document.getElementById('agingComponentsChart');
-                    if (canvas) {
-                        if (!window.agingComponentsChartInstance) {
-                            if (typeof waitForChartConfig !== 'undefined') {
-                                waitForChartConfig(function() {
-                                    window.initAgingComponentsChart();
-                                    window.agingComponentsChartInstance = true;
-                                });
-                            }
-                        }
-                    }
-                }
-            }
+        const targetPane = document.getElementById('failures');
+        if (targetPane) {
+            targetPane.classList.add('show', 'active');
         }
-
-        // Обновляем URL без перезагрузки страницы
         const url = new URL(window.location.href);
-        url.searchParams.set('tab', tabValue);
-        window.history.pushState({ tab: tabValue }, '', url.toString());
+        url.searchParams.set('tab', 'failures');
+        window.history.pushState({ tab: 'failures' }, '', url.toString());
     }
 
     // Обработчики для radio кнопок табов
@@ -502,191 +182,18 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Filters: multi-select via modal
 document.addEventListener('DOMContentLoaded', function() {
-    const filtersForm = document.getElementById('filtersForm');
-    const filterTabInput = document.getElementById('filterTab');
-    const modalEl = document.getElementById('filterMultiSelectModal');
-    const modalTitle = document.getElementById('filterMultiSelectModalLabel');
-    const checkboxesContainer = document.getElementById('filterMultiSelectCheckboxes');
-    const searchInput = document.getElementById('filterMultiSelectSearch');
-    const applyBtn = document.getElementById('filterMultiSelectApply');
-
-    let currentFilterName = null;
-    let currentTrigger = null;
-    let currentOptions = [];
-
-    function getSelectedValues(name) {
-        const container = document.querySelector('.filter-multiselect-values[data-name="' + name + '"]');
-        if (!container) return [];
-        return Array.from(container.querySelectorAll('input[type="hidden"]')).map(function(inp) { return inp.value; });
-    }
-
-    function getOptionsForFilter(name) {
-        if (name === 'aggregate_type' && document.querySelector('.filter-multiselect-trigger[data-name="aggregate_type"][data-options-ajax="1"]')) {
-            return null;
-        }
-        const scriptEl = document.getElementById('options_' + name);
-        if (!scriptEl || !scriptEl.textContent) return [];
-        try {
-            return JSON.parse(scriptEl.textContent);
-        } catch (e) {
-            return [];
-        }
-    }
-
-    function openModal(trigger) {
-        currentTrigger = trigger;
-        currentFilterName = trigger.getAttribute('data-name');
-        const placeholder = trigger.getAttribute('data-placeholder') || 'All';
-        var col = trigger.closest('.col-md-2');
-        modalTitle.textContent = col && col.querySelector('.form-label') ? col.querySelector('.form-label').textContent : 'Select';
-
-        let options = getOptionsForFilter(currentFilterName);
-        if (options === null && currentFilterName === 'aggregate_type') {
-            const systemVals = getSelectedValues('system');
-            const subsystemVals = getSelectedValues('subsystem');
-            const systemFirst = systemVals[0] || '';
-            const subsystemFirst = subsystemVals[0] || '';
-            if (!systemFirst || !subsystemFirst) {
-                options = [];
-            } else {
-                var url = new URL('{{ route('modules.reliability.aggregates') }}', window.location.origin);
-                url.searchParams.set('system', systemFirst);
-                url.searchParams.set('subsystem', subsystemFirst);
-                fetch(url.toString(), { method: 'GET', headers: { 'Accept': 'application/json' } })
-                    .then(function(r) { return r.json(); })
-                    .then(function(data) {
-                        options = (data && data.success && Array.isArray(data.aggregates)) ? data.aggregates.map(function(a) { return { value: a.name, label: a.name }; }) : [];
-                        renderCheckboxes(options);
-                        var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-                        modal.show();
-                    });
-                return;
-            }
-        }
-        currentOptions = options || [];
-        renderCheckboxes(currentOptions);
-        if (searchInput) searchInput.value = '';
-        var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-        modal.show();
-    }
-
-    function renderCheckboxes(options) {
-        currentOptions = options || [];
-        const selected = currentFilterName ? getSelectedValues(currentFilterName) : [];
-        checkboxesContainer.innerHTML = '';
-        if (currentOptions.length === 0) {
-            var empty = document.createElement('p');
-            empty.className = 'text-muted mb-0';
-            empty.textContent = 'No options to select';
-            checkboxesContainer.appendChild(empty);
-            return;
-        }
-        currentOptions.forEach(function(opt, index) {
-            const value = String(opt.value);
-            const label = (opt.label !== undefined && opt.label !== null) ? String(opt.label) : value;
-            const div = document.createElement('div');
-            div.className = 'form-check filter-multiselect-item';
-            div.setAttribute('data-value', value);
-            div.setAttribute('data-label', label);
-
-            const input = document.createElement('input');
-            input.className = 'form-check-input';
-            input.type = 'checkbox';
-            input.value = value;
-            input.id = 'filter_cb_' + currentFilterName + '_' + index;
-
-            const labelEl = document.createElement('label');
-            labelEl.className = 'form-check-label';
-            labelEl.setAttribute('for', input.id);
-            labelEl.textContent = label;
-
-            div.appendChild(input);
-            div.appendChild(labelEl);
-            if (selected.indexOf(value) !== -1) {
-                input.checked = true;
-            }
-            checkboxesContainer.appendChild(div);
-        });
-    }
-
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            const q = this.value.toLowerCase().trim();
-            checkboxesContainer.querySelectorAll('.filter-multiselect-item').forEach(function(div) {
-                const label = (div.getAttribute('data-label') || '').toLowerCase();
-                div.style.display = (!q || label.indexOf(q) !== -1) ? '' : 'none';
-            });
-        });
-    }
-
-    if (applyBtn && modalEl) {
-        applyBtn.addEventListener('click', function() {
-            if (!currentFilterName || !currentTrigger) return;
-            const container = document.querySelector('.filter-multiselect-values[data-name="' + currentFilterName + '"]');
-            const labelSpan = currentTrigger.querySelector('.filter-multiselect-label');
-            const placeholder = currentTrigger.getAttribute('data-placeholder') || 'All';
-            const checked = checkboxesContainer.querySelectorAll('input:checked');
-            const values = Array.from(checked).map(function(cb) { return cb.value; });
-            container.innerHTML = '';
-            values.forEach(function(v) {
-                const inp = document.createElement('input');
-                inp.type = 'hidden';
-                inp.name = currentFilterName + '[]';
-                inp.value = v;
-                container.appendChild(inp);
-            });
-            if (labelSpan) {
-                labelSpan.textContent = values.length ? ('Selected: ' + values.length) : placeholder;
-            }
-            bootstrap.Modal.getInstance(modalEl).hide();
-            currentFilterName = null;
-            currentTrigger = null;
-            if (filtersForm) {
-                var tabRadio = document.querySelector('input[name="tab"]:checked');
-                if (tabRadio && filterTabInput) filterTabInput.value = tabRadio.value;
-                filtersForm.submit();
-            }
-        });
-    }
-
-    document.querySelectorAll('.filter-multiselect-trigger').forEach(function(trigger) {
-        trigger.addEventListener('click', function(e) {
-            e.preventDefault();
-            openModal(this);
-        });
-        trigger.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                openModal(this);
-            }
-        });
-    });
-
-    // Submit form on select/multiselect change (not on text/date input)
-    filtersForm.addEventListener('change', function(e) {
-        if (e.target && e.target.classList && e.target.classList.contains('filter-date-input')) {
-            return;
-        }
-        var tabRadio = document.querySelector('input[name="tab"]:checked');
-        if (tabRadio && filterTabInput) filterTabInput.value = tabRadio.value;
-        filtersForm.submit();
-    });
-
-    // Date fields: apply filter on blur or Enter
+    var filtersForm = document.getElementById('filtersForm');
+    var filterTabInput = document.getElementById('filterTab');
+    if (!filtersForm) return;
     function submitFiltersForm() {
-        var tabRadio = document.querySelector('input[name="tab"]:checked');
-        if (tabRadio && filterTabInput) filterTabInput.value = tabRadio.value;
+        if (filterTabInput) filterTabInput.value = 'failures';
         filtersForm.submit();
     }
     filtersForm.querySelectorAll('.filter-date-input').forEach(function(input) {
         input.addEventListener('blur', submitFiltersForm);
         input.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                input.blur();
-            }
+            if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
         });
     });
 });

@@ -139,24 +139,24 @@ class ReliabilityController extends Controller
             $failuresQuery->where('id', $request->input('id'));
         }
 
-        // Фильтр по описанию (проявление неисправности ВС)
-        if ($request->filled('description')) {
-            $desc = $request->input('description');
+        // TASK CARD DESCRIPTION (описание задачи / проявление неисправности)
+        if ($request->filled('task_card_description')) {
+            $desc = $request->input('task_card_description');
             $failuresQuery->where(function ($q) use ($desc) {
                 $q->where('aircraft_malfunction', 'like', '%' . $desc . '%')
+                  ->orWhere('component_cause', 'like', '%' . $desc . '%')
                   ->orWhere('component_malfunction', 'like', '%' . $desc . '%');
             });
         }
 
-        // Фильтры по ВС (поддержка множественного выбора)
-        $this->applyMultiFilter($failuresQuery, $request, 'aircraft_type', 'aircraft_type');
-        $this->applyMultiFilter($failuresQuery, $request, 'aircraft_number', 'aircraft_number');
-        $this->applyMultiFilter($failuresQuery, $request, 'system', 'system_name');
-        $this->applyMultiFilter($failuresQuery, $request, 'subsystem', 'subsystem_name');
-        $this->applyMultiFilter($failuresQuery, $request, 'aggregate_type', 'aggregate_type');
-        $this->applyMultiFilter($failuresQuery, $request, 'detection_stage', 'detection_stage_id', 'int');
-        $this->applyMultiFilter($failuresQuery, $request, 'engine_type', 'engine_type_id', 'int');
-        $this->applyMultiFilter($failuresQuery, $request, 'engine', 'engine_number_id', 'int');
+        // TASK CARD (номер WO / work order)
+        if ($request->filled('task_card')) {
+            $taskCard = $request->input('task_card');
+            $failuresQuery->where(function ($q) use ($taskCard) {
+                $q->where('wo_number', 'like', '%' . $taskCard . '%')
+                  ->orWhere('work_order_number', 'like', '%' . $taskCard . '%');
+            });
+        }
 
         // Пагинация
         $perPage = (int) $request->input('per_page', 100);
@@ -169,12 +169,10 @@ class ReliabilityController extends Controller
         $failureFormVisibility = RelFailureFormSetting::getFieldVisibility();
         $hiddenFormFields = array_keys(array_filter($failureFormVisibility, fn (bool $v): bool => !$v));
 
-        // Видимость вкладок модуля
-        $tabsVisibility = RelFailureFormSetting::getTabsVisibility();
-        $visibleTabs = array_keys(array_filter($tabsVisibility, static fn (bool $v): bool => $v));
-        if (!in_array($activeTab, $visibleTabs, true)) {
-            $activeTab = $visibleTabs[0] ?? 'failures';
-        }
+        // Только вкладка Failures
+        $tabsVisibility = ['failures' => true];
+        $visibleTabs = ['failures'];
+        $activeTab = 'failures';
 
         return view('Modules.Reliability.index', [
             'activeTab' => $activeTab,

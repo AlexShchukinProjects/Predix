@@ -33,76 +33,56 @@
                 <thead style="background: #1E64D4; color: white;">
                     <tr>
                         <th style="padding: 12px; width: 40px;"></th>
-                        <th style="padding: 12px;">ID</th>
-                        <th style="padding: 12px;">Aircraft number</th>
-                        <th style="padding: 12px; min-width: 280px;">Aircraft malfunction manifestation</th>
-                        <th style="padding: 12px;">Failure detection stage</th>
-                        <th style="padding: 12px;">Detection date</th>
-                        <th style="padding: 12px;">Aircraft hours</th>
-                        <th style="padding: 12px;">Aircraft landings</th>
-                        <th style="padding: 12px;">Taken measures</th>
-                        <th style="padding: 12px; min-width: 280px;">Component malfunction cause</th>
-                        <th style="padding: 12px;">P/N OFF</th>
-                        <th style="padding: 12px;">S/N OFF</th>
-                        <th style="padding: 12px;">P/N ON</th>
-                        <th style="padding: 12px;">S/N ON</th>
-                        <th style="padding: 12px;">System</th>
-                        <th style="padding: 12px;">Resolution date</th>
-                        <th style="padding: 12px;">Component hours (FH)</th>
-                        <th style="padding: 12px;">Component cycles (FC)</th>
-                        <th style="padding: 12px;">Work orders</th>
-                        <th style="padding: 12px; width: 90px; text-align: center;">In report</th>
+                        <th style="padding: 12px;">SEQ</th>
+                        <th style="padding: 12px;">TASK CARD</th>
+                        <th style="padding: 12px; min-width: 200px;">TASK CARD DESCRIPTION</th>
+                        <th style="padding: 12px;">Task</th>
+                        <th style="padding: 12px;"># of RC</th>
+                        <th style="padding: 12px;">Max Hours on RC</th>
+                        <th style="padding: 12px;"># of STR NRCs</th>
+                        <th style="padding: 12px;">%</th>
+                        <th style="padding: 12px;">Max MHs on STR NRC</th>
+                        <th style="padding: 12px;">AVG STR MHs</th>
+                        <th style="padding: 12px;">EEF Count</th>
+                        <th style="padding: 12px;">% EEF</th>
+                        <th style="padding: 12px; min-width: 180px;">Probabile Critical Findings</th>
+                        <th style="padding: 12px;">REF</th>
                     </tr>
                 </thead>
                 <tbody>
+                    @php
+                        $seqBase = isset($failures) && $failures instanceof \Illuminate\Contracts\Pagination\Paginator
+                            ? ($failures->currentPage() - 1) * $failures->perPage()
+                            : 0;
+                    @endphp
                     @forelse(($failures ?? []) as $failure)
                         <tr style="cursor: pointer;" class="clickable-row" data-href="{{ route('modules.reliability.failures.edit', $failure) }}">
                             <td style="padding: 8px;" class="no-click">
                                 <i class="fas fa-search text-muted"></i>
                             </td>
-                            <td style="padding: 8px;">{{ $failure->id }}</td>
-                            <td style="padding: 8px;">{{ $failure->aircraft_number ?? '—' }}</td>
-                            <td style="padding: 8px; min-width: 380px;">
-                                <div style="white-space: normal; word-wrap: break-word;">
-                                    {{ $failure->aircraft_malfunction ?? '—' }}
-                                </div>
-                            </td>
-                            <td style="padding: 8px;">{{ optional($failure->detectionStage)->name ?? '—' }}</td>
-                            <td style="padding: 8px;">
-                                {{ $failure->failure_date ? \Carbon\Carbon::parse($failure->failure_date)->format('d.m.Y') : '—' }}
-                            </td>
-                            <td style="padding: 8px;">{{ $failure->aircraft_hours ?? '—' }}</td>
-                            <td style="padding: 8px;">{{ $failure->aircraft_landings ?? '—' }}</td>
-                            <td style="padding: 8px;">{{ optional($failure->takenMeasure)->name ?? '—' }}</td>
+                            <td style="padding: 8px;">{{ $seqBase + $loop->iteration }}</td>
+                            <td style="padding: 8px;">{{ $failure->wo_number ?? $failure->work_order_number ?? '—' }}</td>
                             <td style="padding: 8px; min-width: 200px;">
                                 <div style="white-space: normal; word-wrap: break-word;">
-                                    {{ $failure->component_cause ?? '—' }}
+                                    {{ $failure->aircraft_malfunction ?? $failure->component_cause ?? '—' }}
                                 </div>
                             </td>
-                            <td style="padding: 8px;">{{ $failure->part_number_off ?? '—' }}</td>
-                            <td style="padding: 8px;">{{ $failure->component_serial ?? '—' }}</td>
-                            <td style="padding: 8px;">{{ $failure->part_number_on ?? '—' }}</td>
-                            <td style="padding: 8px;">{{ $failure->serial_number_on ?? '—' }}</td>
-                            <td style="padding: 8px;">{{ $failure->system_name ?? '—' }}</td>
-                            <td style="padding: 8px;">
-                                {{ $failure->resolution_date ? \Carbon\Carbon::parse($failure->resolution_date)->format('d.m.Y') : '—' }}
-                            </td>
-                            <td style="padding: 8px;">{{ $failure->component_sne_hours ?? '—' }}</td>
-                            <td style="padding: 8px;">{{ $failure->component_ppr_hours ?? '—' }}</td>
-                            <td style="padding: 8px;">{{ $failure->wo_number ?? '—' }}</td>
-                            <td style="padding: 8px; text-align: center; vertical-align: middle;" class="no-click" data-failure-id="{{ $failure->id }}">
-                                <input type="checkbox"
-                                       class="form-check-input include-in-buf-cb"
-                                       data-failure-id="{{ $failure->id }}"
-                                       data-url="{{ route('modules.reliability.failures.include-in-buf', $failure) }}"
-                                       {{ ($failure->include_in_buf ?? false) ? 'checked' : '' }}
-                                       title="Include in defects report (BUF)"
-                                       aria-label="In report">
-                            </td>
+                            <td style="padding: 8px;">—</td>
+                            <td style="padding: 8px;">—</td>
+                            <td style="padding: 8px;">—</td>
+                            <td style="padding: 8px;">—</td>
+                            <td style="padding: 8px;">—</td>
+                            <td style="padding: 8px;">—</td>
+                            <td style="padding: 8px;">—</td>
+                            <td style="padding: 8px;">—</td>
+                            <td style="padding: 8px;">—</td>
+                            <td style="padding: 8px;">—</td>
+                            <td style="padding: 8px; min-width: 180px;">—</td>
+                            <td style="padding: 8px;">—</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="21" class="text-center py-3 text-muted">
+                            <td colspan="15" class="text-center py-3 text-muted">
                                 No failures saved.
                             </td>
                         </tr>
@@ -200,32 +180,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target.closest('a') || e.target.closest('button') || e.target.closest('.no-click')) return;
             var href = this.getAttribute('data-href');
             if (href) window.location.href = href;
-        });
-    });
-
-    document.querySelectorAll('.include-in-buf-cb').forEach(function(cb) {
-        cb.addEventListener('click', function(e) { e.stopPropagation(); });
-        cb.addEventListener('change', function(e) {
-            e.stopPropagation();
-            var url = this.getAttribute('data-url');
-            var failureId = this.getAttribute('data-failure-id');
-            var checked = this.checked;
-            var xhr = new XMLHttpRequest();
-            xhr.open('PATCH', url, true);
-            xhr.setRequestHeader('Content-Type', 'application/json');
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            xhr.setRequestHeader('Accept', 'application/json');
-            xhr.setRequestHeader('X-CSRF-TOKEN', document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '');
-            xhr.onload = function() {
-                if (xhr.status >= 200 && xhr.status < 300) return;
-                cb.checked = !checked;
-                alert('Failed to save change.');
-            };
-            xhr.onerror = function() {
-                cb.checked = !checked;
-                alert('Network error.');
-            };
-            xhr.send(JSON.stringify({ include_in_buf: checked }));
         });
     });
 });

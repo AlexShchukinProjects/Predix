@@ -6,6 +6,7 @@
         <div class="col-auto">
             @php
                 $tiles = [
+                    ['name' => 'Master data', 'route' => route('modules.reliability.settings.master-data.index')],
                     ['name' => 'Projects', 'route' => route('modules.reliability.settings.inspection.projects')],
                     ['name' => 'Aircrafts', 'route' => route('modules.reliability.settings.inspection.aircrafts')],
                     ['name' => 'Work cards', 'route' => route('modules.reliability.settings.inspection.work-cards')],

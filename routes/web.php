@@ -83,6 +83,12 @@ Route::middleware('auth')->group(function () {
             Route::post('/work-cards/upload', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'workCardsUpload'])->name('inspection.work-cards.upload');
             Route::post('/work-cards/import-local', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'workCardsImportLocal'])->name('inspection.work-cards.import-local');
             Route::post('/work-cards/delete', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'workCardsDelete'])->name('inspection.work-cards.delete');
+            Route::get('/master-data', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'masterData'])->name('master-data.index');
+            Route::post('/master-data/count', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'masterDataCount'])->name('master-data.count');
+            Route::post('/master-data/sheets-from-path', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'masterDataSheetsFromPath'])->name('master-data.sheets-from-path');
+            Route::post('/master-data/upload', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'masterDataUpload'])->name('master-data.upload');
+            Route::post('/master-data/import-local', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'masterDataImportLocal'])->name('master-data.import-local');
+            Route::post('/master-data/delete', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'masterDataDelete'])->name('master-data.delete');
             Route::get('/eef-registry', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'eefRegistry'])->name('inspection.eef-registry');
             Route::post('/eef-registry/count', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'eefRegistryCount'])->name('inspection.eef-registry.count');
             Route::post('/eef-registry/upload', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'eefRegistryUpload'])->name('inspection.eef-registry.upload');

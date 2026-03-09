@@ -12,6 +12,7 @@ use App\Models\InspectionProject;
 use App\Models\InspectionSourceCardRef;
 use App\Models\InspectionWorkCard;
 use App\Models\InspectionWorkCardMaterial;
+use App\Models\ReliabilityMasterData;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +80,417 @@ class InspectionDataController extends Controller
             InspectionWorkCard::whereIn('id', $ids)->delete();
         }
         return redirect()->route('modules.reliability.settings.inspection.work-cards')->with('success', 'Выбранные записи удалены.');
+    }
+
+    /** Master Data: список с пагинацией */
+    public function masterData(Request $request): View
+    {
+        $perPage = (int) $request->get('per_page', 50);
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
+            $perPage = 50;
+        }
+        $items = ReliabilityMasterData::orderBy('id')->paginate($perPage)->withQueryString();
+        return view('Modules.Reliability.settings.master_data.index', compact('items', 'perPage'));
+    }
+
+    /** Master Data: подсчёт строк и список листов в загружаемом файле */
+    public function masterDataCount(Request $request): \Illuminate\Http\JsonResponse
+    {
+        set_time_limit(120);
+        $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls|max:204800']);
+        try {
+            $file = $request->file('file');
+            $path = $file->getRealPath();
+            $ext = strtolower($file->getClientOriginalExtension());
+            if (in_array($ext, ['xlsx', 'xls'], true)) {
+                $sheets = $this->getMasterDataSheets($path, $ext);
+                $total = $sheets[0]['total'] ?? 0;
+                return response()->json(['total' => $total, 'sheets' => $sheets]);
+            }
+            $total = $this->countMasterDataRows($path, $ext, 0);
+            return response()->json(['total' => $total]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /** Master Data: список листов файла на диске (path относительно корня проекта) */
+    public function masterDataSheetsFromPath(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $rawInput = trim((string) ($request->input('path') ?? $request->input('local_path') ?? ''));
+        if ($rawInput === '') {
+            return response()->json(['error' => 'Путь не указан'], 422);
+        }
+        $relPath = ltrim(str_replace(['..', '\\'], ['', '/'], $rawInput), '/');
+        $absPath = base_path($relPath);
+        if (!file_exists($absPath)) {
+            return response()->json(['error' => "Файл не найден: $relPath"], 404);
+        }
+        $ext = strtolower(pathinfo($absPath, PATHINFO_EXTENSION));
+        if (!in_array($ext, ['xlsx', 'xls', 'csv', 'txt'], true)) {
+            return response()->json(['error' => 'Недопустимый тип файла'], 422);
+        }
+        try {
+            if (in_array($ext, ['xlsx', 'xls'], true)) {
+                $sheets = $this->getMasterDataSheets($absPath, $ext);
+                return response()->json(['sheets' => $sheets]);
+            }
+            $total = $this->countMasterDataRows($absPath, $ext, 0);
+            return response()->json(['sheets' => [['name' => 'Sheet1', 'index' => 0, 'total' => $total]]]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /** Master Data: загрузка файла (импорт) */
+    public function masterDataUpload(Request $request)
+    {
+        set_time_limit(0);
+        if (function_exists('ini_set')) {
+            @ini_set('memory_limit', '1536M');
+        }
+        $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls|max:204800']);
+        $file = $request->file('file');
+        $sheetIndex = (int) $request->input('sheet_index', 0);
+        if ($sheetIndex < 0) {
+            $sheetIndex = 0;
+        }
+        if ($request->header('X-WC-Stream') === '1') {
+            return $this->masterDataUploadStream($file, $sheetIndex);
+        }
+        try {
+            $count = $this->importMasterDataChunked($file, null, null, $sheetIndex);
+            return redirect()->route('modules.reliability.settings.master-data.index')->with('success', "Imported records: {$count}");
+        } catch (\Throwable $e) {
+            report($e);
+            $msg = strlen($e->getMessage()) > 200 ? substr($e->getMessage(), 0, 200) . '…' : $e->getMessage();
+            return redirect()->route('modules.reliability.settings.master-data.index')->with('error', 'Ошибка загрузки: ' . $msg);
+        }
+    }
+
+    /** Master Data: потоковая отдача прогресса при загрузке */
+    private function masterDataUploadStream($file, int $sheetIndex = 0): StreamedResponse
+    {
+        $send = function (array $data) {
+            echo json_encode($data, JSON_UNESCAPED_UNICODE) . "\n";
+            if (ob_get_level()) {
+                ob_flush();
+            }
+            flush();
+        };
+        return new StreamedResponse(function () use ($file, $sheetIndex, $send) {
+            try {
+                $count = $this->importMasterDataChunked(
+                    $file,
+                    function (int $processed, int $total) use ($send) {
+                        $send(['processed' => $processed, 'total' => $total]);
+                    },
+                    null,
+                    $sheetIndex
+                );
+                $send(['done' => true, 'count' => $count]);
+            } catch (\Throwable $e) {
+                report($e);
+                $msg = strlen($e->getMessage()) > 300 ? substr($e->getMessage(), 0, 300) . '…' : $e->getMessage();
+                $send(['error' => $msg]);
+            }
+        }, 200, [
+            'Content-Type' => 'application/x-ndjson; charset=utf-8',
+            'Cache-Control' => 'no-cache',
+            'X-Accel-Buffering' => 'no',
+        ]);
+    }
+
+    /** Master Data: импорт с диска сервера (NDJSON) */
+    public function masterDataImportLocal(Request $request): StreamedResponse|\Illuminate\Http\JsonResponse
+    {
+        try {
+            set_time_limit(0);
+            if (function_exists('ini_set')) {
+                @ini_set('memory_limit', '1536M');
+            }
+            $rawInput = trim((string) ($request->input('path') ?? $request->input('local_path') ?? ''));
+            if ($rawInput === '') {
+                return response()->json(['error' => 'Путь не указан'], 422);
+            }
+            $relPath = ltrim(str_replace(['..', '\\'], ['', '/'], $rawInput), '/');
+            $absPath = base_path($relPath);
+            if (!file_exists($absPath)) {
+                return response()->json(['error' => "Файл не найден: $relPath"], 404);
+            }
+            $ext = strtolower(pathinfo($absPath, PATHINFO_EXTENSION));
+            if (!in_array($ext, ['xlsx', 'xls', 'csv', 'txt'], true)) {
+                return response()->json(['error' => 'Недопустимый тип файла'], 422);
+            }
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+        $send = function (array $data) {
+            echo json_encode($data, JSON_UNESCAPED_UNICODE) . "\n";
+            if (ob_get_level()) {
+                ob_flush();
+            }
+            flush();
+        };
+        $sheetIndex = (int) $request->input('sheet_index', 0);
+        if ($sheetIndex < 0) {
+            $sheetIndex = 0;
+        }
+        return new StreamedResponse(function () use ($absPath, $ext, $sheetIndex, $send) {
+            try {
+                $total = $this->countMasterDataRows($absPath, $ext, $sheetIndex);
+                $send(['total' => $total]);
+                $count = $this->importMasterDataChunked(
+                    $absPath,
+                    function (int $processed, int $tot) use ($send) {
+                        $send(['processed' => $processed, 'total' => $tot]);
+                    },
+                    $total,
+                    $sheetIndex
+                );
+                $send(['done' => true, 'count' => $count]);
+            } catch (\Throwable $e) {
+                report($e);
+                $msg = strlen($e->getMessage()) > 300 ? substr($e->getMessage(), 0, 300) . '…' : $e->getMessage();
+                $send(['error' => $msg]);
+            }
+        }, 200, [
+            'Content-Type' => 'application/x-ndjson; charset=utf-8',
+            'Cache-Control' => 'no-cache',
+            'X-Accel-Buffering' => 'no',
+        ]);
+    }
+
+    public function masterDataDelete(Request $request)
+    {
+        $ids = $request->input('ids', []);
+        $ids = array_filter(array_map('intval', (array) $ids));
+        if ($ids !== []) {
+            ReliabilityMasterData::whereIn('id', $ids)->delete();
+        }
+        return redirect()->route('modules.reliability.settings.master-data.index')->with('success', 'Выбранные записи удалены.');
+    }
+
+    private function masterDataHeaderMap(): array
+    {
+        return [
+            'ID' => null,
+            'AIRCRAFT TYPE' => 'aircraft_type',
+            'SRC. CUST. CARD' => 'src_cust_card',
+            'DESCRIPTION' => 'description',
+            'PRIM. SKILL' => 'prim_skill',
+            'ORDER TYPE' => 'order_type',
+            'ACT. TIME' => 'act_time',
+            'CHILD CARD COUNT' => 'child_card_count',
+            'EEF' => 'eef',
+        ];
+    }
+
+    /**
+     * Список листов Excel (xlsx/xls) с количеством строк в каждом.
+     * @return array<int, array{name: string, index: int, total: int}>
+     */
+    private function getMasterDataSheets(string $path, string $ext): array
+    {
+        if (!in_array($ext, ['xlsx', 'xls'], true)) {
+            return [];
+        }
+        $r = IOFactory::createReaderForFile($path);
+        if (!method_exists($r, 'listWorksheetInfo')) {
+            return [['name' => 'Sheet1', 'index' => 0, 'total' => 0]];
+        }
+        $info = $r->listWorksheetInfo($path);
+        $sheets = [];
+        foreach ($info as $idx => $sheetInfo) {
+            $name = $sheetInfo['worksheetName'] ?? 'Sheet' . ($idx + 1);
+            $total = max(0, (int) ($sheetInfo['totalRows'] ?? 0) - 1); // без заголовка
+            $sheets[] = ['name' => $name, 'index' => $idx, 'total' => $total];
+        }
+        return $sheets;
+    }
+
+    private function countMasterDataRows(string $path, string $ext, int $sheetIndex = 0): int
+    {
+        if ($ext === 'csv' || $ext === 'txt') {
+            $fh = fopen($path, 'r');
+            if ($fh === false) {
+                return 0;
+            }
+            $first = fgetcsv($fh, 0, ',');
+            if ($first !== false && isset($first[0]) && str_starts_with(trim((string) $first[0]), 'sep=')) {
+                fgetcsv($fh, 0, ',');
+            }
+            $lines = 0;
+            while (!feof($fh)) {
+                $line = fgetcsv($fh, 0, ',');
+                if ($line !== false && $line !== null) {
+                    $lines++;
+                }
+            }
+            fclose($fh);
+            return max(0, $lines);
+        }
+        if (in_array($ext, ['xlsx', 'xls'], true)) {
+            $r = IOFactory::createReaderForFile($path);
+            if (method_exists($r, 'listWorksheetInfo')) {
+                $info = $r->listWorksheetInfo($path);
+                $sheet = $info[$sheetIndex] ?? $info[0] ?? null;
+                if ($sheet !== null) {
+                    return max(0, (int) ($sheet['totalRows'] ?? 0) - 1);
+                }
+            }
+            return 0;
+        }
+        return 0;
+    }
+
+    private function importMasterDataChunked($file, ?callable $onProgress = null, ?int $knownTotal = null, int $sheetIndex = 0): int
+    {
+        $path = is_string($file) ? $file : $file->getRealPath();
+        $ext = is_string($file)
+            ? strtolower(pathinfo($file, PATHINFO_EXTENSION))
+            : strtolower($file->getClientOriginalExtension());
+        if ($sheetIndex < 0) {
+            $sheetIndex = 0;
+        }
+        $chunkSize = 500;
+        $count = 0;
+        $now = now()->toDateTimeString();
+        $insertColumns = ['aircraft_type', 'src_cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef', 'created_at', 'updated_at'];
+        $map = $this->masterDataHeaderMap();
+        $mapUpper = [];
+        foreach ($map as $fileCol => $dbCol) {
+            if ($dbCol !== null) {
+                $mapUpper[strtoupper(trim((string) $fileCol))] = $dbCol;
+            }
+        }
+        $buildIndexMap = function (array $fileHeaders) use ($mapUpper): array {
+            $indexMap = [];
+            foreach ($fileHeaders as $i => $h) {
+                $hUp = strtoupper(trim((string) $h));
+                if (isset($mapUpper[$hUp])) {
+                    $indexMap[$i] = $mapUpper[$hUp];
+                }
+            }
+            return $indexMap;
+        };
+        $buildRow = static function (array $indexMap, array $rowValues) use ($now): array {
+            $data = [
+                'aircraft_type' => null,
+                'src_cust_card' => null,
+                'description' => null,
+                'prim_skill' => null,
+                'order_type' => null,
+                'act_time' => null,
+                'child_card_count' => null,
+                'eef' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+            foreach ($indexMap as $i => $dbCol) {
+                $val = $rowValues[$i] ?? null;
+                if ($val === null || (is_string($val) && trim($val) === '')) {
+                    continue;
+                }
+                if ($val instanceof \DateTimeInterface) {
+                    $val = $val->format('Y-m-d H:i:s');
+                }
+                $data[$dbCol] = is_string($val) ? trim($val) : $val;
+            }
+            return $data;
+        };
+        $flush = function (array &$buffer) use (&$count, $onProgress, $knownTotal): void {
+            if ($buffer === []) {
+                return;
+            }
+            ReliabilityMasterData::insert($buffer);
+            $count += count($buffer);
+            $buffer = [];
+            if ($onProgress !== null) {
+                $onProgress($count, $knownTotal ?? $count);
+            }
+        };
+        if ($ext === 'csv' || $ext === 'txt') {
+            $fh = fopen($path, 'r');
+            if ($fh === false) {
+                return 0;
+            }
+            $sep = ',';
+            $firstLine = fgetcsv($fh, 0, ',');
+            if ($firstLine !== false && isset($firstLine[0]) && str_starts_with(trim((string) $firstLine[0]), 'sep=')) {
+                $sep = trim(substr(trim((string) $firstLine[0]), 4)) ?: ',';
+                $firstLine = fgetcsv($fh, 0, $sep);
+            }
+            $fileHeaders = $firstLine !== false ? array_map('trim', $firstLine) : [];
+            $indexMap = $buildIndexMap($fileHeaders);
+            $buffer = [];
+            while (($row = fgetcsv($fh, 0, $sep)) !== false) {
+                $data = $buildRow($indexMap, $row);
+                $hasAny = false;
+                foreach (['aircraft_type', 'src_cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef'] as $c) {
+                    if ($data[$c] !== null) {
+                        $hasAny = true;
+                        break;
+                    }
+                }
+                if ($hasAny) {
+                    $buffer[] = $data;
+                    if (count($buffer) >= $chunkSize) {
+                        $flush($buffer);
+                    }
+                }
+            }
+            fclose($fh);
+            $flush($buffer);
+        } else {
+            $buffer = [];
+            $reader = new XlsxReader();
+            if ($ext === 'xls') {
+                $reader = \OpenSpout\Reader\Common\Creator\ReaderEntityFactory::createXLSReader();
+            }
+            $reader->open($path);
+            $fileHeaders = [];
+            $indexMap = [];
+            $currentSheetIndex = 0;
+            foreach ($reader->getSheetIterator() as $sheet) {
+                if ($currentSheetIndex !== $sheetIndex) {
+                    $currentSheetIndex++;
+                    continue;
+                }
+                $rowIndex = 0;
+                foreach ($sheet->getRowIterator() as $row) {
+                    $values = [];
+                    foreach ($row->getCells() as $idx => $cell) {
+                        $values[$idx] = $cell->getValue();
+                    }
+                    if ($rowIndex === 0) {
+                        $fileHeaders = array_values($values);
+                        $indexMap = $buildIndexMap($fileHeaders);
+                        $rowIndex++;
+                        continue;
+                    }
+                    $data = $buildRow($indexMap, $values);
+                    $hasAny = false;
+                    foreach (['aircraft_type', 'src_cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef'] as $c) {
+                        if ($data[$c] !== null) {
+                            $hasAny = true;
+                            break;
+                        }
+                    }
+                    if ($hasAny) {
+                        $buffer[] = $data;
+                        if (count($buffer) >= $chunkSize) {
+                            $flush($buffer);
+                        }
+                    }
+                    $rowIndex++;
+                }
+                break;
+            }
+            $reader->close();
+            $flush($buffer);
+        }
+        return $count;
     }
 
     public function eefRegistryClear(Request $request): \Illuminate\Http\JsonResponse
