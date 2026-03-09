@@ -39,7 +39,7 @@
                                 <input type="text" class="form-control form-control-sm" name="task_card_description" value="{{ request('task_card_description') }}" placeholder="">
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Task</label>
+                                <label class="form-label">MPD</label>
                                 <input type="text" class="form-control form-control-sm" name="mpd" value="{{ request('mpd') }}" placeholder="">
                             </div>
                             <div class="col-md-2">

@@ -2,14 +2,12 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\StubRelModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class ReliabilityFailure extends Model
 {
     use HasFactory;
-    use StubRelModel;
 
     protected $table = 'rel_stub';
 
@@ -38,6 +36,7 @@ class ReliabilityFailure extends Model
         'wo_number',
         'wo_status_id',
         'work_order_number',
+        'mpd',
         'system_name',
         'subsystem_name',
         'component_malfunction',

@@ -6,14 +6,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class ReliabilityMasterData extends Model
+class NrcMasterData extends Model
 {
-    protected $table = 'RC_master_data';
+    protected $table = 'NRC_master_data';
 
     protected $fillable = [
         'id_file',
         'aircraft_type',
-        'cust_card',
+        'src_cust_card',
         'description',
         'prim_skill',
         'order_type',

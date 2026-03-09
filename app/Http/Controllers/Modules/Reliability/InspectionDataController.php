@@ -12,6 +12,7 @@ use App\Models\InspectionProject;
 use App\Models\InspectionSourceCardRef;
 use App\Models\InspectionWorkCard;
 use App\Models\InspectionWorkCardMaterial;
+use App\Models\NrcMasterData;
 use App\Models\ReliabilityMasterData;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
@@ -82,15 +83,62 @@ class InspectionDataController extends Controller
         return redirect()->route('modules.reliability.settings.inspection.work-cards')->with('success', 'Выбранные записи удалены.');
     }
 
-    /** Master Data: список с пагинацией */
+    /** Master Data: список с пагинацией (RC / NRC) и фильтрами */
     public function masterData(Request $request): View
     {
+        $source = $this->resolveMasterDataSource($request);
+        $model = $source === 'nrc' ? NrcMasterData::class : ReliabilityMasterData::class;
         $perPage = (int) $request->get('per_page', 50);
         if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
-        $items = ReliabilityMasterData::orderBy('id')->paginate($perPage)->withQueryString();
-        return view('Modules.Reliability.settings.master_data.index', compact('items', 'perPage'));
+        $query = $model::query()->orderBy('id');
+        $this->applyMasterDataFilters($query, $request, $source);
+        $items = $query->paginate($perPage)->withQueryString();
+        return view('Modules.Reliability.settings.master_data.index', compact('items', 'perPage', 'source'));
+    }
+
+    private function applyMasterDataFilters($query, Request $request, string $source = 'rc'): void
+    {
+        $id = $request->input('id');
+        if ($id !== null && trim((string) $id) !== '') {
+            $id = trim((string) $id);
+            if (is_numeric($id)) {
+                $query->where('id', (int) $id);
+            }
+        }
+        $fields = [
+            'id_file' => 'ID File',
+            'aircraft_type' => 'Aircraft Type',
+            'description' => 'Description',
+            'prim_skill' => 'Prim. Skill',
+            'order_type' => 'Order Type',
+            'act_time' => 'Act. Time',
+            'child_card_count' => 'Child Card Count',
+            'eef' => 'EEF',
+        ];
+        if ($source === 'nrc') {
+            $fields['src_cust_card'] = 'Src. Cust. Card';
+        } else {
+            $fields['cust_card'] = 'Cust. Card';
+        }
+        foreach ($fields as $col => $label) {
+            $val = $request->input($col);
+            if ($val !== null && trim((string) $val) !== '') {
+                $query->where($col, 'like', '%' . trim((string) $val) . '%');
+            }
+        }
+    }
+
+    private function resolveMasterDataSource(Request $request): string
+    {
+        $source = strtolower(trim((string) $request->get('source', 'rc')));
+        return in_array($source, ['rc', 'nrc'], true) ? $source : 'rc';
+    }
+
+    private function getMasterDataModelClass(string $source): string
+    {
+        return $source === 'nrc' ? NrcMasterData::class : ReliabilityMasterData::class;
     }
 
     /** Master Data: подсчёт строк и список листов в загружаемом файле */
@@ -150,26 +198,31 @@ class InspectionDataController extends Controller
             @ini_set('memory_limit', '1536M');
         }
         $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls|max:204800']);
+        $source = $this->resolveMasterDataSource($request);
+        $clearBefore = $request->boolean('clear_before');
         $file = $request->file('file');
         $sheetIndex = (int) $request->input('sheet_index', 0);
         if ($sheetIndex < 0) {
             $sheetIndex = 0;
         }
         if ($request->header('X-WC-Stream') === '1') {
-            return $this->masterDataUploadStream($file, $sheetIndex);
+            return $this->masterDataUploadStream($file, $sheetIndex, $source, $clearBefore);
         }
         try {
-            $count = $this->importMasterDataChunked($file, null, null, $sheetIndex);
-            return redirect()->route('modules.reliability.settings.master-data.index')->with('success', "Imported records: {$count}");
+            if ($clearBefore) {
+                $this->getMasterDataModelClass($source)::query()->delete();
+            }
+            $count = $this->importMasterDataChunked($file, null, null, $sheetIndex, $source);
+            return redirect()->route('modules.reliability.settings.master-data.index', ['source' => $source])->with('success', "Imported records: {$count}");
         } catch (\Throwable $e) {
             report($e);
             $msg = strlen($e->getMessage()) > 200 ? substr($e->getMessage(), 0, 200) . '…' : $e->getMessage();
-            return redirect()->route('modules.reliability.settings.master-data.index')->with('error', 'Ошибка загрузки: ' . $msg);
+            return redirect()->route('modules.reliability.settings.master-data.index', ['source' => $source])->with('error', 'Ошибка загрузки: ' . $msg);
         }
     }
 
     /** Master Data: потоковая отдача прогресса при загрузке */
-    private function masterDataUploadStream($file, int $sheetIndex = 0): StreamedResponse
+    private function masterDataUploadStream($file, int $sheetIndex = 0, string $source = 'rc', bool $clearBefore = false): StreamedResponse
     {
         $send = function (array $data) {
             echo json_encode($data, JSON_UNESCAPED_UNICODE) . "\n";
@@ -178,15 +231,19 @@ class InspectionDataController extends Controller
             }
             flush();
         };
-        return new StreamedResponse(function () use ($file, $sheetIndex, $send) {
+        return new StreamedResponse(function () use ($file, $sheetIndex, $source, $clearBefore, $send) {
             try {
+                if ($clearBefore) {
+                    $this->getMasterDataModelClass($source)::query()->delete();
+                }
                 $count = $this->importMasterDataChunked(
                     $file,
                     function (int $processed, int $total) use ($send) {
                         $send(['processed' => $processed, 'total' => $total]);
                     },
                     null,
-                    $sheetIndex
+                    $sheetIndex,
+                    $source
                 );
                 $send(['done' => true, 'count' => $count]);
             } catch (\Throwable $e) {
@@ -236,8 +293,13 @@ class InspectionDataController extends Controller
         if ($sheetIndex < 0) {
             $sheetIndex = 0;
         }
-        return new StreamedResponse(function () use ($absPath, $ext, $sheetIndex, $send) {
+        $source = $this->resolveMasterDataSource($request);
+        $clearBefore = $request->boolean('clear_before');
+        return new StreamedResponse(function () use ($absPath, $ext, $sheetIndex, $source, $clearBefore, $send) {
             try {
+                if ($clearBefore) {
+                    $this->getMasterDataModelClass($source)::query()->delete();
+                }
                 $total = $this->countMasterDataRows($absPath, $ext, $sheetIndex);
                 $send(['total' => $total]);
                 $count = $this->importMasterDataChunked(
@@ -246,7 +308,8 @@ class InspectionDataController extends Controller
                         $send(['processed' => $processed, 'total' => $tot]);
                     },
                     $total,
-                    $sheetIndex
+                    $sheetIndex,
+                    $source
                 );
                 $send(['done' => true, 'count' => $count]);
             } catch (\Throwable $e) {
@@ -263,20 +326,27 @@ class InspectionDataController extends Controller
 
     public function masterDataDelete(Request $request)
     {
+        $source = $this->resolveMasterDataSource($request);
+        $modelClass = $this->getMasterDataModelClass($source);
         $ids = $request->input('ids', []);
         $ids = array_filter(array_map('intval', (array) $ids));
         if ($ids !== []) {
-            ReliabilityMasterData::whereIn('id', $ids)->delete();
+            $modelClass::whereIn('id', $ids)->delete();
         }
-        return redirect()->route('modules.reliability.settings.master-data.index')->with('success', 'Выбранные записи удалены.');
+        return redirect()->route('modules.reliability.settings.master-data.index', ['source' => $source])->with('success', 'Выбранные записи удалены.');
     }
 
-    private function masterDataHeaderMap(): array
+    /** Заголовки Excel → поля БД для RC_master_data (CUST. CARD). Колонка ID в файле → id_file. */
+    private function masterDataHeaderMapRc(): array
     {
         return [
-            'ID' => null,
+            'ID' => 'id_file',
+            'ID_FILE' => 'id_file',
+            'ID FILE' => 'id_file',
             'AIRCRAFT TYPE' => 'aircraft_type',
-            'SRC. CUST. CARD' => 'src_cust_card',
+            'CUST. CARD' => 'cust_card',
+            'CUST CARD' => 'cust_card',
+            'CUSTOMER CARD' => 'cust_card',
             'DESCRIPTION' => 'description',
             'PRIM. SKILL' => 'prim_skill',
             'ORDER TYPE' => 'order_type',
@@ -284,6 +354,42 @@ class InspectionDataController extends Controller
             'CHILD CARD COUNT' => 'child_card_count',
             'EEF' => 'eef',
         ];
+    }
+
+    /** Заголовки Excel → поля БД для NRC_master_data (SRC. CUST. CARD). Колонка ID в файле → id_file. */
+    private function masterDataHeaderMapNrc(): array
+    {
+        return [
+            'ID' => 'id_file',
+            'ID_FILE' => 'id_file',
+            'ID FILE' => 'id_file',
+            'AIRCRAFT TYPE' => 'aircraft_type',
+            'SRC. CUST. CARD' => 'src_cust_card',
+            'SRC CUST CARD' => 'src_cust_card',
+            'SRC. CUST CARD' => 'src_cust_card',
+            'SRC CUST. CARD' => 'src_cust_card',
+            'SOURCE CUSTOMER CARD' => 'src_cust_card',
+            'SRC CUST. CARD' => 'src_cust_card',
+            'DESCRIPTION' => 'description',
+            'PRIM. SKILL' => 'prim_skill',
+            'ORDER TYPE' => 'order_type',
+            'ACT. TIME' => 'act_time',
+            'CHILD CARD COUNT' => 'child_card_count',
+            'EEF' => 'eef',
+        ];
+    }
+
+    private function masterDataHeaderMap(string $source): array
+    {
+        return $source === 'nrc' ? $this->masterDataHeaderMapNrc() : $this->masterDataHeaderMapRc();
+    }
+
+    /** Нормализация заголовка для сопоставления (пробелы, регистр). */
+    private function normalizeMasterDataHeader(string $header): string
+    {
+        $s = strtoupper(trim((string) $header));
+        $s = (string) preg_replace('/\s+/', ' ', $s);
+        return $s;
     }
 
     /**
@@ -344,7 +450,7 @@ class InspectionDataController extends Controller
         return 0;
     }
 
-    private function importMasterDataChunked($file, ?callable $onProgress = null, ?int $knownTotal = null, int $sheetIndex = 0): int
+    private function importMasterDataChunked($file, ?callable $onProgress = null, ?int $knownTotal = null, int $sheetIndex = 0, string $source = 'rc'): int
     {
         $path = is_string($file) ? $file : $file->getRealPath();
         $ext = is_string($file)
@@ -353,40 +459,39 @@ class InspectionDataController extends Controller
         if ($sheetIndex < 0) {
             $sheetIndex = 0;
         }
+        $modelClass = $this->getMasterDataModelClass($source);
         $chunkSize = 500;
         $count = 0;
         $now = now()->toDateTimeString();
-        $insertColumns = ['aircraft_type', 'src_cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef', 'created_at', 'updated_at'];
-        $map = $this->masterDataHeaderMap();
+        $isRc = $source === 'rc';
+        $insertColumns = $isRc
+            ? ['id_file', 'aircraft_type', 'cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef', 'created_at', 'updated_at']
+            : ['id_file', 'aircraft_type', 'src_cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef', 'created_at', 'updated_at'];
+        $dataColumns = $isRc
+            ? ['id_file', 'aircraft_type', 'cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef']
+            : ['id_file', 'aircraft_type', 'src_cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef'];
+        $map = $this->masterDataHeaderMap($source);
         $mapUpper = [];
         foreach ($map as $fileCol => $dbCol) {
             if ($dbCol !== null) {
-                $mapUpper[strtoupper(trim((string) $fileCol))] = $dbCol;
+                $key = $this->normalizeMasterDataHeader($fileCol);
+                $mapUpper[$key] = $dbCol;
             }
         }
         $buildIndexMap = function (array $fileHeaders) use ($mapUpper): array {
             $indexMap = [];
             foreach ($fileHeaders as $i => $h) {
-                $hUp = strtoupper(trim((string) $h));
-                if (isset($mapUpper[$hUp])) {
-                    $indexMap[$i] = $mapUpper[$hUp];
+                $key = $this->normalizeMasterDataHeader((string) $h);
+                if (isset($mapUpper[$key])) {
+                    $indexMap[$i] = $mapUpper[$key];
                 }
             }
             return $indexMap;
         };
-        $buildRow = static function (array $indexMap, array $rowValues) use ($now): array {
-            $data = [
-                'aircraft_type' => null,
-                'src_cust_card' => null,
-                'description' => null,
-                'prim_skill' => null,
-                'order_type' => null,
-                'act_time' => null,
-                'child_card_count' => null,
-                'eef' => null,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ];
+        $buildRow = function (array $indexMap, array $rowValues) use ($now, $insertColumns): array {
+            $data = array_fill_keys(array_slice($insertColumns, 0, -2), null);
+            $data['created_at'] = $now;
+            $data['updated_at'] = $now;
             foreach ($indexMap as $i => $dbCol) {
                 $val = $rowValues[$i] ?? null;
                 if ($val === null || (is_string($val) && trim($val) === '')) {
@@ -399,11 +504,11 @@ class InspectionDataController extends Controller
             }
             return $data;
         };
-        $flush = function (array &$buffer) use (&$count, $onProgress, $knownTotal): void {
+        $flush = function (array &$buffer) use (&$count, $onProgress, $knownTotal, $modelClass): void {
             if ($buffer === []) {
                 return;
             }
-            ReliabilityMasterData::insert($buffer);
+            $modelClass::insert($buffer);
             $count += count($buffer);
             $buffer = [];
             if ($onProgress !== null) {
@@ -427,8 +532,8 @@ class InspectionDataController extends Controller
             while (($row = fgetcsv($fh, 0, $sep)) !== false) {
                 $data = $buildRow($indexMap, $row);
                 $hasAny = false;
-                foreach (['aircraft_type', 'src_cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef'] as $c) {
-                    if ($data[$c] !== null) {
+                foreach ($dataColumns as $c) {
+                    if (isset($data[$c]) && $data[$c] !== null) {
                         $hasAny = true;
                         break;
                     }
@@ -471,8 +576,8 @@ class InspectionDataController extends Controller
                     }
                     $data = $buildRow($indexMap, $values);
                     $hasAny = false;
-                    foreach (['aircraft_type', 'src_cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef'] as $c) {
-                        if ($data[$c] !== null) {
+                    foreach ($dataColumns as $c) {
+                        if (isset($data[$c]) && $data[$c] !== null) {
                             $hasAny = true;
                             break;
                         }

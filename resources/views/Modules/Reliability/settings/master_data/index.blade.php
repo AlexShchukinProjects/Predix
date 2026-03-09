@@ -12,6 +12,89 @@
         <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
 
+    @php $source = $source ?? 'rc'; @endphp
+
+    <!-- Filters panel -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" action="{{ route('modules.reliability.settings.master-data.index') }}" id="masterDataFiltersForm">
+                        <input type="hidden" name="source" value="{{ $source }}">
+                        <input type="hidden" name="per_page" id="masterDataFilterPerPage" value="{{ request('per_page', $perPage ?? 50) }}">
+                        <div class="row g-3">
+                            <div class="col-md-2">
+                                <label class="form-label">ID</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="id" value="{{ request('id') }}" placeholder="">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">ID File</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="id_file" value="{{ request('id_file') }}" placeholder="">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Aircraft Type</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="aircraft_type" value="{{ request('aircraft_type') }}" placeholder="">
+                            </div>
+                            @if($source === 'nrc')
+                            <div class="col-md-2">
+                                <label class="form-label">Src. Cust. Card</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="src_cust_card" value="{{ request('src_cust_card') }}" placeholder="">
+                            </div>
+                            @else
+                            <div class="col-md-2">
+                                <label class="form-label">Cust. Card</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="cust_card" value="{{ request('cust_card') }}" placeholder="">
+                            </div>
+                            @endif
+                            <div class="col-md-2">
+                                <label class="form-label">Description</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="description" value="{{ request('description') }}" placeholder="">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Prim. Skill</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="prim_skill" value="{{ request('prim_skill') }}" placeholder="">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Order Type</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="order_type" value="{{ request('order_type') }}" placeholder="">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Act. Time</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="act_time" value="{{ request('act_time') }}" placeholder="">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Child Card Count</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="child_card_count" value="{{ request('child_card_count') }}" placeholder="">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">EEF</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="eef" value="{{ request('eef') }}" placeholder="">
+                            </div>
+                            <div class="col-12">
+                                <button type="button" style="border:none; box-shadow:none; color:gray;" class="btn btn-outline-primary btn-sm" onclick="resetMasterDataFilters()">Reset</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="doc-mode-tabs mb-3">
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <a href="{{ route('modules.reliability.settings.master-data.index', ['source' => 'rc'] + request()->query()) }}"
+                   class="nav-link {{ $source === 'rc' ? 'active' : '' }}"
+                   role="tab">RC</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a href="{{ route('modules.reliability.settings.master-data.index', ['source' => 'nrc'] + request()->query()) }}"
+                   class="nav-link {{ $source === 'nrc' ? 'active' : '' }}"
+                   role="tab">NRC</a>
+            </li>
+        </ul>
+    </div>
+
     <div class="efds-table-header">
         <div class="efds-table-header__stats text-muted">
             <span class="me-2">Per page:</span>
@@ -30,6 +113,7 @@
             <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#masterDataUploadModal"><i class="fas fa-file-excel me-1"></i>Add from Excel / CSV</button>
             <form id="form-delete-master-data" action="{{ route('modules.reliability.settings.master-data.delete') }}" method="post" class="d-none">
                 @csrf
+                <input type="hidden" name="source" value="{{ $source }}">
                 <button type="submit" class="btn efds-btn efds-btn--danger btn-sm">Delete selected</button>
             </form>
         </div>
@@ -44,10 +128,15 @@
                     <table class="table table-bordered table-sm mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th class="text-center" style="width: 2.5rem;"><input type="checkbox" id="master-data-select-all" class="form-check-input" title="Select all on page"></th>
+                                <th class="text-center" style="width: 40px; min-width: 40px; max-width: 40px;"><input type="checkbox" id="master-data-select-all" class="form-check-input" title="Select all on page"></th>
                                 <th>ID</th>
+                                <th>ID FILE</th>
                                 <th>AIRCRAFT TYPE</th>
+                                @if($source === 'nrc')
                                 <th>SRC. CUST. CARD</th>
+                                @else
+                                <th>CUST. CARD</th>
+                                @endif
                                 <th>DESCRIPTION</th>
                                 <th>PRIM. SKILL</th>
                                 <th>ORDER TYPE</th>
@@ -59,10 +148,15 @@
                         <tbody>
                             @forelse($items as $row)
                             <tr>
-                                <td class="text-center"><input type="checkbox" name="ids[]" value="{{ $row->id }}" class="form-check-input master-data-row-cb"></td>
+                                <td class="text-center" style="width: 40px; min-width: 40px; max-width: 40px;"><input type="checkbox" name="ids[]" value="{{ $row->id }}" class="form-check-input master-data-row-cb"></td>
                                 <td>{{ $row->id }}</td>
+                                <td>{{ $row->id_file }}</td>
                                 <td>{{ $row->aircraft_type }}</td>
+                                @if($source === 'nrc')
                                 <td>{{ $row->src_cust_card }}</td>
+                                @else
+                                <td>{{ $row->cust_card }}</td>
+                                @endif
                                 <td>{{ Str::limit($row->description, 80) }}</td>
                                 <td>{{ $row->prim_skill }}</td>
                                 <td>{{ $row->order_type }}</td>
@@ -72,7 +166,7 @@
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="10" class="text-center py-4 text-muted">No records. Upload data from Excel / CSV.</td>
+                                <td colspan="11" class="text-center py-4 text-muted">No records. Upload data from Excel / CSV.</td>
                             </tr>
                             @endforelse
                         </tbody>
@@ -99,7 +193,12 @@
             </div>
             <form id="form-upload-master-data-modal" action="{{ route('modules.reliability.settings.master-data.upload') }}" method="post" enctype="multipart/form-data">
                 @csrf
+                <input type="hidden" name="source" value="{{ $source }}">
                 <div class="modal-body">
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" name="clear_before" value="1" id="md-clear-before">
+                        <label class="form-check-label" for="md-clear-before">Очистить данные в базе перед загрузкой</label>
+                    </div>
                     <div id="md-step-select">
                         <ul class="nav nav-tabs mb-3" id="md-upload-tabs">
                             <li class="nav-item">
@@ -182,6 +281,31 @@
 </div>
 
 @include('Modules.Reliability.inspection_settings.partials.table_styles')
+<style>
+.doc-mode-tabs { margin-bottom: 0; }
+.doc-mode-tabs .nav-tabs { border-bottom: 2px solid #dee2e6; }
+.doc-mode-tabs .nav-link {
+    color: #495057;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 12px 24px;
+    border: none;
+    border-bottom: 3px solid transparent;
+    background: transparent;
+}
+.doc-mode-tabs .nav-link:hover {
+    border-color: transparent;
+    color: #1E64D4;
+}
+.doc-mode-tabs .nav-link.active {
+    color: #1E64D4;
+    border-bottom-color: #1E64D4;
+    background: transparent;
+    font-weight: 600;
+}
+
+.form-control{background-color:white;}
+</style>
 <script>
 (function() {
     var formDelete = document.getElementById('form-delete-master-data');
@@ -237,12 +361,38 @@
         perPageSelect.addEventListener('change', function() {
             var val = this.value;
             try { localStorage.setItem(PER_PAGE_STORAGE_KEY, val); } catch (e) {}
+            var perPageHidden = document.getElementById('masterDataFilterPerPage');
+            if (perPageHidden) perPageHidden.value = val;
             var url = new URL(window.location.href);
             url.searchParams.set('per_page', val);
             url.searchParams.delete('page');
             window.location.href = url.toString();
         });
     }
+
+    var filtersForm = document.getElementById('masterDataFiltersForm');
+    if (filtersForm) {
+        function submitFiltersForm() {
+            var perPageEl = document.getElementById('master-data-per-page');
+            var hiddenPerPage = document.getElementById('masterDataFilterPerPage');
+            if (hiddenPerPage && perPageEl) hiddenPerPage.value = perPageEl.value;
+            filtersForm.submit();
+        }
+        filtersForm.querySelectorAll('.master-data-filter-input').forEach(function(input) {
+            input.addEventListener('blur', submitFiltersForm);
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+            });
+        });
+    }
+
+    window.resetMasterDataFilters = function() {
+        var url = new URL('{{ route("modules.reliability.settings.master-data.index") }}', window.location.origin);
+        url.searchParams.set('source', '{{ $source }}');
+        var perPage = document.getElementById('master-data-per-page');
+        if (perPage && perPage.value) url.searchParams.set('per_page', perPage.value);
+        window.location.href = url.toString();
+    };
 
     var uploadModal = document.getElementById('masterDataUploadModal');
     var dropzone = document.getElementById('master-data-upload-dropzone');
@@ -402,7 +552,7 @@
                             cancelBtn.setAttribute('data-bs-dismiss', 'modal');
                             submitBtn.textContent = 'Done';
                             setTimeout(function() {
-                                window.location.href = '{{ route("modules.reliability.settings.master-data.index") }}?success=' + encodeURIComponent('Imported records: ' + (d.count || 0));
+                                window.location.href = '{{ route("modules.reliability.settings.master-data.index") }}?success=' + encodeURIComponent('Imported records: ' + (d.count || 0)) + '&source=' + encodeURIComponent('{{ $source }}');
                             }, 1200);
                             return;
                         }
@@ -522,6 +672,9 @@
                 fd3.append('_token', document.querySelector('#form-upload-master-data-modal [name=_token]').value);
                 fd3.append('path', path);
                 fd3.append('sheet_index', sheetIndexInput ? sheetIndexInput.value : '0');
+                fd3.append('source', document.querySelector('#form-upload-master-data-modal input[name=source]').value || 'rc');
+                var clearBeforeCb = document.getElementById('md-clear-before');
+                if (clearBeforeCb && clearBeforeCb.checked) fd3.append('clear_before', '1');
                 fetch('{{ route("modules.reliability.settings.master-data.import-local") }}', {
                     method: 'POST', body: fd3, headers: { 'Accept': 'application/x-ndjson' }
                 }).then(function(r) { return readNdjsonStream(r, path.split('/').pop()); })

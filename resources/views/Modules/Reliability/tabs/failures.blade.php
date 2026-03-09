@@ -17,9 +17,8 @@
     </div>
     <div class="efds-table-header__actions">
         <a href="{{ route('modules.reliability.failures.create') }}" class="btn efds-btn efds-btn--primary">
-            <i class="fas fa-plus me-1"></i>Add failure
+            <i class="fas fa-plus me-1"></i>Add task card
         </a>
-        <a href="{{ route('modules.reliability.export-buf', request()->all()) }}" class="btn efds-btn efds-btn--primary">Defects report</a>
         <a href="{{ route('modules.reliability.export-excel', request()->all()) }}" class="btn efds-btn efds-btn--primary">Excel</a>
     </div>
 </div>
@@ -36,7 +35,7 @@
                         <th style="padding: 12px;">SEQ</th>
                         <th style="padding: 12px;">TASK CARD</th>
                         <th style="padding: 12px; min-width: 200px;">TASK CARD DESCRIPTION</th>
-                        <th style="padding: 12px;">Task</th>
+                        <th style="padding: 12px;">MPD</th>
                         <th style="padding: 12px;"># of RC</th>
                         <th style="padding: 12px;">Max Hours on RC</th>
                         <th style="padding: 12px;"># of STR NRCs</th>
@@ -67,8 +66,8 @@
                                     {{ $failure->aircraft_malfunction ?? $failure->component_cause ?? '—' }}
                                 </div>
                             </td>
-                            <td style="padding: 8px;">—</td>
-                            <td style="padding: 8px;">—</td>
+                            <td style="padding: 8px;">{{ $failure->mpd ?? '—' }}</td>
+                            <td style="padding: 8px;">{{ isset($failure->num_rc) ? (int) $failure->num_rc : '—' }}</td>
                             <td style="padding: 8px;">—</td>
                             <td style="padding: 8px;">—</td>
                             <td style="padding: 8px;">—</td>

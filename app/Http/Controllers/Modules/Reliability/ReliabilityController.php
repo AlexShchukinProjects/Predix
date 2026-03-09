@@ -18,6 +18,7 @@ use App\Models\RelFailureFormSetting;
 use App\Models\ReliabilityFailure;
 use App\Models\RelFailureAttachment;
 use App\Models\SystemSetting;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -119,7 +120,9 @@ class ReliabilityController extends Controller
         }
 
         // Реальные отказы для таблицы + фильтры
+        // # of RC = количество строк в RC_master_data, где cust_card (CUST. CARD) содержит TASK CARD (work_order_number)
         $failuresQuery = ReliabilityFailure::query()
+            ->selectRaw('rel_stub.*, (SELECT COUNT(*) FROM RC_master_data WHERE COALESCE(TRIM(rel_stub.work_order_number), "") != "" AND RC_master_data.cust_card LIKE CONCAT("%", rel_stub.work_order_number, "%")) as num_rc')
             ->with(['detectionStage', 'consequence', 'takenMeasure'])
             ->orderByDesc('failure_date')
             ->orderByDesc('id');
@@ -467,8 +470,8 @@ class ReliabilityController extends Controller
 
         $data = $request->validate([
             'account_number' => ['nullable', 'string', 'max:100'],
-            'failure_date' => ['required', 'date'],
-            'aircraft_number' => ['required', 'string', 'max:50'],
+            'failure_date' => ['nullable', 'date'],
+            'aircraft_number' => ['nullable', 'string', 'max:50'],
             'aircraft_type' => ['nullable', 'string', 'max:100'],
             'aircraft_serial' => ['nullable', 'string', 'max:100'],
             'aircraft_manufacture_date' => ['nullable', 'date'],
@@ -487,6 +490,7 @@ class ReliabilityController extends Controller
             'wo_number' => ['nullable', 'string', 'max:100'],
             'wo_status_id' => ['nullable', 'integer'],
             'work_order_number' => ['nullable', 'string', 'max:100'],
+            'mpd' => ['nullable', 'string', 'max:255'],
             'system_name' => ['nullable', 'string', 'max:255'],
             'subsystem_name' => ['nullable', 'string', 'max:255'],
             'component_malfunction' => ['nullable', 'string'],
@@ -524,64 +528,69 @@ class ReliabilityController extends Controller
             'position' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $payload = [
-            'account_number' => $data['account_number'] ?? null,
-            'failure_date' => $data['failure_date'],
-            'aircraft_number' => $data['aircraft_number'],
-            'aircraft_type' => $data['aircraft_type'] ?? null,
-            'aircraft_serial' => $data['aircraft_serial'] ?? null,
-            'aircraft_manufacture_date' => $data['aircraft_manufacture_date'] ?? null,
-            'aircraft_hours' => $data['aircraft_hours'] ?? null,
-            'aircraft_landings' => $data['aircraft_landings'] ?? null,
-            'aircraft_ppr_hours' => $data['aircraft_ppr_hours'] ?? null,
-            'aircraft_ppr_landings' => $data['aircraft_ppr_landings'] ?? null,
-            'aircraft_repair_date' => $data['aircraft_repair_date'] ?? null,
-            'previous_repair_location' => $data['previous_repair_location'] ?? null,
-            'aircraft_repairs_count' => $data['aircraft_repairs_count'] ?? null,
-            'operator' => $data['operator'] ?? null,
-            'detection_stage_id' => $data['detection_stage'] ?? null,
-            'aircraft_malfunction' => $data['aircraft_malfunction'] ?? null,
-            'event_location' => $data['event_location'] ?? null,
-            'consequence_id' => $data['consequence_id'] ?? null,
-            'wo_number' => $data['wo_number'] ?? null,
-            'wo_status_id' => $data['wo_status_id'] ?? null,
-            'work_order_number' => $data['work_order_number'] ?? null,
-            'system_name' => $data['system_name'] ?? null,
-            'subsystem_name' => $data['subsystem_name'] ?? null,
-            'component_malfunction' => $data['component_malfunction'] ?? null,
-            'component_cause' => $data['component_cause'] ?? null,
-            'taken_measure_id' => $data['taken_measure_id'] ?? null,
-            'resolution_method' => $data['resolution_method'] ?? null,
-            'resolution_date' => $data['resolution_date'] ?? null,
-            'aggregate_type' => $data['aggregate_type'] ?? null,
-            'part_number_off' => $data['part_number_off'] ?? null,
-            'component_serial' => $data['component_serial'] ?? null,
-            'part_number_on' => $data['part_number_on'] ?? null,
-            'serial_number_on' => $data['serial_number_on'] ?? null,
-            'component_hours_unit' => $data['component_hours_unit'] ?? null,
-            'manufacturer' => $data['manufacturer'] ?? null,
-            'removal_date' => $data['removal_date'] ?? null,
-            'component_sne_hours' => $data['component_sne_hours'] ?? null,
-            'component_ppr_hours' => $data['component_ppr_hours'] ?? null,
-            'production_date' => $data['production_date'] ?? null,
-            'component_repairs_count' => $data['component_repairs_count'] ?? null,
-            'previous_installation_date' => $data['previous_installation_date'] ?? null,
-            'repair_factory' => $data['repair_factory'] ?? null,
-            'component_repair_date' => $data['component_repair_date'] ?? null,
-            'engine_type_id' => $data['engine_type_id'] ?? null,
-            'engine_number_id' => $data['engine_number_id'] ?? null,
-            'engine_release_date' => $data['engine_release_date'] ?? null,
-            'engine_installation_date' => $data['engine_installation_date'] ?? null,
-            'engine_sne_hours' => $data['engine_sne_hours'] ?? null,
-            'engine_ppr_hours' => $data['engine_ppr_hours'] ?? null,
-            'engine_sne_cycles' => $data['engine_sne_cycles'] ?? null,
-            'engine_ppr_cycles' => $data['engine_ppr_cycles'] ?? null,
-            'engine_repair_date' => $data['engine_repair_date'] ?? null,
-            'engine_repair_location' => $data['engine_repair_location'] ?? null,
-            'engine_repairs_count' => $data['engine_repairs_count'] ?? null,
-            'owner' => $data['owner'] ?? null,
-            'position' => $data['position'] ?? null,
-        ];
+        // Объединяем с существующей записью: обновляем только переданные поля (форма может содержать только 3 поля)
+        $payload = array_merge(
+            $failure->only($failure->getFillable()),
+            [
+                'account_number' => $data['account_number'] ?? $failure->account_number,
+                'failure_date' => $data['failure_date'] ?? $failure->failure_date,
+                'aircraft_number' => $data['aircraft_number'] ?? $failure->aircraft_number,
+                'aircraft_type' => $data['aircraft_type'] ?? $failure->aircraft_type,
+                'aircraft_serial' => $data['aircraft_serial'] ?? $failure->aircraft_serial,
+                'aircraft_manufacture_date' => $data['aircraft_manufacture_date'] ?? $failure->aircraft_manufacture_date,
+                'aircraft_hours' => $data['aircraft_hours'] ?? $failure->aircraft_hours,
+                'aircraft_landings' => $data['aircraft_landings'] ?? $failure->aircraft_landings,
+                'aircraft_ppr_hours' => $data['aircraft_ppr_hours'] ?? $failure->aircraft_ppr_hours,
+                'aircraft_ppr_landings' => $data['aircraft_ppr_landings'] ?? $failure->aircraft_ppr_landings,
+                'aircraft_repair_date' => $data['aircraft_repair_date'] ?? $failure->aircraft_repair_date,
+                'previous_repair_location' => $data['previous_repair_location'] ?? $failure->previous_repair_location,
+                'aircraft_repairs_count' => $data['aircraft_repairs_count'] ?? $failure->aircraft_repairs_count,
+                'operator' => $data['operator'] ?? $failure->operator,
+                'detection_stage_id' => $data['detection_stage'] ?? $failure->detection_stage_id,
+                'aircraft_malfunction' => array_key_exists('aircraft_malfunction', $data) ? $data['aircraft_malfunction'] : $failure->aircraft_malfunction,
+                'event_location' => $data['event_location'] ?? $failure->event_location,
+                'consequence_id' => $data['consequence_id'] ?? $failure->consequence_id,
+                'wo_number' => $data['wo_number'] ?? $failure->wo_number,
+                'wo_status_id' => $data['wo_status_id'] ?? $failure->wo_status_id,
+                'work_order_number' => array_key_exists('work_order_number', $data) ? $data['work_order_number'] : $failure->work_order_number,
+                'mpd' => array_key_exists('mpd', $data) ? $data['mpd'] : $failure->mpd,
+                'system_name' => $data['system_name'] ?? $failure->system_name,
+                'subsystem_name' => $data['subsystem_name'] ?? $failure->subsystem_name,
+                'component_malfunction' => $data['component_malfunction'] ?? $failure->component_malfunction,
+                'component_cause' => $data['component_cause'] ?? $failure->component_cause,
+                'taken_measure_id' => $data['taken_measure_id'] ?? $failure->taken_measure_id,
+                'resolution_method' => $data['resolution_method'] ?? $failure->resolution_method,
+                'resolution_date' => $data['resolution_date'] ?? $failure->resolution_date,
+                'aggregate_type' => $data['aggregate_type'] ?? $failure->aggregate_type,
+                'part_number_off' => $data['part_number_off'] ?? $failure->part_number_off,
+                'component_serial' => $data['component_serial'] ?? $failure->component_serial,
+                'part_number_on' => $data['part_number_on'] ?? $failure->part_number_on,
+                'serial_number_on' => $data['serial_number_on'] ?? $failure->serial_number_on,
+                'component_hours_unit' => $data['component_hours_unit'] ?? $failure->component_hours_unit,
+                'manufacturer' => $data['manufacturer'] ?? $failure->manufacturer,
+                'removal_date' => $data['removal_date'] ?? $failure->removal_date,
+                'component_sne_hours' => $data['component_sne_hours'] ?? $failure->component_sne_hours,
+                'component_ppr_hours' => $data['component_ppr_hours'] ?? $failure->component_ppr_hours,
+                'production_date' => $data['production_date'] ?? $failure->production_date,
+                'component_repairs_count' => $data['component_repairs_count'] ?? $failure->component_repairs_count,
+                'previous_installation_date' => $data['previous_installation_date'] ?? $failure->previous_installation_date,
+                'repair_factory' => $data['repair_factory'] ?? $failure->repair_factory,
+                'component_repair_date' => $data['component_repair_date'] ?? $failure->component_repair_date,
+                'engine_type_id' => $data['engine_type_id'] ?? $failure->engine_type_id,
+                'engine_number_id' => $data['engine_number_id'] ?? $failure->engine_number_id,
+                'engine_release_date' => $data['engine_release_date'] ?? $failure->engine_release_date,
+                'engine_installation_date' => $data['engine_installation_date'] ?? $failure->engine_installation_date,
+                'engine_sne_hours' => $data['engine_sne_hours'] ?? $failure->engine_sne_hours,
+                'engine_ppr_hours' => $data['engine_ppr_hours'] ?? $failure->engine_ppr_hours,
+                'engine_sne_cycles' => $data['engine_sne_cycles'] ?? $failure->engine_sne_cycles,
+                'engine_ppr_cycles' => $data['engine_ppr_cycles'] ?? $failure->engine_ppr_cycles,
+                'engine_repair_date' => $data['engine_repair_date'] ?? $failure->engine_repair_date,
+                'engine_repair_location' => $data['engine_repair_location'] ?? $failure->engine_repair_location,
+                'engine_repairs_count' => $data['engine_repairs_count'] ?? $failure->engine_repairs_count,
+                'owner' => $data['owner'] ?? $failure->owner,
+                'position' => $data['position'] ?? $failure->position,
+            ]
+        );
 
         $failure->update($payload);
 
@@ -1001,8 +1010,8 @@ class ReliabilityController extends Controller
     {
         $data = $request->validate([
             'account_number' => ['nullable', 'string', 'max:100'],
-            'failure_date' => ['required', 'date'],
-            'aircraft_number' => ['required', 'string', 'max:50'],
+            'failure_date' => ['nullable', 'date'],
+            'aircraft_number' => ['nullable', 'string', 'max:50'],
             'aircraft_type' => ['nullable', 'string', 'max:100'],
             'aircraft_serial' => ['nullable', 'string', 'max:100'],
             'aircraft_manufacture_date' => ['nullable', 'date'],
@@ -1021,6 +1030,7 @@ class ReliabilityController extends Controller
             'wo_number' => ['nullable', 'string', 'max:100'],
             'wo_status_id' => ['nullable', 'integer'],
             'work_order_number' => ['nullable', 'string', 'max:100'],
+            'mpd' => ['nullable', 'string', 'max:255'],
             'system_name' => ['nullable', 'string', 'max:255'],
             'subsystem_name' => ['nullable', 'string', 'max:255'],
             'component_malfunction' => ['nullable', 'string'],
@@ -1061,8 +1071,8 @@ class ReliabilityController extends Controller
         // маппинг названий полей формы к полям в БД
         $payload = [
             'account_number' => $data['account_number'] ?? null,
-            'failure_date' => $data['failure_date'],
-            'aircraft_number' => $data['aircraft_number'],
+            'failure_date' => $data['failure_date'] ?? now()->toDateString(),
+            'aircraft_number' => $data['aircraft_number'] ?? '',
             'aircraft_type' => $data['aircraft_type'] ?? null,
             'aircraft_serial' => $data['aircraft_serial'] ?? null,
             'aircraft_manufacture_date' => $data['aircraft_manufacture_date'] ?? null,
@@ -1081,6 +1091,7 @@ class ReliabilityController extends Controller
             'wo_number' => $data['wo_number'] ?? null,
             'wo_status_id' => $data['wo_status_id'] ?? null,
             'work_order_number' => $data['work_order_number'] ?? null,
+            'mpd' => $data['mpd'] ?? null,
             'system_name' => $data['system_name'] ?? null,
             'subsystem_name' => $data['subsystem_name'] ?? null,
             'component_malfunction' => $data['component_malfunction'] ?? null,
@@ -1128,13 +1139,6 @@ class ReliabilityController extends Controller
                 'message' => 'Отказ успешно сохранён.',
                 'id' => $failure->id,
             ]);
-        }
-
-        // Заглушка: таблицы rel_* удалены, данные не сохраняются — редирект на список
-        if (!Schema::hasTable('rel_failures')) {
-            return redirect()
-                ->route('modules.reliability.failures.index')
-                ->with('info', 'Режим заглушки: данные не сохраняются.');
         }
 
         return redirect()
