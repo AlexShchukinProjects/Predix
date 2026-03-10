@@ -68,7 +68,7 @@
                             </td>
                             <td style="padding: 8px;">{{ $failure->mpd ?? '—' }}</td>
                             <td style="padding: 8px;">{{ isset($failure->num_rc) ? (int) $failure->num_rc : '—' }}</td>
-                            <td style="padding: 8px;">—</td>
+                            <td style="padding: 8px;">{{ isset($failure->max_hours_on_rc) && $failure->max_hours_on_rc !== null ? number_format((float) $failure->max_hours_on_rc, 2) : '—' }}</td>
                             <td style="padding: 8px;">—</td>
                             <td style="padding: 8px;">—</td>
                             <td style="padding: 8px;">—</td>

@@ -35,17 +35,17 @@
 <div class="container-fluid">
     <div class="d-flex justify-content-start align-items-center mb-2">
         <a href="{{ route('modules.reliability.index', ['tab' => 'failures']) }}" class="back-button">
-            <i class="fas fa-arrow-left me-2"></i>К списку отказов
+            <i class="fas fa-arrow-left me-2"></i>Back
         </a>
     </div>
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h4 mb-0">
-            {{ $isEdit ? 'Редактирование отказа' : 'Добавить отказ' }}
+            {{ $isEdit ? 'Edit' : 'Add' }}
         </h1>
    {{--
    @if($isEdit)
          <a href="{{ route('modules.reliability.failures.export-card', $f?->id) }}" class="btn efds-btn efds-btn--primary" target="_blank">
-                <i class="fas fa-download me-1"></i>Выгрузить карту
+                <i class="fas fa-download me-1"></i>Export card
             </a>
         @endif
    --}}
@@ -98,8 +98,8 @@
 
             <div class="card-footer d-flex justify-content-between align-items-center">
                 <div class="efds-actions mb-0">
-                    <button type="submit" class="btn efds-btn efds-btn--primary">Сохранить</button>
-                    <a href="{{ route('modules.reliability.index', ['tab' => 'failures']) }}" class="btn efds-btn efds-btn--outline-primary">Отмена</a>
+                    <button type="submit" class="btn efds-btn efds-btn--primary">Save</button>
+                    <a href="{{ route('modules.reliability.index', ['tab' => 'failures']) }}" class="btn efds-btn efds-btn--outline-primary">Cancel</a>
                 </div>
             </div>
         </form>
@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         function buildSubsystemOptions(systemVal, targetSelect, opts) {
             if (!targetSelect) return;
-            targetSelect.innerHTML = '<option value="">Выберите подсистему</option>';
+            targetSelect.innerHTML = '<option value="">Select subsystem</option>';
             if (!systemVal || systemVal === '__free__') {
                 targetSelect.disabled = true;
                 return;
@@ -193,12 +193,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!canLoad) {
                 tableWrap.style.display = 'none';
                 placeholder.style.display = 'block';
-                placeholder.textContent = 'Выберите систему и подсистему для фильтра';
+                placeholder.textContent = 'Select system and subsystem to filter';
                 return;
             }
             tableWrap.style.display = 'table';
             placeholder.style.display = 'none';
-            tbody.innerHTML = '<tr><td colspan="2" class="text-muted small">Загрузка...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="2" class="text-muted small">Loading...</td></tr>';
             var url = modalApiBase + '?system=' + encodeURIComponent(system || '') + '&subsystem=' + encodeURIComponent(subsystem || '') + '&search=' + encodeURIComponent(search);
             if (aircraftTypeId) url += '&aircraft_type_id=' + encodeURIComponent(aircraftTypeId);
             fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
@@ -209,7 +209,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(function(data) {
                     var items = (data && data.aggregates) ? data.aggregates : [];
                     if (items.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="2" class="text-muted small">Ничего не найдено</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="2" class="text-muted small">No results found</td></tr>';
                         return;
                     }
                     tbody.innerHTML = '';
@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 })
                 .catch(function(err) {
-                    tbody.innerHTML = '<tr><td colspan="2" class="text-danger small">Ошибка загрузки</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="2" class="text-danger small">Load error</td></tr>';
                 });
         }
         function escapeHtml(s) {
@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     addName.value = '';
                     if (addAircraftType) addAircraftType.value = '';
                     if (addSystem) addSystem.value = '';
-                    if (addSubsystem) { addSubsystem.innerHTML = '<option value="">Выберите систему</option>'; addSubsystem.disabled = true; }
+                    if (addSubsystem) { addSubsystem.innerHTML = '<option value="">Select system</option>'; addSubsystem.disabled = true; }
                 }
             });
         }
@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
             addSave.addEventListener('click', function() {
                 var name = (addName && addName.value) ? addName.value.trim() : '';
                 if (!name) {
-                    if (addMessage) { addMessage.style.display = 'block'; addMessage.className = 'small mt-1 text-danger'; addMessage.textContent = 'Укажите наименование.'; }
+                    if (addMessage) { addMessage.style.display = 'block'; addMessage.className = 'small mt-1 text-danger'; addMessage.textContent = 'Specify the name.'; }
                     return;
                 }
                 var payload = {
@@ -290,14 +290,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             if (addCode) addCode.value = '';
                             if (aggInput && res.data.aggregate && res.data.aggregate.name) aggInput.value = res.data.aggregate.name;
                             loadModalAggregates();
-                            if (addMessage) { addMessage.style.display = 'block'; addMessage.className = 'small mt-1 text-success'; addMessage.textContent = res.data.message || 'Агрегат добавлен.'; setTimeout(function() { addMessage.style.display = 'none'; }, 2000); }
+                            if (addMessage) { addMessage.style.display = 'block'; addMessage.className = 'small mt-1 text-success'; addMessage.textContent = res.data.message || 'Aggregate added.'; setTimeout(function() { addMessage.style.display = 'none'; }, 2000); }
                         } else {
-                            var msg = (res.data && res.data.message) ? res.data.message : (res.data && res.data.errors) ? Object.values(res.data.errors).flat().join(' ') : 'Ошибка сохранения';
+                            var msg = (res.data && res.data.message) ? res.data.message : (res.data && res.data.errors) ? Object.values(res.data.errors).flat().join(' ') : 'Save error';
                             if (addMessage) { addMessage.style.display = 'block'; addMessage.className = 'small mt-1 text-danger'; addMessage.textContent = msg; }
                         }
                     })
                     .catch(function() {
-                        if (addMessage) { addMessage.style.display = 'block'; addMessage.className = 'small mt-1 text-danger'; addMessage.textContent = 'Ошибка сети'; }
+                        if (addMessage) { addMessage.style.display = 'block'; addMessage.className = 'small mt-1 text-danger'; addMessage.textContent = 'Network error'; }
                     })
                     .finally(function() { addSave.disabled = false; });
             });
@@ -331,7 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var allEngineNumberOptions = Array.from(engineNumberSelect.options);
         engineTypeSelect.addEventListener('change', function() {
             var typeId = this.value;
-            engineNumberSelect.innerHTML = '<option value="">Выберите номер двигателя</option>';
+            engineNumberSelect.innerHTML = '<option value="">Select engine number</option>';
             allEngineNumberOptions.forEach(function(opt) {
                 if (opt.value === '') return;
                 var optTypeId = opt.getAttribute('data-engine-type-id');
@@ -354,7 +354,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var uploadBlock = document.getElementById('failure-attachments-upload');
         var previewEl = document.getElementById('failure-attachments-preview');
         var inputEl = document.getElementById('failure-attachments-input');
-        var placeholderHtml = '<div class="file-upload-placeholder"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg><span>Перетащите файлы сюда или нажмите для выбора</span></div>';
+        var placeholderHtml = '<div class="file-upload-placeholder"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg><span>Drag files here or click to select</span></div>';
 
         function formatSize(bytes) {
             if (!bytes) return '—';
@@ -379,7 +379,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             item.querySelector('.file-preview-remove').addEventListener('click', function(e) {
                 e.stopPropagation();
-                if (!fileId || !confirm('Удалить этот файл?')) return;
+                if (!fileId || !confirm('Delete this file?')) return;
                 fetch(deleteUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf }, body: JSON.stringify({ file_id: fileId }) })
                     .then(function(r) { if (r.ok) item.remove(); });
             });
@@ -392,14 +392,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (path) wrap.setAttribute('data-file-path', path);
             wrap.setAttribute('data-file-name', name || '');
             wrap.setAttribute('data-file-type', type || '');
-            wrap.innerHTML = '<div class="file-preview-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><div class="file-preview-info"><div class="file-preview-name" title="' + (name || '').replace(/"/g, '&quot;') + '">' + (name || 'файл') + '</div><div class="file-preview-size">' + formatSize(size) + '</div></div><button type="button" class="file-preview-remove" title="Удалить"><svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>';
+            wrap.innerHTML = '<div class="file-preview-icon"><svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><div class="file-preview-info"><div class="file-preview-name" title="' + (name || '').replace(/"/g, '&quot;') + '">' + (name || 'file') + '</div><div class="file-preview-size">' + formatSize(size) + '</div></div><button type="button" class="file-preview-remove" title="Remove"><svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>';
             var serveUrl = serveBase + (path ? '?path=' + encodeURIComponent(path) : '');
             var downloadUrl = downloadBase + (path ? '?path=' + encodeURIComponent(path) : '');
             wrap.addEventListener('click', function(e) { if (e.target.closest('.file-preview-remove')) return; window.open(path ? downloadUrl : serveUrl, '_blank'); });
             wrap.querySelector('.file-preview-remove').addEventListener('click', function(e) {
                 e.stopPropagation();
                 if (!fileId) { wrap.remove(); if (previewEl.children.length === 0) previewEl.innerHTML = placeholderHtml; return; }
-                if (!confirm('Удалить этот файл?')) return;
+                if (!confirm('Delete this file?')) return;
                 fetch(deleteUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf }, body: JSON.stringify({ file_id: fileId }) }).then(function(r) { if (r.ok) { wrap.remove(); if (previewEl.children.length === 0) previewEl.innerHTML = placeholderHtml; } });
             });
             if (listEl) listEl.appendChild(wrap); else previewEl.appendChild(wrap);

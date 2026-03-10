@@ -120,9 +120,12 @@ class ReliabilityController extends Controller
         }
 
         // Реальные отказы для таблицы + фильтры
-        // # of RC = количество строк в RC_master_data, где cust_card (CUST. CARD) содержит TASK CARD (work_order_number)
+        // # of RC = количество строк в RC_master_data, где cust_card (CUST. CARD) содержит MPD
+        // Max Hours on RC = MAX(ACT. TIME) по RC_master_data где CUST. CARD содержит MPD
         $failuresQuery = ReliabilityFailure::query()
-            ->selectRaw('rel_stub.*, (SELECT COUNT(*) FROM RC_master_data WHERE COALESCE(TRIM(rel_stub.work_order_number), "") != "" AND RC_master_data.cust_card LIKE CONCAT("%", rel_stub.work_order_number, "%")) as num_rc')
+            ->selectRaw("rel_stub.*,
+                (SELECT COUNT(*) FROM RC_master_data WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND RC_master_data.cust_card LIKE CONCAT('%', rel_stub.mpd, '%')) as num_rc,
+                (SELECT MAX(CAST(RC_master_data.act_time AS DECIMAL(15,2))) FROM RC_master_data WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND RC_master_data.cust_card LIKE CONCAT('%', rel_stub.mpd, '%')) as max_hours_on_rc")
             ->with(['detectionStage', 'consequence', 'takenMeasure'])
             ->orderByDesc('failure_date')
             ->orderByDesc('id');
@@ -159,6 +162,11 @@ class ReliabilityController extends Controller
                 $q->where('wo_number', 'like', '%' . $taskCard . '%')
                   ->orWhere('work_order_number', 'like', '%' . $taskCard . '%');
             });
+        }
+
+        // Max Hours on RC (calculated: filter by minimum value)
+        if ($request->filled('max_hours_rc') && is_numeric($request->input('max_hours_rc'))) {
+            $failuresQuery->havingRaw('max_hours_on_rc >= ?', [(float) $request->input('max_hours_rc')]);
         }
 
         // Пагинация
