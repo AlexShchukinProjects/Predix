@@ -121,11 +121,19 @@ class ReliabilityController extends Controller
 
         // Реальные отказы для таблицы + фильтры
         // # of RC = количество строк в RC_master_data, где cust_card (CUST. CARD) содержит MPD
-        // Max Hours on RC = MAX(ACT. TIME) по RC_master_data где CUST. CARD содержит MPD
+        // Max Hours on RC = MAX(ACT. TIME) по RC_master_data где CUST. CARD содержит Task card (work_order_number)
+        // # of STR NRCs = количество строк в NRC_master_data, где src_cust_card (SRC. CUST. CARD) содержит MPD и prim_skill (PRIM. SKILL) содержит 'STR'
+        // Max MHs on STR NRC = MAX(ACT. TIME) по NRC_master_data при тех же условиях (SRC. CUST. CARD содержит MPD, PRIM. SKILL содержит 'STR')
+        // AVG STR MHs = СРЗНАЧЕСЛИМН(ACT. TIME по NRC при тех же условиях); результат / # of RC (E)
+        // EEF Count = количество строк в NRC_master_data: SRC. CUST. CARD содержит MPD, PRIM. SKILL содержит 'STR', EEF не пустой (колонка I <> "")
         $failuresQuery = ReliabilityFailure::query()
             ->selectRaw("rel_stub.*,
                 (SELECT COUNT(*) FROM RC_master_data WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND RC_master_data.cust_card LIKE CONCAT('%', rel_stub.mpd, '%')) as num_rc,
-                (SELECT MAX(CAST(RC_master_data.act_time AS DECIMAL(15,2))) FROM RC_master_data WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND RC_master_data.cust_card LIKE CONCAT('%', rel_stub.mpd, '%')) as max_hours_on_rc")
+                (SELECT MAX(CAST(RC_master_data.act_time AS DECIMAL(15,2))) FROM RC_master_data WHERE COALESCE(TRIM(rel_stub.work_order_number), '') != '' AND RC_master_data.cust_card LIKE CONCAT('%', rel_stub.work_order_number, '%')) as max_hours_on_rc,
+                (SELECT COUNT(*) FROM NRC_master_data WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND NRC_master_data.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND NRC_master_data.prim_skill LIKE '%STR%') as num_str_nrcs,
+                (SELECT MAX(CAST(NRC_master_data.act_time AS DECIMAL(15,2))) FROM NRC_master_data WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND NRC_master_data.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND NRC_master_data.prim_skill LIKE '%STR%') as max_mhs_str_nrc,
+                (SELECT AVG(CAST(NRC_master_data.act_time AS DECIMAL(15,2))) FROM NRC_master_data WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND NRC_master_data.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND NRC_master_data.prim_skill LIKE '%STR%') as avg_str_mhs_raw,
+                (SELECT COUNT(*) FROM NRC_master_data WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND NRC_master_data.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND NRC_master_data.prim_skill LIKE '%STR%' AND COALESCE(TRIM(NRC_master_data.eef), '') != '') as eef_count")
             ->with(['detectionStage', 'consequence', 'takenMeasure'])
             ->orderByDesc('failure_date')
             ->orderByDesc('id');
@@ -167,6 +175,11 @@ class ReliabilityController extends Controller
         // Max Hours on RC (calculated: filter by minimum value)
         if ($request->filled('max_hours_rc') && is_numeric($request->input('max_hours_rc'))) {
             $failuresQuery->havingRaw('max_hours_on_rc >= ?', [(float) $request->input('max_hours_rc')]);
+        }
+
+        // # of STR NRCs (calculated: filter by minimum value)
+        if ($request->filled('num_str_nrcs') && is_numeric($request->input('num_str_nrcs'))) {
+            $failuresQuery->havingRaw('num_str_nrcs >= ?', [(int) $request->input('num_str_nrcs')]);
         }
 
         // Пагинация

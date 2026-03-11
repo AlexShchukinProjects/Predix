@@ -69,13 +69,13 @@
                             <td style="padding: 8px;">{{ $failure->mpd ?? '—' }}</td>
                             <td style="padding: 8px;">{{ isset($failure->num_rc) ? (int) $failure->num_rc : '—' }}</td>
                             <td style="padding: 8px;">{{ isset($failure->max_hours_on_rc) && $failure->max_hours_on_rc !== null ? number_format((float) $failure->max_hours_on_rc, 2) : '—' }}</td>
-                            <td style="padding: 8px;">—</td>
-                            <td style="padding: 8px;">—</td>
-                            <td style="padding: 8px;">—</td>
-                            <td style="padding: 8px;">—</td>
-                            <td style="padding: 8px;">—</td>
-                            <td style="padding: 8px;">—</td>
-                            <td style="padding: 8px;">—</td>
+                            <td style="padding: 8px;">{{ isset($failure->num_str_nrcs) ? (int) $failure->num_str_nrcs : '—' }}</td>
+                            <td style="padding: 8px;">{{ (($numRc = (int)($failure->num_rc ?? 0)) > 0) ? number_format((int)($failure->num_str_nrcs ?? 0) / $numRc * 100, 2) : '0.00' }}</td>
+                            <td style="padding: 8px;">{{ isset($failure->max_mhs_str_nrc) && $failure->max_mhs_str_nrc !== null ? number_format((float) $failure->max_mhs_str_nrc, 2) : '—' }}</td>
+                            <td style="padding: 8px;">{{ (($numRcAvg = (int)($failure->num_rc ?? 0)) > 0) ? number_format(((float)($failure->avg_str_mhs_raw ?? 0) / $numRcAvg), 2) : '0.00' }}</td>
+                            <td style="padding: 8px;">{{ isset($failure->eef_count) ? (int) $failure->eef_count : '—' }}</td>
+                            <td style="padding: 8px;">{{ (($numStrNrcs = (int)($failure->num_str_nrcs ?? 0)) > 0) ? number_format((int)($failure->eef_count ?? 0) / $numStrNrcs * 100, 2) : '0.00' }}</td>
+                            <td style="padding: 8px;">{{ sprintf('%.2f', ((($nr = (int)($failure->num_rc ?? 0)) > 0 ? (int)($failure->num_str_nrcs ?? 0) / $nr * 100 : 0) * (($ns = (int)($failure->num_str_nrcs ?? 0)) > 0 ? (int)($failure->eef_count ?? 0) / $ns * 100 : 0)) / 100) }}</td>
                             <td style="padding: 8px; min-width: 180px;">—</td>
                             <td style="padding: 8px;">—</td>
                         </tr>
