@@ -18,6 +18,9 @@ use App\Models\RelFailureFormSetting;
 use App\Models\ReliabilityFailure;
 use App\Models\RelFailureAttachment;
 use App\Models\SystemSetting;
+use App\Models\InspectionWorkCard;
+use App\Models\InspectionProject;
+use App\Models\InspectionEefRegistry;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -313,6 +316,90 @@ class ReliabilityController extends Controller
             'aircraftTypes' => $aircraftTypes,
             'hiddenFormFields' => $hiddenFormFields,
         ];
+    }
+
+    /**
+     * Dashboards: таблица по заказчикам, бар-чарт Task/Manhours по типу карты, круговые по ATA (Routine / Nonroutine).
+     */
+    public function dashboards(Request $request)
+    {
+        $customerFilter = $request->input('customer', 'all');
+        $aircraftTypeFilter = $request->input('aircraft_type', 'all');
+        $tailFilter = $request->input('tail_number', 'all');
+
+        $workCards = InspectionWorkCard::query()
+            ->selectRaw("id, COALESCE(NULLIF(TRIM(customer), ''), '—') as customer_name, project, tail_number, aircraft_type, order_type, ata, prim_skill, act_time")
+            ->when($customerFilter !== 'all', fn ($q) => $q->whereRaw('COALESCE(NULLIF(TRIM(customer), ""), "—") = ?', [$customerFilter]))
+            ->when($aircraftTypeFilter !== 'all', fn ($q) => $q->where('aircraft_type', $aircraftTypeFilter))
+            ->when($tailFilter !== 'all', fn ($q) => $q->where('tail_number', $tailFilter))
+            ->get();
+
+        $customers = $workCards->groupBy('customer_name')->map(function ($rows, $name) {
+            $projects = $rows->pluck('project')->unique()->filter();
+            $task = $rows->count();
+            $mhrs = (float) $rows->sum('act_time');
+            $eefCount = InspectionEefRegistry::where('customer_name', $name)->count();
+            return [
+                'customer' => $name,
+                'project_count' => $projects->count(),
+                'task' => $task,
+                'mhrs' => round($mhrs, 0),
+                'eef' => $eefCount ?: null,
+            ];
+        })->values();
+
+        $totalTask = $customers->sum('task');
+        $totalMhrs = $customers->sum('mhrs');
+        $totalEef = $customers->sum(fn ($c) => $c['eef'] ?? 0);
+
+        $routine = $workCards->filter(fn ($r) => ! str_contains(strtoupper((string) $r->order_type), 'NON') && ! str_contains(strtoupper((string) $r->order_type), 'NRC'));
+        $nonroutine = $workCards->filter(fn ($r) => str_contains(strtoupper((string) $r->order_type), 'NON') || str_contains(strtoupper((string) $r->order_type), 'NRC'));
+        if ($routine->isEmpty() && $nonroutine->isEmpty()) {
+            $routine = $workCards->filter(fn ($r) => stripos((string) $r->prim_skill, 'STR') === false);
+            $nonroutine = $workCards->filter(fn ($r) => stripos((string) $r->prim_skill, 'STR') !== false);
+        }
+
+        $barChart = [
+            'labels' => ['Routine', 'Nonroutine'],
+            'manhours' => [(float) $routine->sum('act_time'), (float) $nonroutine->sum('act_time')],
+            'task' => [$routine->count(), $nonroutine->count()],
+        ];
+
+        $ataLabel = function ($ata, $prim) {
+            $ata = trim((string) $ata);
+            $prim = trim((string) $prim);
+            if ($ata !== '' && $prim !== '') {
+                $ch = preg_replace('/[^0-9]/', '', substr($ata, 0, 2));
+                if ($ch !== '') {
+                    return $ch . ' + ' . (str_contains(strtoupper($prim), 'STR') ? 'STR' : (str_contains(strtoupper($prim), 'INT') ? 'INT' : (str_contains(strtoupper($prim), 'PROP') ? 'PROP' : 'OTHER')));
+                }
+            }
+            return $ata !== '' ? $ata : 'SYSTEMS';
+        };
+
+        $routineByTrade = $routine->groupBy(fn ($r) => $ataLabel($r->ata, $r->prim_skill))->map->count()->sortDesc();
+        $nonroutineByTrade = $nonroutine->groupBy(fn ($r) => $ataLabel($r->ata, $r->prim_skill))->map->count()->sortDesc();
+
+        $customerList = $customers->pluck('customer')->unique()->filter()->values()->all();
+        $aircraftTypes = $workCards->pluck('aircraft_type')->unique()->filter()->values()->all();
+        $tailNumbers = $workCards->pluck('tail_number')->unique()->filter()->values()->all();
+
+        return view('Modules.Reliability.dashboards', [
+            'customers' => $customers,
+            'totalTask' => $totalTask,
+            'totalMhrs' => $totalMhrs,
+            'totalEef' => $totalEef,
+            'totalProjectCount' => $customers->sum('project_count'),
+            'barChart' => $barChart,
+            'routineByTrade' => $routineByTrade,
+            'nonroutineByTrade' => $nonroutineByTrade,
+            'customerList' => $customerList,
+            'aircraftTypes' => $aircraftTypes,
+            'tailNumbers' => $tailNumbers,
+            'selectedCustomer' => $customerFilter,
+            'selectedAircraftType' => $aircraftTypeFilter,
+            'selectedTailNumber' => $tailFilter,
+        ]);
     }
 
     /**

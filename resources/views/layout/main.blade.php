@@ -454,6 +454,7 @@
                             </li>
                             @endif
                         @elseif($currentModule === 'reliability')
+                                @if($can('modules.reliability.index'))<li class="nav-ul nav-item"><a href="{{ route('modules.reliability.dashboards') }}" class="nav_link_nav {{ $currentRoute === 'modules.reliability.dashboards' ? 'active' : '' }}">DASHBOARDS</a></li>@endif
                                 @if($can('modules.reliability.index'))<li class="nav-ul nav-item"><a href="{{ route('modules.reliability.index') }}" class="nav_link_nav {{ $currentRoute === 'modules.reliability.index' ? 'active' : '' }}">ANALYSIS</a></li>@endif
                             @if($can('modules.reliability.settings.index'))<li class="nav-ul nav-item"><a href="{{ route('modules.reliability.settings.index') }}" class="nav_link_nav {{ str_starts_with($currentRoute, 'modules.reliability.settings') ? 'active' : '' }}">DATA</a></li>@endif
                         @endif
