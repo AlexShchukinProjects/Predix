@@ -338,14 +338,8 @@ class ReliabilityController extends Controller
 
         $useMaster = ! $this->dashboardWorkCardsHasRows($customerFilter, $aircraftTypeFilter, $tailFilter);
         $table = $useMaster ? 'work_cards_master' : 'work_cards';
-        $customerExpr = $useMaster
-            ? "COALESCE(NULLIF(TRIM(project), ''), '—')"
-            : "COALESCE(NULLIF(TRIM(customer), ''), '—')";
 
-        $aggRows = $this->dashboardBaseTableQuery($table, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter)
-            ->selectRaw("{$customerExpr} AS cn, COUNT(*) AS task, COUNT(DISTINCT NULLIF(TRIM(project), '')) AS project_count, COALESCE(SUM(COALESCE(act_time, 0)), 0) AS mhrs")
-            ->groupByRaw($customerExpr)
-            ->get();
+        $aggRows = $this->dashboardCustomerAggregateQuery($table, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter)->get();
 
         $customers = collect($aggRows)->map(function ($row) {
             $name = $row->cn;
@@ -429,6 +423,30 @@ class ReliabilityController extends Controller
         $this->dashboardApplyFiltersQuery($q, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter);
 
         return $q;
+    }
+
+    /**
+     * Агрегация по «заказчику» с ONLY_FULL_GROUP_BY: внутренний подзапрос выносит cn / project_key / act_val,
+     * внешний — COUNT(*) и COUNT(DISTINCT project_key) только по алиасам.
+     */
+    private function dashboardCustomerAggregateQuery(
+        string $table,
+        bool $useMaster,
+        string $customerFilter,
+        string $aircraftTypeFilter,
+        string $tailFilter,
+    ): QueryBuilder {
+        $customerExpr = $useMaster
+            ? "COALESCE(NULLIF(TRIM(project), ''), '—')"
+            : "COALESCE(NULLIF(TRIM(customer), ''), '—')";
+
+        $sub = $this->dashboardBaseTableQuery($table, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter)
+            ->selectRaw("{$customerExpr} AS cn, NULLIF(TRIM(project), '') AS project_key, COALESCE(act_time, 0) AS act_val");
+
+        return DB::query()
+            ->fromSub($sub, 'd')
+            ->selectRaw('d.cn, COUNT(*) AS task, COUNT(DISTINCT d.project_key) AS project_count, COALESCE(SUM(d.act_val), 0) AS mhrs')
+            ->groupBy('d.cn');
     }
 
     private function dashboardApplyFiltersQuery(
