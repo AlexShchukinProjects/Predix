@@ -10,15 +10,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('inspection_aircrafts', function (Blueprint $table) {
+        Schema::table('aircrafts', function (Blueprint $table) {
             $table->dropForeign(['project_id']);
         });
 
-        Schema::table('inspection_aircrafts', function (Blueprint $table) {
+        Schema::table('aircrafts', function (Blueprint $table) {
             $table->dropColumn(['project_id', 'msn', 'first_flight', 'current_status']);
         });
 
-        Schema::table('inspection_aircrafts', function (Blueprint $table) {
+        Schema::table('aircrafts', function (Blueprint $table) {
             $table->string('serial_number', 100)->nullable()->after('id');
             $table->string('tail_number', 100)->nullable();
             $table->string('aircraft_type', 100)->nullable();
@@ -81,7 +81,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('inspection_aircrafts', function (Blueprint $table) {
+        Schema::table('aircrafts', function (Blueprint $table) {
             $table->dropColumn([
                 'serial_number', 'tail_number', 'aircraft_type', 'visit', 'customer_number', 'owner_number',
                 'engine_type', 'apu_type', 'group_code', 'delivery_date', 'redelivery_date', 'etops', 'amm_group',
@@ -95,8 +95,8 @@ return new class extends Migration
             ]);
         });
 
-        Schema::table('inspection_aircrafts', function (Blueprint $table) {
-            $table->foreignId('project_id')->nullable()->after('id')->constrained('inspection_projects')->nullOnDelete();
+        Schema::table('aircrafts', function (Blueprint $table) {
+            $table->foreignId('project_id')->nullable()->after('id')->constrained('projects')->nullOnDelete();
             $table->string('msn', 100)->nullable();
             $table->date('first_flight')->nullable();
             $table->string('current_status', 255)->nullable();

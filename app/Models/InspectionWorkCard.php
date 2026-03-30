@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class InspectionWorkCard extends Model
 {
-    protected $table = 'inspection_work_cards';
+    protected $table = 'work_cards';
 
     protected $fillable = [
         'project', 'project_type', 'aircraft_type', 'tail_number', 'bay', 'wo_station', 'work_order',

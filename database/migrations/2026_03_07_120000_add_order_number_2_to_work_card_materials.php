@@ -10,14 +10,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('inspection_work_card_materials', function (Blueprint $table) {
+        Schema::table('work_card_materials', function (Blueprint $table) {
             $table->string('order_number_2', 100)->nullable()->after('location');
         });
     }
 
     public function down(): void
     {
-        Schema::table('inspection_work_card_materials', function (Blueprint $table) {
+        Schema::table('work_card_materials', function (Blueprint $table) {
             $table->dropColumn('order_number_2');
         });
     }

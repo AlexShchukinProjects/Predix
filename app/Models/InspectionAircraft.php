@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class InspectionAircraft extends Model
 {
-    protected $table = 'inspection_aircrafts';
+    protected $table = 'aircrafts';
 
     protected $fillable = [
         'serial_number',

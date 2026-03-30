@@ -10,16 +10,16 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Удаляем таблицу inspection_work_cards и создаём заново: все строковые колонки — TEXT,
+     * Удаляем таблицу work_cards и создаём заново: все строковые колонки — TEXT,
      * чтобы не превышать лимит размера строки MySQL (8126 байт).
      */
     public function up(): void
     {
         $this->dropForeignKeys();
 
-        Schema::dropIfExists('inspection_work_cards');
+        Schema::dropIfExists('work_cards');
 
-        Schema::create('inspection_work_cards', function (Blueprint $table) {
+        Schema::create('work_cards', function (Blueprint $table) {
             $table->id();
             $table->text('project')->nullable();
             $table->text('project_type')->nullable();
@@ -161,7 +161,7 @@ return new class extends Migration
 
     private function dropForeignKeys(): void
     {
-        foreach (['inspection_eef_registry', 'inspection_case_analyses'] as $tableName) {
+        foreach (['eef_registry', 'case_analyses'] as $tableName) {
             if (! Schema::hasTable($tableName)) {
                 continue;
             }
@@ -179,24 +179,24 @@ return new class extends Migration
 
     private function restoreForeignKeys(): void
     {
-        if (Schema::hasTable('inspection_eef_registry')) {
-            if (! Schema::hasColumn('inspection_eef_registry', 'work_card_id')) {
-                Schema::table('inspection_eef_registry', function (Blueprint $table) {
+        if (Schema::hasTable('eef_registry')) {
+            if (! Schema::hasColumn('eef_registry', 'work_card_id')) {
+                Schema::table('eef_registry', function (Blueprint $table) {
                     $table->unsignedBigInteger('work_card_id')->nullable()->after('id');
                 });
             }
-            Schema::table('inspection_eef_registry', function (Blueprint $table) {
-                $table->foreign('work_card_id')->references('id')->on('inspection_work_cards')->nullOnDelete();
+            Schema::table('eef_registry', function (Blueprint $table) {
+                $table->foreign('work_card_id')->references('id')->on('work_cards')->nullOnDelete();
             });
         }
-        if (Schema::hasTable('inspection_case_analyses')) {
-            if (! Schema::hasColumn('inspection_case_analyses', 'work_card_id')) {
-                Schema::table('inspection_case_analyses', function (Blueprint $table) {
+        if (Schema::hasTable('case_analyses')) {
+            if (! Schema::hasColumn('case_analyses', 'work_card_id')) {
+                Schema::table('case_analyses', function (Blueprint $table) {
                     $table->unsignedBigInteger('work_card_id')->nullable()->after('id');
                 });
             }
-            Schema::table('inspection_case_analyses', function (Blueprint $table) {
-                $table->foreign('work_card_id')->references('id')->on('inspection_work_cards')->nullOnDelete();
+            Schema::table('case_analyses', function (Blueprint $table) {
+                $table->foreign('work_card_id')->references('id')->on('work_cards')->nullOnDelete();
             });
         }
     }
@@ -204,17 +204,17 @@ return new class extends Migration
     public function down(): void
     {
         $this->dropForeignKeys();
-        Schema::dropIfExists('inspection_work_cards');
+        Schema::dropIfExists('work_cards');
         $this->restoreForeignKeys();
 
         // Восстанавливаем исходную таблицу из create_inspection_data_tables (без колонок из update)
-        Schema::create('inspection_work_cards', function (Blueprint $table) {
+        Schema::create('work_cards', function (Blueprint $table) {
             $table->id();
             $table->string('tc_number', 100)->nullable();
-            $table->foreignId('project_id')->nullable()->constrained('inspection_projects')->nullOnDelete();
+            $table->foreignId('project_id')->nullable()->constrained('projects')->nullOnDelete();
             $table->string('ac_registration', 50)->nullable();
             $table->string('source_card_ref', 255)->nullable();
-            $table->foreignId('source_card_ref_id')->nullable()->constrained('inspection_source_card_refs')->nullOnDelete();
+            $table->foreignId('source_card_ref_id')->nullable()->constrained('source_card_refs')->nullOnDelete();
             $table->text('rc_nrc_description')->nullable();
             $table->text('rectification_action_ref')->nullable();
             $table->string('skill_code', 50)->nullable();

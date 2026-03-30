@@ -11,7 +11,7 @@ return new class extends Migration
     public function up(): void
     {
         // PR_0112 – Project Inquiry (WINGS)
-        Schema::create('inspection_projects', function (Blueprint $table) {
+        Schema::create('projects', function (Blueprint $table) {
             $table->id();
             $table->string('project', 100)->nullable()->comment('Project code/name');
             $table->string('scope', 500)->nullable();
@@ -22,9 +22,9 @@ return new class extends Migration
         });
 
         // PR_0030 + Airfleets – Aircrafts
-        Schema::create('inspection_aircrafts', function (Blueprint $table) {
+        Schema::create('aircrafts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('project_id')->nullable()->constrained('inspection_projects')->nullOnDelete();
+            $table->foreignId('project_id')->nullable()->constrained('projects')->nullOnDelete();
             $table->string('msn', 100)->nullable()->comment('Manufacturer Serial Number');
             $table->date('first_flight')->nullable();
             $table->string('current_status', 255)->nullable();
@@ -32,7 +32,7 @@ return new class extends Migration
         });
 
         // Справочник источников карт (MPD/AD/SB/EO/Customer)
-        Schema::create('inspection_source_card_refs', function (Blueprint $table) {
+        Schema::create('source_card_refs', function (Blueprint $table) {
             $table->id();
             $table->string('code', 100)->nullable();
             $table->string('name', 255)->nullable();
@@ -40,13 +40,13 @@ return new class extends Migration
         });
 
         // PR_0059 – Work Card Inquiry (WINGS) + External
-        Schema::create('inspection_work_cards', function (Blueprint $table) {
+        Schema::create('work_cards', function (Blueprint $table) {
             $table->id();
             $table->string('tc_number', 100)->nullable()->comment('GAES WO Ref / TC#');
-            $table->foreignId('project_id')->nullable()->constrained('inspection_projects')->nullOnDelete();
+            $table->foreignId('project_id')->nullable()->constrained('projects')->nullOnDelete();
             $table->string('ac_registration', 50)->nullable();
             $table->string('source_card_ref', 255)->nullable();
-            $table->foreignId('source_card_ref_id')->nullable()->constrained('inspection_source_card_refs')->nullOnDelete();
+            $table->foreignId('source_card_ref_id')->nullable()->constrained('source_card_refs')->nullOnDelete();
             $table->text('rc_nrc_description')->nullable();
             $table->text('rectification_action_ref')->nullable();
             $table->string('skill_code', 50)->nullable();
@@ -59,10 +59,10 @@ return new class extends Migration
         });
 
         // EEF Registry (Excel)
-        Schema::create('inspection_eef_registry', function (Blueprint $table) {
+        Schema::create('eef_registry', function (Blueprint $table) {
             $table->id();
             $table->string('tc_number', 100)->nullable()->comment('GAES WO Ref');
-            $table->foreignId('work_card_id')->nullable()->constrained('inspection_work_cards')->nullOnDelete();
+            $table->foreignId('work_card_id')->nullable()->constrained('work_cards')->nullOnDelete();
             $table->string('eef_ref', 100)->nullable();
             $table->string('eef_subject', 500)->nullable();
             $table->text('eef_remarks')->nullable();
@@ -71,7 +71,7 @@ return new class extends Migration
         });
 
         // IC_0097 Material Data (WING) – колонки как в CSV
-        Schema::create('inspection_work_card_materials', function (Blueprint $table) {
+        Schema::create('work_card_materials', function (Blueprint $table) {
             $table->id();
             $table->string('project_number', 100)->nullable();
             $table->string('work_order_number', 100)->nullable();
@@ -114,9 +114,9 @@ return new class extends Migration
         });
 
         // Previous Case Analyses (PDF + критичность)
-        Schema::create('inspection_case_analyses', function (Blueprint $table) {
+        Schema::create('case_analyses', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('work_card_id')->nullable()->constrained('inspection_work_cards')->nullOnDelete();
+            $table->foreignId('work_card_id')->nullable()->constrained('work_cards')->nullOnDelete();
             $table->string('tc_number', 100)->nullable();
             $table->string('file_path', 500)->nullable();
             $table->string('file_name', 255)->nullable();
@@ -128,12 +128,12 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('inspection_case_analyses');
-        Schema::dropIfExists('inspection_work_card_materials');
-        Schema::dropIfExists('inspection_eef_registry');
-        Schema::dropIfExists('inspection_work_cards');
-        Schema::dropIfExists('inspection_source_card_refs');
-        Schema::dropIfExists('inspection_aircrafts');
-        Schema::dropIfExists('inspection_projects');
+        Schema::dropIfExists('case_analyses');
+        Schema::dropIfExists('work_card_materials');
+        Schema::dropIfExists('eef_registry');
+        Schema::dropIfExists('work_cards');
+        Schema::dropIfExists('source_card_refs');
+        Schema::dropIfExists('aircrafts');
+        Schema::dropIfExists('projects');
     }
 };

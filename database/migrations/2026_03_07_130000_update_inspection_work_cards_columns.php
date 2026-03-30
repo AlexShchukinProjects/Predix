@@ -13,7 +13,7 @@ return new class extends Migration
     {
         foreach (['project_id', 'source_card_ref_id'] as $column) {
             try {
-                Schema::table('inspection_work_cards', function (Blueprint $table) use ($column) {
+                Schema::table('work_cards', function (Blueprint $table) use ($column) {
                     $table->dropForeign([$column]);
                 });
             } catch (QueryException $e) {
@@ -28,19 +28,19 @@ return new class extends Migration
             'rc_nrc_description', 'rectification_action_ref', 'skill_code', 'mhrs_spent',
             'no_of_child_cards', 'source', 'flight_cycles', 'flight_hours',
         ];
-        $existingColumns = Schema::getColumnListing('inspection_work_cards');
+        $existingColumns = Schema::getColumnListing('work_cards');
         $dropThese = array_values(array_intersect($columnsToDrop, $existingColumns));
         if ($dropThese !== []) {
-            Schema::table('inspection_work_cards', function (Blueprint $table) use ($dropThese) {
+            Schema::table('work_cards', function (Blueprint $table) use ($dropThese) {
                 $table->dropColumn($dropThese);
             });
         }
 
-        if (Schema::hasColumn('inspection_work_cards', 'project')) {
+        if (Schema::hasColumn('work_cards', 'project')) {
             return;
         }
 
-        Schema::table('inspection_work_cards', function (Blueprint $table) {
+        Schema::table('work_cards', function (Blueprint $table) {
             $table->string('project', 80)->nullable()->after('id');
             $table->text('project_type')->nullable();
             $table->text('aircraft_type')->nullable();
@@ -178,7 +178,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('inspection_work_cards', function (Blueprint $table) {
+        Schema::table('work_cards', function (Blueprint $table) {
             $cols = [
                 'project', 'project_type', 'aircraft_type', 'tail_number', 'bay', 'wo_station', 'work_order',
                 'zone', 'item', 'quality_code', 'zones', 'status', 'wip_status', 'reason', 'src_order', 'src_zone',
@@ -202,12 +202,12 @@ return new class extends Migration
             $table->dropColumn($cols);
         });
 
-        Schema::table('inspection_work_cards', function (Blueprint $table) {
+        Schema::table('work_cards', function (Blueprint $table) {
             $table->string('tc_number', 100)->nullable()->after('id');
-            $table->foreignId('project_id')->nullable()->constrained('inspection_projects')->nullOnDelete();
+            $table->foreignId('project_id')->nullable()->constrained('projects')->nullOnDelete();
             $table->string('ac_registration', 50)->nullable();
             $table->string('source_card_ref', 255)->nullable();
-            $table->foreignId('source_card_ref_id')->nullable()->constrained('inspection_source_card_refs')->nullOnDelete();
+            $table->foreignId('source_card_ref_id')->nullable()->constrained('source_card_refs')->nullOnDelete();
             $table->text('rc_nrc_description')->nullable();
             $table->text('rectification_action_ref')->nullable();
             $table->string('skill_code', 50)->nullable();

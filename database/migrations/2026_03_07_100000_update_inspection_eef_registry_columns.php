@@ -10,11 +10,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('inspection_eef_registry', function (Blueprint $table) {
+        Schema::table('eef_registry', function (Blueprint $table) {
             $table->dropForeign(['work_card_id']);
         });
 
-        Schema::table('inspection_eef_registry', function (Blueprint $table) {
+        Schema::table('eef_registry', function (Blueprint $table) {
             $table->dropColumn([
                 'tc_number',
                 'work_card_id',
@@ -25,7 +25,7 @@ return new class extends Migration
             ]);
         });
 
-        Schema::table('inspection_eef_registry', function (Blueprint $table) {
+        Schema::table('eef_registry', function (Blueprint $table) {
             $table->string('eef_number', 100)->nullable()->after('id');
             $table->string('nrc_number', 100)->nullable();
             $table->string('ac_type', 100)->nullable();
@@ -59,7 +59,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('inspection_eef_registry', function (Blueprint $table) {
+        Schema::table('eef_registry', function (Blueprint $table) {
             $table->dropColumn([
                 'eef_number', 'nrc_number', 'ac_type', 'ata', 'project_no', 'subject',
                 'remarks', 'location', 'eef_status', 'link', 'link_path', 'man_hours',
@@ -71,9 +71,9 @@ return new class extends Migration
             ]);
         });
 
-        Schema::table('inspection_eef_registry', function (Blueprint $table) {
+        Schema::table('eef_registry', function (Blueprint $table) {
             $table->string('tc_number', 100)->nullable()->after('id');
-            $table->foreignId('work_card_id')->nullable()->constrained('inspection_work_cards')->nullOnDelete();
+            $table->foreignId('work_card_id')->nullable()->constrained('work_cards')->nullOnDelete();
             $table->string('eef_ref', 100)->nullable();
             $table->string('eef_subject', 500)->nullable();
             $table->text('eef_remarks')->nullable();

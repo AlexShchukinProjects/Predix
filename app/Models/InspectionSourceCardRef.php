@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class InspectionSourceCardRef extends Model
 {
-    protected $table = 'inspection_source_card_refs';
+    protected $table = 'source_card_refs';
 
     protected $fillable = ['code', 'name'];
 

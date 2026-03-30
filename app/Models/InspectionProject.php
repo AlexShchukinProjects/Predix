@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class InspectionProject extends Model
 {
-    protected $table = 'inspection_projects';
+    protected $table = 'projects';
 
     protected $fillable = [
         'project_number', 'status', 'tail_number', 'aircraft_type', 'scope', 'open_date', 'close_date',

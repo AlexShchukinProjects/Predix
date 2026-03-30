@@ -9,11 +9,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('ALTER TABLE inspection_projects MODIFY COLUMN resources TEXT NULL');
+        DB::statement('ALTER TABLE projects MODIFY COLUMN resources TEXT NULL');
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE inspection_projects MODIFY COLUMN resources VARCHAR(255) NULL');
+        DB::statement('ALTER TABLE projects MODIFY COLUMN resources VARCHAR(255) NULL');
     }
 };

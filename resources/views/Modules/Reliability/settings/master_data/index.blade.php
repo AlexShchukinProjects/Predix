@@ -12,7 +12,11 @@
         <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
 
-    @php $source = $source ?? 'rc'; @endphp
+    @php
+        $source = $source ?? 'rc';
+        $sortColumn = $sortColumn ?? 'id';
+        $sortDirection = $sortDirection ?? 'asc';
+    @endphp
 
     <!-- Filters panel -->
     <div class="row mb-4">
@@ -22,6 +26,8 @@
                     <form method="GET" action="{{ route('modules.reliability.settings.master-data.index') }}" id="masterDataFiltersForm">
                         <input type="hidden" name="source" value="{{ $source }}">
                         <input type="hidden" name="per_page" id="masterDataFilterPerPage" value="{{ request('per_page', $perPage ?? 50) }}">
+                        <input type="hidden" name="sort" value="{{ request('sort', $sortColumn) }}">
+                        <input type="hidden" name="dir" value="{{ request('dir', $sortDirection) }}">
                         <div class="row g-3 master-data-filters">
                             <div class="col-12 small text-muted">Filters match Work Card columns (import uses only these columns from CSV/XLSX).</div>
                             <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
@@ -141,6 +147,9 @@
             <span class="ms-2">Total records: {{ $items->total() }}</span>
         </div>
         <div class="efds-table-header__actions d-flex flex-wrap gap-2">
+            <button type="button" class="btn efds-btn efds-btn--outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#masterDataDbSchemaModal" title="How table columns map to database tables">
+                <i class="fas fa-project-diagram me-1"></i>Database schema
+            </button>
             <a href="{{ route('modules.reliability.settings.master-data.export', request()->query()) }}" class="btn efds-btn efds-btn--outline-primary btn-sm"><i class="fas fa-download me-1"></i>CSV export</a>
             <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#masterDataUploadModal"><i class="fas fa-file-excel me-1"></i>Add from Excel / CSV</button>
             <form id="form-delete-master-data" action="{{ route('modules.reliability.settings.master-data.delete') }}" method="post" class="d-none">
@@ -161,25 +170,33 @@
                         <thead class="table-light">
                             <tr>
                                 <th class="text-center" style="width: 40px; min-width: 40px; max-width: 40px;"><input type="checkbox" id="master-data-select-all" class="form-check-input" title="Select all on page"></th>
-                                <th>ID</th>
-                                <th>PROJECT</th>
-                                <th>PROJECT TYPE</th>
-                                <th>AIRCRAFT TYPE</th>
-                                <th>TAIL NUMBER</th>
-                                <th>WO STATION</th>
-                                <th>WORK ORDER</th>
-                                <th>ITEM</th>
-                                <th>SRC. ORDER</th>
-                                <th>SRC. ITEM</th>
-                                <th>SRC. CUST. CARD</th>
-                                <th>DESCRIPTION</th>
-                                <th>CORRECTIVE ACTION</th>
-                                <th>ATA</th>
-                                <th>CUST. CARD</th>
-                                <th>ORDER TYPE</th>
-                                <th>AVG. TIME</th>
-                                <th>ACT. TIME</th>
-                                <th>AIRCRAFT LOCATION</th>
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'id', 'label' => 'ID', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'project', 'label' => 'PROJECT', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'project_type', 'label' => 'PROJECT TYPE', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'aircraft_type', 'label' => 'AIRCRAFT TYPE', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'tail_number', 'label' => 'TAIL NUMBER', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['label' => 'MSN', 'sortable' => false])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['label' => 'AGE', 'sortable' => false])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['label' => 'FC', 'sortable' => false])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['label' => 'FH', 'sortable' => false])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['label' => 'EEF#', 'sortable' => false])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['label' => 'DATA SOURCE', 'sortable' => false])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['label' => 'MATERIAL', 'sortable' => false])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['label' => 'EQUIPMENT', 'sortable' => false])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'wo_station', 'label' => 'WO STATION', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'work_order', 'label' => 'WORK ORDER', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'item', 'label' => 'ITEM', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'src_order', 'label' => 'SRC. ORDER', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'src_item', 'label' => 'SRC. ITEM', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'src_cust_card', 'label' => 'SRC. CUST. CARD', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'description', 'label' => 'DESCRIPTION', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'corrective_action', 'label' => 'CORRECTIVE ACTION', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'ata', 'label' => 'ATA', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'cust_card', 'label' => 'CUST. CARD', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'order_type', 'label' => 'ORDER TYPE', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'avg_time', 'label' => 'AVG. TIME', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'act_time', 'label' => 'ACT. TIME', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'aircraft_location', 'label' => 'AIRCRAFT LOCATION', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
                             </tr>
                         </thead>
                         <tbody>
@@ -191,6 +208,14 @@
                                 <td>{{ $row->project_type }}</td>
                                 <td>{{ $row->aircraft_type }}</td>
                                 <td>{{ $row->tail_number }}</td>
+                                <td>{{ $row->master_msn }}</td>
+                                <td>{{ $row->master_age }}</td>
+                                <td>{{ $row->master_fc }}</td>
+                                <td>{{ $row->master_fh }}</td>
+                                <td>{{ $row->master_eef }}</td>
+                                <td>{{ Str::limit($row->master_data_source, 40) }}</td>
+                                <td>{{ Str::limit($row->master_material, 50) }}</td>
+                                <td>{{ $row->master_equipment }}</td>
                                 <td>{{ $row->wo_station }}</td>
                                 <td>{{ $row->work_order }}</td>
                                 <td>{{ $row->item }}</td>
@@ -208,7 +233,7 @@
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="20" class="text-center py-4 text-muted">No records. Upload data from Excel / CSV.</td>
+                                <td colspan="28" class="text-center py-4 text-muted">No records. Upload data from Excel / CSV.</td>
                             </tr>
                             @endforelse
                         </tbody>
@@ -323,6 +348,128 @@
     </div>
 </div>
 
+<div class="modal fade" id="masterDataDbSchemaModal" tabindex="-1" aria-labelledby="masterDataDbSchemaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered master-db-schema-modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="masterDataDbSchemaModalLabel"><i class="fas fa-database me-2 text-primary"></i>Master Data — database schema</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body master-db-schema-body">
+                <div class="master-db-erd-hint mb-3">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Hover a column name for join hints. <span class="text-muted">Key icon = primary or join key used for lookup.</span>
+                </div>
+
+                <div class="master-db-erd-canvas">
+                    <svg class="master-db-erd-wires" viewBox="0 0 1200 700" preserveAspectRatio="none" aria-hidden="true">
+                        <path fill="none" stroke="#1e293b" stroke-width="1.35" d="M 210 195 L 210 248 L 340 248 L 340 278"/>
+                        <path fill="none" stroke="#1e293b" stroke-width="1.35" d="M 990 195 L 990 248 L 860 248 L 860 278"/>
+                        <path fill="none" stroke="#1e293b" stroke-width="1.35" d="M 260 575 L 260 518 L 400 518 L 400 455"/>
+                        <path fill="none" stroke="#1e293b" stroke-width="1.35" d="M 940 575 L 940 518 L 800 518 L 800 455"/>
+                    </svg>
+
+                    <div class="master-db-erd-groups">
+                        <div class="master-db-erd-group master-db-erd-group--fleet">
+                            <span class="master-db-erd-group-label">Fleet &amp; project context</span>
+                            <div class="master-db-erd-row master-db-erd-row--split">
+                                @include('Modules.Reliability.settings.master_data.partials.erd_table', [
+                                    'name' => 'aircrafts',
+                                    'fields' => [
+                                        ['name' => 'id', 'pk' => true, 'hint' => 'Table primary key'],
+                                        ['name' => 'tail_number', 'pk' => true, 'hint' => 'Matched to work_cards_master.tail_number (trim, case)', 'note' => '→ join'],
+                                        ['name' => 'serial_number', 'hint' => 'Shown as MSN', 'note' => '→ MSN'],
+                                        ['name' => 'manufactured', 'hint' => 'Shown as AGE', 'note' => '→ AGE'],
+                                        ['name' => 'engine_type', 'hint' => 'EQUIPMENT if project has no engine', 'note' => '→ EQUIPMENT'],
+                                    ],
+                                ])
+                                @include('Modules.Reliability.settings.master_data.partials.erd_table', [
+                                    'name' => 'projects',
+                                    'fields' => [
+                                        ['name' => 'id', 'pk' => true],
+                                        ['name' => 'project_number + tail_number', 'pk' => true, 'hint' => 'TRIM(project_number) and tail match master.project + master.tail_number', 'note' => '→ composite join'],
+                                        ['name' => 'aircraft_csn', 'note' => '→ FC'],
+                                        ['name' => 'aircraft_tsn', 'note' => '→ FH'],
+                                        ['name' => 'engine_type', 'note' => '→ EQUIPMENT (preferred)'],
+                                    ],
+                                ])
+                            </div>
+                        </div>
+
+                        <div class="master-db-erd-group master-db-erd-group--master">
+                            <span class="master-db-erd-group-label">Work card master (GAES import)</span>
+                            @include('Modules.Reliability.settings.master_data.partials.erd_table', [
+                                'name' => 'work_cards_master',
+                                'wide' => true,
+                                'fields' => [
+                                    ['name' => 'id', 'pk' => true],
+                                    ['name' => 'project', 'hint' => 'Filters EEF pool; join to projects', 'note' => '→ PROJECT'],
+                                    ['name' => 'project_type', 'note' => '→ PROJECT TYPE'],
+                                    ['name' => 'aircraft_type', 'note' => '→ AIRCRAFT TYPE'],
+                                    ['name' => 'tail_number', 'hint' => 'Join to aircrafts & projects', 'note' => '→ TAIL #'],
+                                    ['name' => 'wo_station', 'note' => '→ WO STATION'],
+                                    ['name' => 'work_order', 'hint' => 'With item builds NRC for EEF', 'note' => '→ WORK ORDER'],
+                                    ['name' => 'item', 'hint' => 'With work_order → NRC; join materials', 'note' => '→ ITEM'],
+                                    ['name' => 'src_order', 'note' => '→ SRC. ORDER'],
+                                    ['name' => 'src_item', 'note' => '→ SRC. ITEM'],
+                                    ['name' => 'src_cust_card', 'note' => '→ SRC. CUST. CARD'],
+                                    ['name' => 'description', 'note' => '→ DESCRIPTION'],
+                                    ['name' => 'corrective_action', 'note' => '→ CORRECTIVE ACTION'],
+                                    ['name' => 'ata', 'note' => '→ ATA'],
+                                    ['name' => 'cust_card', 'note' => '→ CUST. CARD'],
+                                    ['name' => 'order_type', 'hint' => 'RC/NRC tab filter with src_cust_card', 'note' => '→ ORDER TYPE'],
+                                    ['name' => 'avg_time', 'note' => '→ AVG. TIME'],
+                                    ['name' => 'act_time', 'note' => '→ ACT. TIME'],
+                                    ['name' => 'aircraft_location', 'note' => '→ AIRCRAFT LOCATION'],
+                                ],
+                            ])
+                        </div>
+
+                        <div class="master-db-erd-group master-db-erd-group--refs">
+                            <span class="master-db-erd-group-label">EEF registry &amp; materials</span>
+                            <div class="master-db-erd-row master-db-erd-row--split">
+                                @include('Modules.Reliability.settings.master_data.partials.erd_table', [
+                                    'name' => 'eef_registry',
+                                    'fields' => [
+                                        ['name' => 'id', 'pk' => true],
+                                        ['name' => 'project_no', 'hint' => 'Same as master.project (trim)', 'note' => '→ join'],
+                                        ['name' => 'nrc_number', 'hint' => 'Must match WO + "-" + item (4-digit pad), e.g. 17766-0066', 'note' => '→ match'],
+                                        ['name' => 'eef_number', 'note' => '→ EEF#'],
+                                        ['name' => 'inspection_source_task', 'note' => '→ DATA SOURCE'],
+                                    ],
+                                ])
+                                @include('Modules.Reliability.settings.master_data.partials.erd_table', [
+                                    'name' => 'work_card_materials',
+                                    'fields' => [
+                                        ['name' => 'id', 'pk' => true],
+                                        ['name' => 'project_number + work_order_number + item_number', 'pk' => true, 'hint' => 'Equals master.project, work_order, item', 'note' => '→ composite join'],
+                                        ['name' => 'description', 'note' => '→ MATERIAL'],
+                                        ['name' => 'part_number', 'note' => '→ MATERIAL'],
+                                    ],
+                                ])
+                            </div>
+                        </div>
+
+                        <div class="master-db-erd-pipeline text-center small text-muted font-monospace py-2">
+                            GAES import → <strong>work_cards_master</strong> → query + PHP joins → on-screen grid
+                        </div>
+                    </div>
+                </div>
+
+                <div class="master-db-schema-legend small text-muted mt-3 d-flex flex-wrap gap-3 justify-content-center">
+                    <span><i class="fas fa-key text-warning me-1" style="font-size:0.65rem"></i> Primary / join key</span>
+                    <span><span class="master-db-erd-legend-swatch master-db-erd-legend-swatch--fleet"></span> Fleet &amp; project</span>
+                    <span><span class="master-db-erd-legend-swatch master-db-erd-legend-swatch--master"></span> Master row</span>
+                    <span><span class="master-db-erd-legend-swatch master-db-erd-legend-swatch--refs"></span> EEF &amp; materials</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn efds-btn efds-btn--outline-primary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @include('Modules.Reliability.inspection_settings.partials.table_styles')
 <style>
 .doc-mode-tabs { margin-bottom: 0; }
@@ -365,6 +512,186 @@
     white-space: nowrap;
     flex-shrink: 0;
     min-width: 280px;
+}
+/* Database schema modal: 90% viewport width & height */
+#masterDataDbSchemaModal .master-db-schema-modal-dialog {
+    width: 90vw;
+    max-width: 90vw;
+    height: 90vh;
+    max-height: 90vh;
+    margin: 5vh auto;
+}
+#masterDataDbSchemaModal .modal-content {
+    height: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+#masterDataDbSchemaModal .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+#masterDataDbSchemaModal .modal-header,
+#masterDataDbSchemaModal .modal-footer {
+    flex-shrink: 0;
+}
+.master-db-schema-body { font-size: 0.9rem; }
+.master-db-erd-hint {
+    background: linear-gradient(180deg, #dbeafe 0%, #eff6ff 100%);
+    border: 1px solid #93c5fd;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    color: #1e40af;
+}
+.master-db-erd-canvas {
+    position: relative;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+    min-height: 560px;
+    overflow: hidden;
+}
+.master-db-erd-wires {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.85;
+}
+.master-db-erd-groups {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.25rem 1.5rem 1rem;
+}
+.master-db-erd-group {
+    border-radius: 14px;
+    padding: 1.85rem 1.25rem 1.25rem;
+    position: relative;
+}
+.master-db-erd-group--fleet {
+    background: rgba(45, 212, 191, 0.09);
+    border: 1px dashed rgba(13, 148, 136, 0.38);
+}
+.master-db-erd-group--master {
+    background: rgba(180, 140, 80, 0.11);
+    border: 1px dashed rgba(120, 90, 55, 0.32);
+}
+.master-db-erd-group--refs {
+    background: rgba(139, 92, 246, 0.07);
+    border: 1px dashed rgba(124, 58, 237, 0.3);
+}
+.master-db-erd-group-label {
+    position: absolute;
+    top: 8px;
+    left: 14px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #57534e;
+}
+.master-db-erd-row--split {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1.5rem 2rem;
+}
+.master-db-erd-row--split > .master-db-erd-table {
+    flex: 1 1 240px;
+    max-width: 340px;
+}
+.master-db-erd-table {
+    background: #fff;
+    border-radius: 3px;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(15, 23, 42, 0.06);
+    min-width: 200px;
+}
+.master-db-erd-table--wide {
+    max-width: none;
+    width: 100%;
+}
+.master-db-erd-table__head {
+    background: linear-gradient(180deg, #4a8fd4 0%, #1e4d8f 100%);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.5rem 0.65rem;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+    border-radius: 3px 3px 0 0;
+}
+.master-db-erd-table__body {
+    font-family: ui-monospace, Consolas, "Courier New", monospace;
+    font-size: 0.66rem;
+    line-height: 1.4;
+}
+.master-db-erd-field {
+    padding: 0.32rem 0.55rem 0.32rem 1.55rem;
+    border-bottom: 1px solid #f1f5f9;
+    position: relative;
+    color: #0f172a;
+}
+.master-db-erd-field:last-child {
+    border-bottom: none;
+}
+.master-db-erd-field[title] {
+    cursor: help;
+}
+.master-db-erd-field-name {
+    word-break: break-word;
+}
+.master-db-erd-field--pk .master-db-erd-pk-icon {
+    position: absolute;
+    left: 7px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #ca8a04;
+    font-size: 0.55rem;
+    filter: drop-shadow(0 0 1px rgba(202, 138, 4, 0.5));
+}
+.master-db-erd-note {
+    display: block;
+    font-size: 0.58rem;
+    color: #64748b;
+    font-family: system-ui, -apple-system, sans-serif;
+    margin-top: 0.08rem;
+}
+.master-db-erd-pipeline {
+    border-top: 1px dashed #e7e5e4;
+    margin-top: 0.25rem;
+}
+.master-db-schema-legend .master-db-erd-legend-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    margin-right: 0.3rem;
+    vertical-align: middle;
+}
+.master-db-erd-legend-swatch--fleet {
+    background: rgba(45, 212, 191, 0.2);
+    border: 1px solid rgba(13, 148, 136, 0.45);
+}
+.master-db-erd-legend-swatch--master {
+    background: rgba(180, 140, 80, 0.18);
+    border: 1px solid rgba(120, 90, 55, 0.4);
+}
+.master-db-erd-legend-swatch--refs {
+    background: rgba(139, 92, 246, 0.12);
+    border: 1px solid rgba(124, 58, 237, 0.35);
+}
+@media (max-width: 767.98px) {
+    .master-db-erd-wires { display: none; }
+    .master-db-erd-row--split > .master-db-erd-table { max-width: none; }
 }
 </style>
 <script>

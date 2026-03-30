@@ -10,11 +10,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('inspection_projects', function (Blueprint $table) {
+        Schema::table('projects', function (Blueprint $table) {
             $table->dropColumn(['project', 'scope', 'customer', 'flight_cycles', 'flight_hours']);
         });
 
-        Schema::table('inspection_projects', function (Blueprint $table) {
+        Schema::table('projects', function (Blueprint $table) {
             $table->string('project_number', 100)->nullable()->after('id');
             $table->string('status', 50)->nullable();
             $table->string('tail_number', 100)->nullable();
@@ -84,7 +84,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('inspection_projects', function (Blueprint $table) {
+        Schema::table('projects', function (Blueprint $table) {
             $table->dropColumn([
                 'project_number', 'status', 'tail_number', 'aircraft_type', 'scope', 'open_date', 'close_date',
                 'customer_number', 'customer_name', 'customer_po', 'est_non_routine', 'target_days', 'arrival_date',
@@ -101,7 +101,7 @@ return new class extends Migration
             ]);
         });
 
-        Schema::table('inspection_projects', function (Blueprint $table) {
+        Schema::table('projects', function (Blueprint $table) {
             $table->string('project', 100)->nullable()->after('id');
             $table->string('scope', 500)->nullable();
             $table->string('customer', 255)->nullable();

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InspectionCaseAnalysis extends Model
 {
-    protected $table = 'inspection_case_analyses';
+    protected $table = 'case_analyses';
 
     protected $fillable = [
         'work_card_id',

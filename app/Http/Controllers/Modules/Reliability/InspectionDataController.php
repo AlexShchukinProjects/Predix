@@ -15,6 +15,8 @@ use App\Models\InspectionWorkCardMaterial;
 use App\Models\ReliabilityMasterData;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -92,11 +94,296 @@ class InspectionDataController extends Controller
         if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
-        $query = ReliabilityMasterData::query()->orderBy('id');
+        $query = ReliabilityMasterData::query();
         $this->applyMasterDataTabFilter($query, $source);
         $this->applyMasterDataFilters($query, $request, $source);
+        [$sortColumn, $sortDirection] = $this->resolveMasterDataSort($request);
+        $this->applyMasterDataSort($query, $sortColumn, $sortDirection);
         $items = $query->paginate($perPage)->withQueryString();
-        return view('Modules.Reliability.settings.master_data.index', compact('items', 'perPage', 'source'));
+        $this->enrichMasterDataPaginator($items);
+        return view('Modules.Reliability.settings.master_data.index', compact('items', 'perPage', 'source', 'sortColumn', 'sortDirection'));
+    }
+
+    /**
+     * MSN / AGE / FC / FH: aircrafts (by tail) + projects (FH=aircraft_tsn, FC=aircraft_csn by project+tail).
+     * EEF# / DATA SOURCE: eef_registry — only when NRC Number matches WORK ORDER + "-" + ITEM (4-digit padded), e.g. 17767-0001;
+     *   same PROJECT first, else global NRC key (no ATA / “first in project” fallback).
+     * MATERIAL: IC_0097 materials by PROJECT#/WORK ORDER#/ITEM#; EQUIPMENT: engine type (project or aircraft).
+     */
+    private function enrichMasterDataPaginator(LengthAwarePaginator $paginator): void
+    {
+        $this->enrichWorkCardMasterRows($paginator->getCollection());
+    }
+
+    private function enrichWorkCardMasterRows(Collection $rows): void
+    {
+        if ($rows->isEmpty()) {
+            return;
+        }
+        $tails = $rows->pluck('tail_number')->map(fn ($t) => $this->normalizeTailKey((string) $t))->unique()->filter()->values()->all();
+        $aircraftByTail = [];
+        if ($tails !== []) {
+            $trimTails = array_values(array_unique(array_filter(array_map('trim', $rows->pluck('tail_number')->all()))));
+            $candidates = $trimTails !== []
+                ? InspectionAircraft::query()
+                    ->where(function ($q) use ($trimTails) {
+                        foreach ($trimTails as $t) {
+                            $q->orWhereRaw('TRIM(tail_number) = ?', [$t]);
+                        }
+                    })
+                    ->get()
+                : collect();
+            foreach ($candidates as $a) {
+                $k = $this->normalizeTailKey((string) $a->tail_number);
+                if ($k !== '' && in_array($k, $tails, true) && !isset($aircraftByTail[$k])) {
+                    $aircraftByTail[$k] = $a;
+                }
+            }
+        }
+        $projectKeys = [];
+        foreach ($rows as $r) {
+            $pk = $this->projectTailKey((string) $r->project, (string) $r->tail_number);
+            if ($pk !== '') {
+                $projectKeys[$pk] = true;
+            }
+        }
+        $projectByKey = [];
+        if ($projectKeys !== []) {
+            $projectNos = $rows->pluck('project')->map(fn ($p) => trim((string) $p))->unique()->filter()->values()->all();
+            $projects = $projectNos !== []
+                ? InspectionProject::query()->where(function ($q) use ($projectNos) {
+                    foreach ($projectNos as $pn) {
+                        $q->orWhereRaw('TRIM(COALESCE(project_number, \'\')) = ?', [$pn]);
+                    }
+                })->get()
+                : collect();
+            foreach ($projects as $p) {
+                $k = $this->projectTailKey((string) $p->project_number, (string) $p->tail_number);
+                if ($k !== '' && isset($projectKeys[$k]) && !isset($projectByKey[$k])) {
+                    $projectByKey[$k] = $p;
+                }
+            }
+        }
+        $eefProjectNos = $rows->pluck('project')->map(fn ($p) => trim((string) $p))->unique()->filter()->values()->all();
+        $eefPool = $eefProjectNos !== []
+            ? InspectionEefRegistry::query()->where(function ($q) use ($eefProjectNos) {
+                foreach ($eefProjectNos as $pn) {
+                    $q->orWhereRaw('TRIM(COALESCE(project_no, \'\')) = ?', [trim($pn)]);
+                }
+            })->get()
+            : collect();
+        $canonicalNrcKeys = $rows->map(
+            fn ($r) => $this->eefCanonicalNrcKeyFromWorkCard((string) $r->work_order, (string) $r->item)
+        )->filter()->unique()->values()->all();
+        $eefByCanonicalNrc = [];
+        if ($canonicalNrcKeys !== []) {
+            $nrcRows = InspectionEefRegistry::query()
+                ->where(function ($q) use ($canonicalNrcKeys) {
+                    foreach ($canonicalNrcKeys as $k) {
+                        $q->orWhereRaw(
+                            'LOWER(REPLACE(TRIM(COALESCE(nrc_number, \'\')), \' \', \'\')) = ?',
+                            [$k]
+                        );
+                    }
+                })
+                ->get();
+            foreach ($nrcRows as $e) {
+                $nk = $this->normalizeEefNrcString((string) $e->nrc_number);
+                if ($nk !== '' && !isset($eefByCanonicalNrc[$nk])) {
+                    $eefByCanonicalNrc[$nk] = $e;
+                }
+            }
+        }
+        $matPairs = [];
+        foreach ($rows as $r) {
+            $matPairs[] = [
+                'project_number' => trim((string) $r->project),
+                'work_order_number' => trim((string) $r->work_order),
+                'item_number' => trim((string) $r->item),
+            ];
+        }
+        $materialByKey = [];
+        if ($matPairs !== []) {
+            $matOr = false;
+            $mats = InspectionWorkCardMaterial::query()
+                ->where(function ($q) use ($matPairs, &$matOr) {
+                    foreach ($matPairs as $pair) {
+                        if ($pair['project_number'] === '' && $pair['work_order_number'] === '') {
+                            continue;
+                        }
+                        $matOr = true;
+                        $q->orWhere(function ($q2) use ($pair) {
+                            $q2->where('project_number', $pair['project_number'])
+                                ->where('work_order_number', $pair['work_order_number'])
+                                ->where('item_number', $pair['item_number']);
+                        });
+                    }
+                });
+            $mats = $matOr ? $mats->get() : collect();
+            foreach ($mats as $m) {
+                $mk = $this->materialKey((string) $m->project_number, (string) $m->work_order_number, (string) $m->item_number);
+                if (!isset($materialByKey[$mk])) {
+                    $materialByKey[$mk] = [];
+                }
+                $desc = trim((string) ($m->description ?? $m->part_number ?? ''));
+                if ($desc !== '') {
+                    $materialByKey[$mk][] = $desc;
+                }
+            }
+        }
+        foreach ($rows as $row) {
+            $tn = $this->normalizeTailKey((string) $row->tail_number);
+            $ac = $tn !== '' ? ($aircraftByTail[$tn] ?? null) : null;
+            $pk = $this->projectTailKey((string) $row->project, (string) $row->tail_number);
+            $pr = $pk !== '' ? ($projectByKey[$pk] ?? null) : null;
+            $eef = $this->pickEefForWorkCardRow($row, $eefPool, $eefByCanonicalNrc);
+            $mk = $this->materialKey((string) $row->project, (string) $row->work_order, (string) $row->item);
+            $matList = $materialByKey[$mk] ?? [];
+            $materialStr = $matList !== [] ? implode('; ', array_slice(array_unique($matList), 0, 5)) : null;
+            $engine = $pr?->engine_type ?? $ac?->engine_type;
+            $row->setAttribute('master_msn', $ac?->serial_number);
+            $row->setAttribute('master_age', $ac?->manufactured);
+            $row->setAttribute('master_fc', $pr?->aircraft_csn);
+            $row->setAttribute('master_fh', $pr?->aircraft_tsn);
+            $row->setAttribute('master_eef', $eef?->eef_number);
+            $row->setAttribute('master_data_source', $eef?->inspection_source_task);
+            $row->setAttribute('master_material', $materialStr);
+            $row->setAttribute('master_equipment', $engine);
+        }
+    }
+
+    private function normalizeTailKey(string $tail): string
+    {
+        return strtoupper(preg_replace('/\s+/', ' ', trim($tail)));
+    }
+
+    private function projectTailKey(string $project, string $tail): string
+    {
+        $p = trim($project);
+        $t = $this->normalizeTailKey($tail);
+        if ($p === '' || $t === '') {
+            return '';
+        }
+        return $p . '|' . $t;
+    }
+
+    private function materialKey(string $project, string $wo, string $item): string
+    {
+        return trim($project) . '|' . trim($wo) . '|' . trim($item);
+    }
+
+    private function ataNorm(?string $a): string
+    {
+        return strtolower(preg_replace('/\s+/', '', trim((string) $a)));
+    }
+
+    private function acTypeNorm(?string $a): string
+    {
+        return strtolower(preg_replace('/\s+/', ' ', trim((string) $a)));
+    }
+
+    /** Spaces removed, lowercased — for comparing NRC Number strings. */
+    private function normalizeEefNrcString(string $s): string
+    {
+        return strtolower(preg_replace('/\s+/', '', trim($s)));
+    }
+
+    /** Canonical lookup key: normalized "{WORK ORDER}-{ITEM 4-digit zero-padded}" e.g. 17766-0066. */
+    private function eefCanonicalNrcKeyFromWorkCard(string $workOrder, string $item): ?string
+    {
+        $wo = trim($workOrder);
+        $it = trim((string) $item);
+        if ($wo === '' || $it === '') {
+            return null;
+        }
+        $itemDigits = preg_replace('/\D+/', '', $it) ?? '';
+        if ($itemDigits === '') {
+            return null;
+        }
+        $padded = str_pad($itemDigits, 4, '0', STR_PAD_LEFT);
+
+        return $this->normalizeEefNrcString($wo . '-' . $padded);
+    }
+
+    /**
+     * EEF registry NRC Number = WORK ORDER + "-" + ITEM zero-padded to 4 digits (e.g. WO 17766 + item 66 → 17766-0066).
+     * Also accepts legacy variants (no padding, digits-only concat) for older data.
+     */
+    private function eefRegistryNrcMatchesWorkOrderItem(?string $registryNrc, string $workOrder, string $item): bool
+    {
+        $wo = trim($workOrder);
+        $it = trim((string) $item);
+        $n = trim((string) $registryNrc);
+        if ($wo === '' || $it === '' || $n === '') {
+            return false;
+        }
+        $itemDigits = preg_replace('/\D+/', '', $it) ?? '';
+        if ($itemDigits === '') {
+            return false;
+        }
+        $itemPadded4 = str_pad($itemDigits, 4, '0', STR_PAD_LEFT);
+        $woDigits = preg_replace('/\D+/', '', $wo) ?? '';
+
+        $candidates = [
+            $wo . '-' . $itemPadded4,
+            $wo . '-' . $itemDigits,
+            $wo . $it,
+            $wo . $itemDigits,
+        ];
+        if ($woDigits !== '') {
+            $candidates[] = $woDigits . '-' . $itemPadded4;
+            $candidates[] = $woDigits . '-' . $itemDigits;
+            $candidates[] = $woDigits . $itemDigits;
+        }
+        $candidates[] = $wo . '/' . $itemDigits;
+        $candidates[] = $wo . ' ' . $itemDigits;
+
+        $nNorm = $this->normalizeEefNrcString($n);
+        foreach (array_unique(array_filter($candidates, static fn (string $s): bool => $s !== '')) as $c) {
+            if ($this->normalizeEefNrcString($c) === $nNorm) {
+                return true;
+            }
+        }
+
+        $digitsN = preg_replace('/\D+/', '', $n) ?? '';
+        if ($woDigits !== '' && $digitsN !== '' && $digitsN === $woDigits . $itemPadded4) {
+            return true;
+        }
+        if ($woDigits !== '' && $digitsN !== '' && $digitsN === $woDigits . $itemDigits) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, InspectionEefRegistry> $eefByCanonicalNrc normalized NRC key → row (fallback when project differs)
+     */
+    private function pickEefForWorkCardRow(
+        ReliabilityMasterData $row,
+        Collection $eefPool,
+        array $eefByCanonicalNrc = []
+    ): ?InspectionEefRegistry {
+        $wo = (string) $row->work_order;
+        $item = (string) $row->item;
+        $p = trim((string) $row->project);
+        $candidates = $p !== ''
+            ? $eefPool->filter(fn (InspectionEefRegistry $e) => trim((string) $e->project_no) === $p)
+            : collect();
+        if ($candidates->isNotEmpty()) {
+            $byWoItem = $candidates->first(
+                fn (InspectionEefRegistry $e) => $this->eefRegistryNrcMatchesWorkOrderItem($e->nrc_number, $wo, $item)
+            );
+            if ($byWoItem !== null) {
+                return $byWoItem;
+            }
+        }
+        $canonKey = $this->eefCanonicalNrcKeyFromWorkCard($wo, $item);
+        if ($canonKey !== null && isset($eefByCanonicalNrc[$canonKey])) {
+            return $eefByCanonicalNrc[$canonKey];
+        }
+
+        return null;
     }
 
     /**
@@ -151,6 +438,56 @@ class InspectionDataController extends Controller
             if ($val !== null && trim((string) $val) !== '') {
                 $query->where($col, 'like', '%' . trim((string) $val) . '%');
             }
+        }
+    }
+
+    /** @return list<string> */
+    private function masterDataSortableColumnNames(): array
+    {
+        return [
+            'id',
+            'project',
+            'project_type',
+            'aircraft_type',
+            'tail_number',
+            'wo_station',
+            'work_order',
+            'item',
+            'src_order',
+            'src_item',
+            'src_cust_card',
+            'description',
+            'corrective_action',
+            'ata',
+            'cust_card',
+            'order_type',
+            'avg_time',
+            'act_time',
+            'aircraft_location',
+        ];
+    }
+
+    /** @return array{0: string, 1: string} [column, asc|desc] */
+    private function resolveMasterDataSort(Request $request): array
+    {
+        $allowed = $this->masterDataSortableColumnNames();
+        $sort = (string) $request->input('sort', 'id');
+        if (!in_array($sort, $allowed, true)) {
+            $sort = 'id';
+        }
+        $dir = strtolower((string) $request->input('dir', 'asc'));
+        if (!in_array($dir, ['asc', 'desc'], true)) {
+            $dir = 'asc';
+        }
+
+        return [$sort, $dir];
+    }
+
+    private function applyMasterDataSort(Builder $query, string $column, string $direction): void
+    {
+        $query->orderBy($column, $direction);
+        if ($column !== 'id') {
+            $query->orderBy('id', 'asc');
         }
     }
 
@@ -364,15 +701,25 @@ class InspectionDataController extends Controller
     public function masterDataExport(Request $request): StreamedResponse
     {
         $source = $this->resolveMasterDataSource($request);
-        $query = ReliabilityMasterData::query()->orderBy('id');
+        $query = ReliabilityMasterData::query();
         $this->applyMasterDataTabFilter($query, $source);
         $this->applyMasterDataFilters($query, $request, $source);
+        [$sortColumn, $sortDirection] = $this->resolveMasterDataSort($request);
+        $this->applyMasterDataSort($query, $sortColumn, $sortDirection);
         $filename = 'master_data_' . $source . '_' . date('Y-m-d_His') . '.csv';
         $columns = [
             'project' => 'PROJECT',
             'project_type' => 'PROJECT TYPE',
             'aircraft_type' => 'AIRCRAFT TYPE',
             'tail_number' => 'TAIL NUMBER',
+            'master_msn' => 'MSN',
+            'master_age' => 'AGE',
+            'master_fc' => 'FC',
+            'master_fh' => 'FH',
+            'master_eef' => 'EEF#',
+            'master_data_source' => 'DATA SOURCE',
+            'master_material' => 'MATERIAL',
+            'master_equipment' => 'EQUIPMENT',
             'wo_station' => 'WO STATION',
             'work_order' => 'WORK ORDER',
             'item' => 'ITEM',
@@ -396,10 +743,11 @@ class InspectionDataController extends Controller
             fwrite($out, "\xEF\xBB\xBF");
             fputcsv($out, array_values($columns));
             $query->chunk(2000, function ($rows) use ($out, $columns) {
+                $this->enrichWorkCardMasterRows($rows);
                 foreach ($rows as $row) {
                     $line = [];
                     foreach (array_keys($columns) as $db) {
-                        $line[] = $row->{$db};
+                        $line[] = $row->getAttribute($db);
                     }
                     fputcsv($out, $line);
                 }
@@ -679,7 +1027,7 @@ class InspectionDataController extends Controller
         $request->validate(['_token' => 'required']);
         try {
             \DB::statement('SET FOREIGN_KEY_CHECKS=0');
-            \DB::table('inspection_eef_registry')->delete();
+            \DB::table('eef_registry')->delete();
             \DB::statement('SET FOREIGN_KEY_CHECKS=1');
             return response()->json(['success' => true]);
         } catch (\Throwable $e) {
@@ -1122,7 +1470,7 @@ class InspectionDataController extends Controller
         $now = now()->toDateTimeString();
 
         // ── Подготовка колонок (один раз) ─────────────────────────────────────
-        $tableColumns    = Schema::getColumnListing('inspection_work_cards');
+        $tableColumns    = Schema::getColumnListing('work_cards');
         $allowedSet      = array_flip(array_diff($tableColumns, ['id']));
         $insertColumns   = array_merge(array_keys($allowedSet), ['created_at', 'updated_at']);
 
@@ -1225,7 +1573,7 @@ class InspectionDataController extends Controller
                 }
                 $normalized[] = $ordered;
             }
-            DB::table('inspection_work_cards')->insert($normalized);
+            DB::table('work_cards')->insert($normalized);
             $count += count($buffer);
             $buffer = [];
             if ($onProgress !== null) {
@@ -1763,7 +2111,7 @@ class InspectionDataController extends Controller
         $chunkSize = 500;
         $count = 0;
         $now = now()->toDateTimeString();
-        $tableColumns = Schema::getColumnListing('inspection_eef_registry');
+        $tableColumns = Schema::getColumnListing('eef_registry');
         $allowedSet = array_flip(array_diff($tableColumns, ['id']));
         $insertColumns = array_merge(array_keys($allowedSet), ['created_at', 'updated_at']);
         $dateCols = ['open_date'];
@@ -1777,7 +2125,7 @@ class InspectionDataController extends Controller
                 $key = $normalize($fileCol);
                 $mapNorm[$key] = $dbCol;
             }
-            $tableColumns = Schema::getColumnListing('inspection_eef_registry');
+            $tableColumns = Schema::getColumnListing('eef_registry');
             $allowedSet = array_flip(array_diff($tableColumns, ['id']));
             $indexMap = [];
             foreach ($fileHeaders as $i => $h) {
@@ -1863,7 +2211,7 @@ class InspectionDataController extends Controller
                 }
                 $normalized[] = $ordered;
             }
-            DB::table('inspection_eef_registry')->insert($normalized);
+            DB::table('eef_registry')->insert($normalized);
             $count += count($buffer);
             $buffer = [];
             if ($onProgress !== null) {
@@ -2396,7 +2744,7 @@ class InspectionDataController extends Controller
                     $data['updated_at'] = $now;
                     $buffer[] = $data;
                     if (count($buffer) >= $chunkSize) {
-                        DB::table('inspection_work_card_materials')->insert($buffer);
+                        DB::table('work_card_materials')->insert($buffer);
                         $count += count($buffer);
                         $buffer = [];
                         if ($onProgress !== null) {
@@ -2407,7 +2755,7 @@ class InspectionDataController extends Controller
             }
             fclose($fh);
             if (!empty($buffer)) {
-                DB::table('inspection_work_card_materials')->insert($buffer);
+                DB::table('work_card_materials')->insert($buffer);
                 $count += count($buffer);
             }
             if ($onProgress !== null) {
@@ -2448,7 +2796,7 @@ class InspectionDataController extends Controller
                         $data['updated_at'] = $now;
                         $buffer[] = $data;
                         if (count($buffer) >= $chunkSize) {
-                            DB::table('inspection_work_card_materials')->insert($buffer);
+                            DB::table('work_card_materials')->insert($buffer);
                             $count += count($buffer);
                             $buffer = [];
                             if ($onProgress !== null) {
@@ -2461,7 +2809,7 @@ class InspectionDataController extends Controller
             }
             $reader->close();
             if (!empty($buffer)) {
-                DB::table('inspection_work_card_materials')->insert($buffer);
+                DB::table('work_card_materials')->insert($buffer);
                 $count += count($buffer);
             }
             if ($onProgress !== null) {
@@ -2490,7 +2838,7 @@ class InspectionDataController extends Controller
                 $data['updated_at'] = $now;
                 $buffer[] = $data;
                 if (count($buffer) >= $chunkSize) {
-                    DB::table('inspection_work_card_materials')->insert($buffer);
+                    DB::table('work_card_materials')->insert($buffer);
                     $count += count($buffer);
                     $buffer = [];
                     if ($onProgress !== null) {
@@ -2500,7 +2848,7 @@ class InspectionDataController extends Controller
             }
         }
         if (!empty($buffer)) {
-            DB::table('inspection_work_card_materials')->insert($buffer);
+            DB::table('work_card_materials')->insert($buffer);
             $count += count($buffer);
         }
         if ($onProgress !== null) {

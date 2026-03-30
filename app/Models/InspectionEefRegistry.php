@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class InspectionEefRegistry extends Model
 {
-    protected $table = 'inspection_eef_registry';
+    protected $table = 'eef_registry';
 
     protected $fillable = [
         'eef_number',

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class InspectionWorkCardMaterial extends Model
 {
-    protected $table = 'inspection_work_card_materials';
+    protected $table = 'work_card_materials';
 
     protected $fillable = [
         'project_number',
