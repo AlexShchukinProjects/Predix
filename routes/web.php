@@ -90,6 +90,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/master-data/upload', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'masterDataUpload'])->name('master-data.upload');
             Route::post('/master-data/import-local', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'masterDataImportLocal'])->name('master-data.import-local');
             Route::post('/master-data/delete', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'masterDataDelete'])->name('master-data.delete');
+            Route::get('/master-data/export', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'masterDataExport'])->name('master-data.export');
             Route::get('/eef-registry', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'eefRegistry'])->name('inspection.eef-registry');
             Route::post('/eef-registry/count', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'eefRegistryCount'])->name('inspection.eef-registry.count');
             Route::post('/eef-registry/upload', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'eefRegistryUpload'])->name('inspection.eef-registry.upload');

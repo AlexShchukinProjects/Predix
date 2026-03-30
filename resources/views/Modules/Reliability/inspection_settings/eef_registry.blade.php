@@ -72,6 +72,10 @@
                                 <th>EEF Priority</th>
                                 <th>Latest Processing</th>
                                 <th>Project Status2</th>
+                                <th>EEF with</th>
+                                <th>Standard remarks (progress)</th>
+                                <th>Latest comments / short answer</th>
+                                <th>Project Status3</th>
                                 <th>created_at</th>
                                 <th>updated_at</th>
                             </tr>
@@ -109,11 +113,15 @@
                                 <td>{{ $row->eef_priority }}</td>
                                 <td>{{ $row->latest_processing }}</td>
                                 <td>{{ $row->project_status2 }}</td>
+                                <td>{{ $row->eef_with }}</td>
+                                <td>{{ $row->standard_remarks_on_current_progress }}</td>
+                                <td>{{ $row->latest_comments_short_answer }}</td>
+                                <td>{{ $row->project_status3 }}</td>
                                 <td>{{ $row->created_at?->format('Y-m-d H:i') }}</td>
                                 <td>{{ $row->updated_at?->format('Y-m-d H:i') }}</td>
                             </tr>
                             @empty
-                            <tr><td colspan="33" class="text-muted">No data. Upload CSV or XLSX.</td></tr>
+                            <tr><td colspan="37" class="text-muted">No data. Upload CSV, XLSX, XLSM or XLS.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -146,11 +154,11 @@
                             <li class="nav-item"><button type="button" class="nav-link" id="eef-tab-local" onclick="eefSwitchTab('local')"><i class="fas fa-server me-1"></i>From server disk</button></li>
                         </ul>
                         <div id="eef-panel-upload">
-                            <input type="file" name="file" id="eef-registry-upload-file" class="d-none" accept=".csv,.xlsx,.xls">
+                            <input type="file" name="file" id="eef-registry-upload-file" class="d-none" accept=".csv,.xlsx,.xlsm,.xls">
                             <div id="eef-registry-upload-dropzone" class="inspection-upload-dropzone">
                                 <i class="fas fa-cloud-upload-alt fa-2x text-muted mb-2"></i>
                                 <p class="mb-1">Drag file here</p>
-                                <p class="small text-muted mb-0">or click to select file (CSV, XLSX, XLS)</p>
+                                <p class="small text-muted mb-0">or click to select file (CSV, XLSX, XLSM, XLS)</p>
                             </div>
                         </div>
                         <div id="eef-panel-local" class="d-none">

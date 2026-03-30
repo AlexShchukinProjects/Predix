@@ -22,55 +22,85 @@
                     <form method="GET" action="{{ route('modules.reliability.settings.master-data.index') }}" id="masterDataFiltersForm">
                         <input type="hidden" name="source" value="{{ $source }}">
                         <input type="hidden" name="per_page" id="masterDataFilterPerPage" value="{{ request('per_page', $perPage ?? 50) }}">
-                        <div class="row g-3">
-                            <div class="col-md-2">
-                                <label class="form-label">ID</label>
+                        <div class="row g-3 master-data-filters">
+                            <div class="col-12 small text-muted">Filters match Work Card columns (import uses only these columns from CSV/XLSX).</div>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="ID">ID</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="id" value="{{ request('id') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
-                                <label class="form-label">ID File</label>
-                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="id_file" value="{{ request('id_file') }}" placeholder="">
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="PROJECT">PROJECT</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="project" value="{{ request('project') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Aircraft Type</label>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="PROJECT TYPE">PROJECT TYPE</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="project_type" value="{{ request('project_type') }}" placeholder="">
+                            </div>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="AIRCRAFT TYPE">AIRCRAFT TYPE</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="aircraft_type" value="{{ request('aircraft_type') }}" placeholder="">
                             </div>
-                            @if($source === 'nrc')
-                            <div class="col-md-2">
-                                <label class="form-label">Src. Cust. Card</label>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="TAIL NUMBER">TAIL NUMBER</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="tail_number" value="{{ request('tail_number') }}" placeholder="">
+                            </div>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="WO STATION">WO STATION</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="wo_station" value="{{ request('wo_station') }}" placeholder="">
+                            </div>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="WORK ORDER">WORK ORDER</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="work_order" value="{{ request('work_order') }}" placeholder="">
+                            </div>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="ITEM">ITEM</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="item" value="{{ request('item') }}" placeholder="">
+                            </div>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="SRC. ORDER">SRC. ORDER</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="src_order" value="{{ request('src_order') }}" placeholder="">
+                            </div>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="SRC. ITEM">SRC. ITEM</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="src_item" value="{{ request('src_item') }}" placeholder="">
+                            </div>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="SRC. CUST. CARD">SRC. CUST. CARD</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="src_cust_card" value="{{ request('src_cust_card') }}" placeholder="">
                             </div>
-                            @else
-                            <div class="col-md-2">
-                                <label class="form-label">Cust. Card</label>
-                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="cust_card" value="{{ request('cust_card') }}" placeholder="">
-                            </div>
-                            @endif
-                            <div class="col-md-2">
-                                <label class="form-label">Description</label>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="DESCRIPTION">DESCRIPTION</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="description" value="{{ request('description') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Prim. Skill</label>
-                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="prim_skill" value="{{ request('prim_skill') }}" placeholder="">
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="CORRECTIVE ACTION">CORRECTIVE ACTION</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="corrective_action" value="{{ request('corrective_action') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Order Type</label>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="ATA">ATA</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="ata" value="{{ request('ata') }}" placeholder="">
+                            </div>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="CUST. CARD">CUST. CARD</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="cust_card" value="{{ request('cust_card') }}" placeholder="">
+                            </div>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="ORDER TYPE">ORDER TYPE</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="order_type" value="{{ request('order_type') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Act. Time</label>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="AVG. TIME">AVG. TIME</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="avg_time" value="{{ request('avg_time') }}" placeholder="">
+                            </div>
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="ACT. TIME">ACT. TIME</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="act_time" value="{{ request('act_time') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Child Card Count</label>
-                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="child_card_count" value="{{ request('child_card_count') }}" placeholder="">
+                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                                <label class="form-label text-truncate d-block mb-1" title="AIRCRAFT LOCATION">AIRCRAFT LOCATION</label>
+                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="aircraft_location" value="{{ request('aircraft_location') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
-                                <label class="form-label">EEF</label>
-                                <input type="text" class="form-control form-control-sm master-data-filter-input" name="eef" value="{{ request('eef') }}" placeholder="">
-                            </div>
-                            <div class="col-12">
+                            <div class="col-12 pt-1">
                                 <button type="button" style="border:none; box-shadow:none; color:gray;" class="btn btn-outline-primary btn-sm" onclick="resetMasterDataFilters()">Reset</button>
                             </div>
                         </div>
@@ -97,6 +127,7 @@
 
     <div class="efds-table-header">
         <div class="efds-table-header__stats text-muted">
+            <span class="me-2 d-none d-md-inline">Single table; NRC = ADDNRC or NONROUTINE with non-empty SRC. CUST. CARD; RC = all other rows.</span>
             <span class="me-2">Per page:</span>
             <select class="form-select form-select-sm" id="master-data-per-page" aria-label="Records per page">
                 @php $currentPerPage = (int) request('per_page', $perPage ?? 50); @endphp
@@ -109,7 +140,8 @@
             </select>
             <span class="ms-2">Total records: {{ $items->total() }}</span>
         </div>
-        <div class="efds-table-header__actions">
+        <div class="efds-table-header__actions d-flex flex-wrap gap-2">
+            <a href="{{ route('modules.reliability.settings.master-data.export', request()->query()) }}" class="btn efds-btn efds-btn--outline-primary btn-sm"><i class="fas fa-download me-1"></i>CSV export</a>
             <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#masterDataUploadModal"><i class="fas fa-file-excel me-1"></i>Add from Excel / CSV</button>
             <form id="form-delete-master-data" action="{{ route('modules.reliability.settings.master-data.delete') }}" method="post" class="d-none">
                 @csrf
@@ -130,19 +162,24 @@
                             <tr>
                                 <th class="text-center" style="width: 40px; min-width: 40px; max-width: 40px;"><input type="checkbox" id="master-data-select-all" class="form-check-input" title="Select all on page"></th>
                                 <th>ID</th>
-                                <th>ID FILE</th>
+                                <th>PROJECT</th>
+                                <th>PROJECT TYPE</th>
                                 <th>AIRCRAFT TYPE</th>
-                                @if($source === 'nrc')
+                                <th>TAIL NUMBER</th>
+                                <th>WO STATION</th>
+                                <th>WORK ORDER</th>
+                                <th>ITEM</th>
+                                <th>SRC. ORDER</th>
+                                <th>SRC. ITEM</th>
                                 <th>SRC. CUST. CARD</th>
-                                @else
-                                <th>CUST. CARD</th>
-                                @endif
                                 <th>DESCRIPTION</th>
-                                <th>PRIM. SKILL</th>
+                                <th>CORRECTIVE ACTION</th>
+                                <th>ATA</th>
+                                <th>CUST. CARD</th>
                                 <th>ORDER TYPE</th>
+                                <th>AVG. TIME</th>
                                 <th>ACT. TIME</th>
-                                <th>CHILD CARD COUNT</th>
-                                <th>EEF</th>
+                                <th>AIRCRAFT LOCATION</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -150,23 +187,28 @@
                             <tr>
                                 <td class="text-center" style="width: 40px; min-width: 40px; max-width: 40px;"><input type="checkbox" name="ids[]" value="{{ $row->id }}" class="form-check-input master-data-row-cb"></td>
                                 <td>{{ $row->id }}</td>
-                                <td>{{ $row->id_file }}</td>
+                                <td>{{ $row->project }}</td>
+                                <td>{{ $row->project_type }}</td>
                                 <td>{{ $row->aircraft_type }}</td>
-                                @if($source === 'nrc')
+                                <td>{{ $row->tail_number }}</td>
+                                <td>{{ $row->wo_station }}</td>
+                                <td>{{ $row->work_order }}</td>
+                                <td>{{ $row->item }}</td>
+                                <td>{{ $row->src_order }}</td>
+                                <td>{{ $row->src_item }}</td>
                                 <td>{{ $row->src_cust_card }}</td>
-                                @else
+                                <td>{{ Str::limit($row->description, 60) }}</td>
+                                <td>{{ Str::limit($row->corrective_action, 60) }}</td>
+                                <td>{{ $row->ata }}</td>
                                 <td>{{ $row->cust_card }}</td>
-                                @endif
-                                <td>{{ Str::limit($row->description, 80) }}</td>
-                                <td>{{ $row->prim_skill }}</td>
                                 <td>{{ $row->order_type }}</td>
+                                <td>{{ $row->avg_time }}</td>
                                 <td>{{ $row->act_time }}</td>
-                                <td>{{ $row->child_card_count }}</td>
-                                <td>{{ $row->eef }}</td>
+                                <td>{{ $row->aircraft_location }}</td>
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="11" class="text-center py-4 text-muted">No records. Upload data from Excel / CSV.</td>
+                                <td colspan="20" class="text-center py-4 text-muted">No records. Upload data from Excel / CSV.</td>
                             </tr>
                             @endforelse
                         </tbody>
@@ -178,8 +220,8 @@
     </div>
     </div>
     @if($items->hasPages())
-    <div class="d-flex justify-content-center mt-3">
-        {{ $items->withQueryString()->links() }}
+    <div class="efds-pagination-wrap mt-3 pt-2">
+        {{ $items->onEachSide(1)->links('vendor.pagination.safety-reporting') }}
     </div>
     @endif
 </div>
@@ -195,9 +237,10 @@
                 @csrf
                 <input type="hidden" name="source" value="{{ $source }}">
                 <div class="modal-body">
+                    <p class="small text-muted mb-2">Only these columns are imported: PROJECT, PROJECT TYPE, AIRCRAFT TYPE, TAIL NUMBER, WO STATION, WORK ORDER, ITEM, SRC. ORDER, SRC. ITEM, SRC. CUST. CARD, DESCRIPTION, CORRECTIVE ACTION, ATA, CUST. CARD, ORDER TYPE, AVG. TIME, ACT. TIME, AIRCRAFT LOCATION (all other columns are ignored).</p>
                     <div class="form-check mb-3">
                         <input type="checkbox" class="form-check-input" name="clear_before" value="1" id="md-clear-before">
-                        <label class="form-check-label" for="md-clear-before">Очистить данные в базе перед загрузкой</label>
+                        <label class="form-check-label" for="md-clear-before">Clear existing data in the database before upload</label>
                     </div>
                     <div id="md-step-select">
                         <ul class="nav nav-tabs mb-3" id="md-upload-tabs">
@@ -223,8 +266,8 @@
                         <div id="md-panel-local" class="d-none">
                             <p class="small text-muted mb-2">Enter file path relative to project root:</p>
                             <input type="text" id="md-local-path" class="form-control form-control-sm font-monospace"
-                                   placeholder="excel/Master Data/Master Data.xlsx"
-                                   value="excel/Master Data/Master Data.xlsx">
+                                   placeholder="excel/GAES Data/Work CardOLD.csv"
+                                   value="excel/GAES Data/Work CardOLD.csv">
                             <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm mt-2" id="md-local-check">
                                 <span class="spinner-border spinner-border-sm d-none me-1" id="md-local-spin"></span>
                                 Check and count rows
@@ -305,6 +348,24 @@
 }
 
 .form-control{background-color:white;}
+/* Filters: avoid cramming fields into one row */
+.master-data-filters > [class*="col-"] {
+    min-width: 0;
+}
+.master-data-filters .form-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+/* Same spacing as projects: below page numbers */
+.efds-pagination-wrap {
+    margin-top: 1rem !important;
+    padding-top: 0.75rem;
+}
+.efds-table-header__stats {
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 280px;
+}
 </style>
 <script>
 (function() {

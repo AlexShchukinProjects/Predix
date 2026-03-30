@@ -12,8 +12,8 @@ use App\Models\InspectionProject;
 use App\Models\InspectionSourceCardRef;
 use App\Models\InspectionWorkCard;
 use App\Models\InspectionWorkCardMaterial;
-use App\Models\NrcMasterData;
 use App\Models\ReliabilityMasterData;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +22,7 @@ use Illuminate\View\View;
 use OpenSpout\Reader\CSV\Options as CsvOptions;
 use OpenSpout\Reader\CSV\Reader as CsvReader;
 use OpenSpout\Reader\XLSX\Reader as XlsxReader;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Reader\IReadFilter;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -83,19 +84,37 @@ class InspectionDataController extends Controller
         return redirect()->route('modules.reliability.settings.inspection.work-cards')->with('success', 'Выбранные записи удалены.');
     }
 
-    /** Master Data: список с пагинацией (RC / NRC) и фильтрами */
+    /** Master Data: список с пагинацией (RC / NRC) и фильтрами — одна таблица work_cards_master, вкладки = фильтр по ORDER TYPE. */
     public function masterData(Request $request): View
     {
         $source = $this->resolveMasterDataSource($request);
-        $model = $source === 'nrc' ? NrcMasterData::class : ReliabilityMasterData::class;
         $perPage = (int) $request->get('per_page', 50);
         if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
-        $query = $model::query()->orderBy('id');
+        $query = ReliabilityMasterData::query()->orderBy('id');
+        $this->applyMasterDataTabFilter($query, $source);
         $this->applyMasterDataFilters($query, $request, $source);
         $items = $query->paginate($perPage)->withQueryString();
         return view('Modules.Reliability.settings.master_data.index', compact('items', 'perPage', 'source'));
+    }
+
+    /**
+     * NRC: ORDER TYPE = ADDNRC или NONROUTINE и непустой SRC. CUST. CARD (как в Power Query).
+     * RC: дополнение к NRC — иначе строки ADDNRC/NONROUTINE с пустым SRC. CUST. CARD не попадали ни на одну вкладку.
+     *      Формула: (тип не ADDNRC/NONROUTINE) ИЛИ (SRC. CUST. CARD пустой).
+     */
+    private function applyMasterDataTabFilter(Builder $query, string $source): void
+    {
+        if ($source === 'nrc') {
+            $query->whereRaw('LOWER(TRIM(COALESCE(order_type, \'\'))) IN (?, ?)', ['addnrc', 'nonroutine'])
+                ->whereRaw('TRIM(COALESCE(src_cust_card, \'\')) <> \'\'');
+            return;
+        }
+        $query->where(function (Builder $q) {
+            $q->whereRaw('LOWER(TRIM(COALESCE(order_type, \'\'))) NOT IN (?, ?)', ['addnrc', 'nonroutine'])
+                ->orWhereRaw('TRIM(COALESCE(src_cust_card, \'\')) = \'\'');
+        });
     }
 
     private function applyMasterDataFilters($query, Request $request, string $source = 'rc'): void
@@ -108,21 +127,26 @@ class InspectionDataController extends Controller
             }
         }
         $fields = [
-            'id_file' => 'ID File',
-            'aircraft_type' => 'Aircraft Type',
-            'description' => 'Description',
-            'prim_skill' => 'Prim. Skill',
-            'order_type' => 'Order Type',
-            'act_time' => 'Act. Time',
-            'child_card_count' => 'Child Card Count',
-            'eef' => 'EEF',
+            'project',
+            'project_type',
+            'aircraft_type',
+            'tail_number',
+            'wo_station',
+            'work_order',
+            'item',
+            'src_order',
+            'src_item',
+            'src_cust_card',
+            'description',
+            'corrective_action',
+            'ata',
+            'cust_card',
+            'order_type',
+            'avg_time',
+            'act_time',
+            'aircraft_location',
         ];
-        if ($source === 'nrc') {
-            $fields['src_cust_card'] = 'Src. Cust. Card';
-        } else {
-            $fields['cust_card'] = 'Cust. Card';
-        }
-        foreach ($fields as $col => $label) {
+        foreach ($fields as $col) {
             $val = $request->input($col);
             if ($val !== null && trim((string) $val) !== '') {
                 $query->where($col, 'like', '%' . trim((string) $val) . '%');
@@ -138,7 +162,7 @@ class InspectionDataController extends Controller
 
     private function getMasterDataModelClass(string $source): string
     {
-        return $source === 'nrc' ? NrcMasterData::class : ReliabilityMasterData::class;
+        return ReliabilityMasterData::class;
     }
 
     /** Master Data: подсчёт строк и список листов в загружаемом файле */
@@ -167,16 +191,16 @@ class InspectionDataController extends Controller
     {
         $rawInput = trim((string) ($request->input('path') ?? $request->input('local_path') ?? ''));
         if ($rawInput === '') {
-            return response()->json(['error' => 'Путь не указан'], 422);
+            return response()->json(['error' => 'Path is required'], 422);
         }
         $relPath = ltrim(str_replace(['..', '\\'], ['', '/'], $rawInput), '/');
         $absPath = base_path($relPath);
         if (!file_exists($absPath)) {
-            return response()->json(['error' => "Файл не найден: $relPath"], 404);
+            return response()->json(['error' => "File not found: $relPath"], 404);
         }
         $ext = strtolower(pathinfo($absPath, PATHINFO_EXTENSION));
         if (!in_array($ext, ['xlsx', 'xls', 'csv', 'txt'], true)) {
-            return response()->json(['error' => 'Недопустимый тип файла'], 422);
+            return response()->json(['error' => 'Invalid file type'], 422);
         }
         try {
             if (in_array($ext, ['xlsx', 'xls'], true)) {
@@ -217,7 +241,7 @@ class InspectionDataController extends Controller
         } catch (\Throwable $e) {
             report($e);
             $msg = strlen($e->getMessage()) > 200 ? substr($e->getMessage(), 0, 200) . '…' : $e->getMessage();
-            return redirect()->route('modules.reliability.settings.master-data.index', ['source' => $source])->with('error', 'Ошибка загрузки: ' . $msg);
+            return redirect()->route('modules.reliability.settings.master-data.index', ['source' => $source])->with('error', 'Upload error: ' . $msg);
         }
     }
 
@@ -268,16 +292,16 @@ class InspectionDataController extends Controller
             }
             $rawInput = trim((string) ($request->input('path') ?? $request->input('local_path') ?? ''));
             if ($rawInput === '') {
-                return response()->json(['error' => 'Путь не указан'], 422);
+                return response()->json(['error' => 'Path is required'], 422);
             }
             $relPath = ltrim(str_replace(['..', '\\'], ['', '/'], $rawInput), '/');
             $absPath = base_path($relPath);
             if (!file_exists($absPath)) {
-                return response()->json(['error' => "Файл не найден: $relPath"], 404);
+                return response()->json(['error' => "File not found: $relPath"], 404);
             }
             $ext = strtolower(pathinfo($absPath, PATHINFO_EXTENSION));
             if (!in_array($ext, ['xlsx', 'xls', 'csv', 'txt'], true)) {
-                return response()->json(['error' => 'Недопустимый тип файла'], 422);
+                return response()->json(['error' => 'Invalid file type'], 422);
             }
         } catch (\Throwable $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -333,55 +357,93 @@ class InspectionDataController extends Controller
         if ($ids !== []) {
             $modelClass::whereIn('id', $ids)->delete();
         }
-        return redirect()->route('modules.reliability.settings.master-data.index', ['source' => $source])->with('success', 'Выбранные записи удалены.');
+        return redirect()->route('modules.reliability.settings.master-data.index', ['source' => $source])->with('success', 'Selected records deleted.');
     }
 
-    /** Заголовки Excel → поля БД для RC_master_data (CUST. CARD). Колонка ID в файле → id_file. */
-    private function masterDataHeaderMapRc(): array
+    /** Экспорт master data в CSV (только поля Work Card, как при импорте). Учитывает фильтры в query string. */
+    public function masterDataExport(Request $request): StreamedResponse
+    {
+        $source = $this->resolveMasterDataSource($request);
+        $query = ReliabilityMasterData::query()->orderBy('id');
+        $this->applyMasterDataTabFilter($query, $source);
+        $this->applyMasterDataFilters($query, $request, $source);
+        $filename = 'master_data_' . $source . '_' . date('Y-m-d_His') . '.csv';
+        $columns = [
+            'project' => 'PROJECT',
+            'project_type' => 'PROJECT TYPE',
+            'aircraft_type' => 'AIRCRAFT TYPE',
+            'tail_number' => 'TAIL NUMBER',
+            'wo_station' => 'WO STATION',
+            'work_order' => 'WORK ORDER',
+            'item' => 'ITEM',
+            'src_order' => 'SRC. ORDER',
+            'src_item' => 'SRC. ITEM',
+            'src_cust_card' => 'SRC. CUST. CARD',
+            'description' => 'DESCRIPTION',
+            'corrective_action' => 'CORRECTIVE ACTION',
+            'ata' => 'ATA',
+            'cust_card' => 'CUST. CARD',
+            'order_type' => 'ORDER TYPE',
+            'avg_time' => 'AVG. TIME',
+            'act_time' => 'ACT. TIME',
+            'aircraft_location' => 'AIRCRAFT LOCATION',
+        ];
+        return new StreamedResponse(function () use ($query, $columns) {
+            $out = fopen('php://output', 'w');
+            if ($out === false) {
+                return;
+            }
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, array_values($columns));
+            $query->chunk(2000, function ($rows) use ($out, $columns) {
+                foreach ($rows as $row) {
+                    $line = [];
+                    foreach (array_keys($columns) as $db) {
+                        $line[] = $row->{$db};
+                    }
+                    fputcsv($out, $line);
+                }
+            });
+            fclose($out);
+        }, 200, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control' => 'no-cache',
+        ]);
+    }
+
+    /**
+     * Заголовки Work Card (CSV/XLSX) → поля БД. Импортируются только эти колонки; остальные в файле игнорируются.
+     */
+    private function masterDataWorkCardImportHeaderMap(): array
     {
         return [
-            'ID' => 'id_file',
-            'ID_FILE' => 'id_file',
-            'ID FILE' => 'id_file',
+            'PROJECT' => 'project',
+            'PROJECT TYPE' => 'project_type',
             'AIRCRAFT TYPE' => 'aircraft_type',
+            'TAIL NUMBER' => 'tail_number',
+            'TAIL NUMBER ' => 'tail_number',
+            'WO STATION' => 'wo_station',
+            'WORK ORDER' => 'work_order',
+            'ITEM' => 'item',
+            'SRC. ORDER' => 'src_order',
+            'SRC. ITEM' => 'src_item',
+            'SRC. CUST. CARD' => 'src_cust_card',
+            'DESCRIPTION' => 'description',
+            'CORRECTIVE ACTION' => 'corrective_action',
+            'ATA' => 'ata',
             'CUST. CARD' => 'cust_card',
             'CUST CARD' => 'cust_card',
-            'CUSTOMER CARD' => 'cust_card',
-            'DESCRIPTION' => 'description',
-            'PRIM. SKILL' => 'prim_skill',
             'ORDER TYPE' => 'order_type',
+            'AVG. TIME' => 'avg_time',
             'ACT. TIME' => 'act_time',
-            'CHILD CARD COUNT' => 'child_card_count',
-            'EEF' => 'eef',
-        ];
-    }
-
-    /** Заголовки Excel → поля БД для NRC_master_data (SRC. CUST. CARD). Колонка ID в файле → id_file. */
-    private function masterDataHeaderMapNrc(): array
-    {
-        return [
-            'ID' => 'id_file',
-            'ID_FILE' => 'id_file',
-            'ID FILE' => 'id_file',
-            'AIRCRAFT TYPE' => 'aircraft_type',
-            'SRC. CUST. CARD' => 'src_cust_card',
-            'SRC CUST CARD' => 'src_cust_card',
-            'SRC. CUST CARD' => 'src_cust_card',
-            'SRC CUST. CARD' => 'src_cust_card',
-            'SOURCE CUSTOMER CARD' => 'src_cust_card',
-            'SRC CUST. CARD' => 'src_cust_card',
-            'DESCRIPTION' => 'description',
-            'PRIM. SKILL' => 'prim_skill',
-            'ORDER TYPE' => 'order_type',
-            'ACT. TIME' => 'act_time',
-            'CHILD CARD COUNT' => 'child_card_count',
-            'EEF' => 'eef',
+            'AIRCRAFT LOCATION' => 'aircraft_location',
         ];
     }
 
     private function masterDataHeaderMap(string $source): array
     {
-        return $source === 'nrc' ? $this->masterDataHeaderMapNrc() : $this->masterDataHeaderMapRc();
+        return $this->masterDataWorkCardImportHeaderMap();
     }
 
     /** Нормализация заголовка для сопоставления (пробелы, регистр). */
@@ -463,13 +525,27 @@ class InspectionDataController extends Controller
         $chunkSize = 500;
         $count = 0;
         $now = now()->toDateTimeString();
-        $isRc = $source === 'rc';
-        $insertColumns = $isRc
-            ? ['id_file', 'aircraft_type', 'cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef', 'created_at', 'updated_at']
-            : ['id_file', 'aircraft_type', 'src_cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef', 'created_at', 'updated_at'];
-        $dataColumns = $isRc
-            ? ['id_file', 'aircraft_type', 'cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef']
-            : ['id_file', 'aircraft_type', 'src_cust_card', 'description', 'prim_skill', 'order_type', 'act_time', 'child_card_count', 'eef'];
+        $dataColumns = [
+            'project',
+            'project_type',
+            'aircraft_type',
+            'tail_number',
+            'wo_station',
+            'work_order',
+            'item',
+            'src_order',
+            'src_item',
+            'src_cust_card',
+            'description',
+            'corrective_action',
+            'ata',
+            'cust_card',
+            'order_type',
+            'avg_time',
+            'act_time',
+            'aircraft_location',
+        ];
+        $insertColumns = array_merge($dataColumns, ['created_at', 'updated_at']);
         $map = $this->masterDataHeaderMap($source);
         $mapUpper = [];
         foreach ($map as $fileCol => $dbCol) {
@@ -1566,11 +1642,11 @@ class InspectionDataController extends Controller
         $request->validate(['file' => 'required|file|max:204800']);
         $file = $request->file('file');
         $ext = strtolower($file->getClientOriginalExtension());
-        if (!in_array($ext, ['csv', 'txt', 'xlsx', 'xls'], true)) {
+        if (!in_array($ext, ['csv', 'txt', 'xlsx', 'xlsm', 'xls'], true)) {
             if ($request->header('Accept') === 'application/x-ndjson') {
-                return response()->json(['error' => 'Invalid file type. Use CSV, TXT, XLSX or XLS.'], 422);
+                return response()->json(['error' => 'Invalid file type. Use CSV, TXT, XLSX, XLSM or XLS.'], 422);
             }
-            return redirect()->route('modules.reliability.settings.inspection.eef-registry')->with('error', 'Invalid file type. Use CSV, TXT, XLSX or XLS.');
+            return redirect()->route('modules.reliability.settings.inspection.eef-registry')->with('error', 'Invalid file type. Use CSV, TXT, XLSX, XLSM or XLS.');
         }
         if ($request->header('X-EEF-Stream') === '1') {
             return $this->eefRegistryUploadStream($file);
@@ -1613,7 +1689,7 @@ class InspectionDataController extends Controller
             return response()->json(['error' => "Файл не найден: $relPath"], 404);
         }
         $ext = strtolower(pathinfo($absPath, PATHINFO_EXTENSION));
-        if (!in_array($ext, ['xlsx', 'xls', 'csv', 'txt'], true)) {
+        if (!in_array($ext, ['xlsx', 'xlsm', 'xls', 'csv', 'txt'], true)) {
             return response()->json(['error' => 'Недопустимый тип файла'], 422);
         }
 
@@ -1677,7 +1753,7 @@ class InspectionDataController extends Controller
     }
 
     /**
-     * Потоковый импорт EEF: OpenSpout для XLSX, bulk insert по 500 строк.
+     * Потоковый импорт EEF: bulk insert по 500 строк (Excel через PhpSpreadsheet).
      * $file — UploadedFile или путь (string).
      */
     private function importEefRegistryChunked($file, ?callable $onProgress = null, ?int $knownTotal = null): int
@@ -1695,13 +1771,7 @@ class InspectionDataController extends Controller
 
         $buildIndexMap = function (array $fileHeaders): array {
             $map = $this->eefRegistryHeaderMap();
-            $normalize = static function (string $s): string {
-                $s = preg_replace('/^\xEF\xBB\xBF/', '', (string) $s); // BOM
-                $s = str_replace(["\r", "\n", "\t"], ' ', $s);
-                $s = preg_replace('/[.,;:?]+/', ' ', $s);
-                $s = preg_replace('/\s+/', ' ', trim($s));
-                return strtoupper($s);
-            };
+            $normalize = fn (string $s): string => $this->normalizeEefFileHeader($s);
             $mapNorm = [];
             foreach ($map as $fileCol => $dbCol) {
                 $key = $normalize($fileCol);
@@ -1786,7 +1856,7 @@ class InspectionDataController extends Controller
                             $ordered[$dbCol] = $val + 0;
                         } else {
                             $len = is_string($val) ? strlen($val) : 0;
-                            $max = ['subject' => 500, 'link' => 500, 'link_path' => 500, 'inspection_source_task' => 500, 'oem_communication_reference' => 500, 'latest_processing' => 255, 'location' => 255, 'assigned_engineering_engineer' => 255, 'open_continuation_raised_by_production_dates' => 255, 'answer_provided_by_engineering_dates' => 255, 'gaes_eo' => 255, 'manual_limits_out_within' => 255, 'backup_engineer' => 255, 'customer_name' => 255, 'eef_number' => 100, 'nrc_number' => 100, 'ac_type' => 100, 'ata' => 50, 'project_no' => 100, 'eef_status' => 100, 'eef_priority' => 100, 'project_status' => 100, 'project_status2' => 100, 'rc_number' => 100, 'chargeable_to_customer' => 50][$dbCol] ?? 255;
+                            $max = ['subject' => 500, 'link' => 500, 'link_path' => 500, 'inspection_source_task' => 500, 'oem_communication_reference' => 500, 'latest_processing' => 255, 'location' => 255, 'assigned_engineering_engineer' => 255, 'open_continuation_raised_by_production_dates' => 255, 'answer_provided_by_engineering_dates' => 255, 'gaes_eo' => 255, 'manual_limits_out_within' => 255, 'backup_engineer' => 255, 'customer_name' => 255, 'eef_number' => 100, 'nrc_number' => 100, 'ac_type' => 100, 'ata' => 50, 'project_no' => 100, 'eef_status' => 100, 'eef_priority' => 100, 'project_status' => 100, 'project_status2' => 100, 'project_status3' => 100, 'rc_number' => 100, 'chargeable_to_customer' => 50, 'eef_with' => 100, 'remarks' => 65535, 'standard_remarks_on_current_progress' => 65535, 'latest_comments_short_answer' => 65535][$dbCol] ?? 255;
                             $ordered[$dbCol] = ($len > $max) ? substr((string) $val, 0, $max) : $val;
                         }
                     }
@@ -1827,17 +1897,125 @@ class InspectionDataController extends Controller
             fclose($fh);
             $flush($buffer, $indexMap, $insertColumns, $dateCols, $numericCols);
         } else {
-            try {
-                $this->importEefRegistryViaOpenspout($path, $ext, $chunkSize, $buildIndexMap, $buildRow, $flush, $insertColumns, $dateCols, $numericCols);
-            } catch (\OpenSpout\Reader\Exception\InvalidValueException $e) {
-                // EEF.xlsx может содержать ячейки с числом в формате «дата» (напр. 81613747) — OpenSpout бросает; читаем через PhpSpreadsheet
-                $this->importEefRegistryViaPhpSpreadsheet($path, $chunkSize, $buildIndexMap, $buildRow, $flush, $insertColumns, $dateCols, $numericCols);
-            }
+            // XLS/XLSX/XLSM: один путь — PhpSpreadsheet (лист «EEF Registry» со строкой заголовков 3, баннер в 1–2; старый .xlsx — «Registry» строка 1)
+            $this->importEefRegistryViaPhpSpreadsheet($path, $chunkSize, $buildIndexMap, $buildRow, $flush, $insertColumns, $dateCols, $numericCols);
         }
         return $count;
     }
 
-    /** Импорт EEF через PhpSpreadsheet (xls или xlsx при fallback из-за InvalidValueException в OpenSpout). */
+    /** Нормализация заголовка колонки EEF для сопоставления с маппингом (Excel/CSV). */
+    private function normalizeEefFileHeader(string $s): string
+    {
+        $s = preg_replace('/^\xEF\xBB\xBF/', '', $s);
+        $s = str_replace(["\r", "\n", "\t"], ' ', $s);
+        $s = preg_replace('/[\/\\\\]+/', ' ', $s);
+        $s = preg_replace('/[.,;:?]+/', ' ', $s);
+        $s = preg_replace('/\s+/', ' ', trim($s));
+
+        return strtoupper($s);
+    }
+
+    /** Одна строка листа как плотный массив (для согласованности индексов с маппингом). */
+    private function readEefSheetRowAsArray(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet, int $row): array
+    {
+        $highestCol = $sheet->getHighestDataColumn($row);
+        if ($highestCol === 'A') {
+            $cell = $sheet->getCell('A' . $row);
+            if ($cell->getValue() === null || $cell->getValue() === '') {
+                return [];
+            }
+        }
+        $lastIdx = Coordinate::columnIndexFromString($highestCol);
+        $vals = [];
+        for ($i = 1; $i <= $lastIdx; $i++) {
+            $coord = Coordinate::stringFromColumnIndex($i);
+            $v = $sheet->getCell($coord . $row)->getCalculatedValue();
+            if ($v instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
+                $v = $v->getPlainText();
+            }
+            $vals[] = $v;
+        }
+
+        return $vals;
+    }
+
+    /** Сколько известных колонок EEF распознано в строке (для поиска строки заголовков). */
+    private function scoreEefHeaderRowForSheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet, int $row): int
+    {
+        $fileHeaders = $this->readEefSheetRowAsArray($sheet, $row);
+        if ($fileHeaders === []) {
+            return 0;
+        }
+        $map = $this->eefRegistryHeaderMap();
+        $mapNorm = [];
+        foreach ($map as $fileCol => $dbCol) {
+            $mapNorm[$this->normalizeEefFileHeader($fileCol)] = $dbCol;
+        }
+        $count = 0;
+        foreach ($fileHeaders as $h) {
+            $hNorm = $this->normalizeEefFileHeader((string) $h);
+            if ($hNorm === '' || $hNorm === '0') {
+                continue;
+            }
+            if (isset($mapNorm[$hNorm])) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /** Строка с максимальным числом распознанных заголовков (строки 1–80). */
+    private function findBestEefHeaderRowInSheet(\PhpOffice\PhpSpreadsheet\Worksheet\Worksheet $sheet): ?int
+    {
+        $maxRow = min(80, max(1, $sheet->getHighestRow()));
+        $bestRow = null;
+        $bestScore = 0;
+        for ($r = 1; $r <= $maxRow; $r++) {
+            $sc = $this->scoreEefHeaderRowForSheet($sheet, $r);
+            if ($sc > $bestScore) {
+                $bestScore = $sc;
+                $bestRow = $r;
+            }
+        }
+
+        return $bestScore >= 2 ? $bestRow : null;
+    }
+
+    /**
+     * Выбор листа и строки заголовков: приоритет у листа с наибольшим числом совпадений
+     * (полный реестр на «EEF Registry» со строкой 3, краткий GAES — «Work Card Inquiry» строка 1).
+     *
+     * @return array{0: \PhpOffice\PhpSpreadsheet\Worksheet\Worksheet, 1: int}
+     */
+    private function resolveEefImportSheetAndHeaderRow(\PhpOffice\PhpSpreadsheet\Spreadsheet $spreadsheet): array
+    {
+        $bestSheet = null;
+        $bestScore = -1;
+        $bestHeaderRow = 1;
+        foreach ($spreadsheet->getAllSheets() as $ws) {
+            $row = $this->findBestEefHeaderRowInSheet($ws);
+            if ($row === null) {
+                continue;
+            }
+            $sc = $this->scoreEefHeaderRowForSheet($ws, $row);
+            if ($sc > $bestScore) {
+                $bestScore = $sc;
+                $bestSheet = $ws;
+                $bestHeaderRow = $row;
+            }
+        }
+        if ($bestSheet === null || $bestScore < 2) {
+            $sheet = $spreadsheet->getActiveSheet();
+            $row = $this->findBestEefHeaderRowInSheet($sheet) ?? 1;
+
+            return [$sheet, $row];
+        }
+
+        return [$bestSheet, $bestHeaderRow];
+    }
+
+    /** Импорт EEF через PhpSpreadsheet: авто-выбор листа и строки заголовков. */
     private function importEefRegistryViaPhpSpreadsheet(
         string $path,
         int $chunkSize,
@@ -1853,24 +2031,23 @@ class InspectionDataController extends Controller
         $reader = IOFactory::createReaderForFile($path);
         $reader->setReadDataOnly(true);
         $spreadsheet = $reader->load($path);
-        $sheet = $spreadsheet->getActiveSheet();
-        $rowIter = $sheet->getRowIterator();
-        $indexMap = [];
+        [$sheet, $headerRow] = $this->resolveEefImportSheetAndHeaderRow($spreadsheet);
+        $headerVals = $this->readEefSheetRowAsArray($sheet, $headerRow);
+        $fileHeaders = array_map(function ($v) {
+            if ($v instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
+                $v = $v->getPlainText();
+            }
+
+            return trim((string) $v);
+        }, $headerVals);
+        $indexMap = $buildIndexMap($fileHeaders);
         $buffer = [];
-        $first = true;
         $consecutiveEmpty = 0;
         $hasData = false;
         $rowsRead = 0;
-        foreach ($rowIter as $row) {
-            $vals = [];
-            foreach ($row->getCellIterator() as $cell) {
-                $vals[] = $cell->getValue();
-            }
-            if ($first) {
-                $indexMap = $buildIndexMap(array_map(fn($v) => trim((string) $v), $vals));
-                $first = false;
-                continue;
-            }
+        $maxRow = min(max($headerRow + 1, $sheet->getHighestRow()), 100000);
+        for ($r = $headerRow + 1; $r <= $maxRow; $r++) {
+            $vals = $this->readEefSheetRowAsArray($sheet, $r);
             $rowsRead++;
             $data = $buildRow($indexMap, $vals);
             $eefVal = $data['eef_number'] ?? null;
@@ -1896,70 +2073,6 @@ class InspectionDataController extends Controller
         $flush($buffer, $indexMap, $insertColumns, $dateCols, $numericCols);
     }
 
-    private function importEefRegistryViaOpenspout(
-        string $path,
-        string $ext,
-        int $chunkSize,
-        callable $buildIndexMap,
-        callable $buildRow,
-        callable $flush,
-        array $insertColumns,
-        array $dateCols,
-        array $numericCols
-    ): void {
-        $maxConsecutiveEmpty = 200;
-        $maxRowsWithoutData = 5000;
-        if ($ext !== 'xlsx') {
-            $this->importEefRegistryViaPhpSpreadsheet($path, $chunkSize, $buildIndexMap, $buildRow, $flush, $insertColumns, $dateCols, $numericCols);
-            return;
-        }
-        $reader = new XlsxReader();
-        $reader->open($path);
-        $indexMap = [];
-        $buffer = [];
-        $first = true;
-        $consecutiveEmpty = 0;
-        $hasData = false;
-        $rowsRead = 0;
-        foreach ($reader->getSheetIterator() as $sheet) {
-            foreach ($sheet->getRowIterator() as $row) {
-                $vals = [];
-                foreach ($row->getCells() as $colIndex => $cell) {
-                    $vals[$colIndex] = $cell->getValue();
-                }
-                if ($first) {
-                    $fileHeaders = array_map(fn($v) => trim((string) $v), $vals);
-                    $indexMap = $buildIndexMap($fileHeaders);
-                    $first = false;
-                    continue;
-                }
-                $rowsRead++;
-                $data = $buildRow($indexMap, $vals);
-                $eefVal = $data['eef_number'] ?? null;
-                $eefStr = $eefVal !== null ? trim((string) $eefVal) : '';
-                $hasEefNumber = $data !== [] && $eefStr !== '' && $eefStr !== '0' && $eefStr !== '-';
-                if ($data !== [] && $hasEefNumber) {
-                    $hasData = true;
-                    $consecutiveEmpty = 0;
-                    $buffer[] = $data;
-                    if (count($buffer) >= $chunkSize) {
-                        $flush($buffer, $indexMap, $insertColumns, $dateCols, $numericCols);
-                    }
-                } else {
-                    if ($hasData && ++$consecutiveEmpty >= $maxConsecutiveEmpty) {
-                        break 2;
-                    }
-                    if (!$hasData && $rowsRead >= $maxRowsWithoutData) {
-                        break 2;
-                    }
-                }
-            }
-            break;
-        }
-        $reader->close();
-        $flush($buffer, $indexMap, $insertColumns, $dateCols, $numericCols);
-    }
-
     private function countEefRegistryRows(string $path, string $ext): int
     {
         if ($ext === 'csv' || $ext === 'txt') {
@@ -1978,7 +2091,7 @@ class InspectionDataController extends Controller
             fclose($fh);
             return $n;
         }
-        if ($ext === 'xlsx') {
+        if ($ext === 'xlsx' || $ext === 'xlsm') {
             // Быстрый подсчёт без OpenSpout: потоково читаем sheet XML, считаем строки с ячейками (<row>...</row> с <c r=" внутри)
             try {
                 $zip = new \ZipArchive();
@@ -2042,12 +2155,11 @@ class InspectionDataController extends Controller
     }
 
     /** EEF registry: маппинг заголовков файла на поля БД.
-     * Два формата: (1) GAES/краткий — "EEF — копия.xlsx": 7 колонок (GAES WO#, GAES Source Card#, CUST. CARD, PROJECT, ORDER TYPE, DESCRIPTION, CORRECTIVE ACTION).
-     * (2) Полный EEF Registry — "EEF.xlsx" (Договора): 28 колонок (EEF Number, NRC Number, AC Type, ATA, Project No., Subject, Remarks, Location, EEF Status, Link, Link Path, Man Hours, …). */
+     * Форматы: GAES 7 колонок; полный реестр (EEF.xlsx); старый ENGINEERING ENQUIRY FORM REGISTER.xlsx; выгрузка .xlsm (EEF No в строке 3). */
     private function eefRegistryHeaderMap(): array
     {
         return [
-            // Формат 1: EEF — копия.xlsx (GAES / Договора), 7 колонок
+            // Формат 1: GAES / Work Card Inquiry, 7 колонок
             'GAES WO#' => 'eef_number',
             'GAES Source Card#' => 'inspection_source_task',
             'CUST. CARD' => 'customer_name',
@@ -2055,9 +2167,13 @@ class InspectionDataController extends Controller
             'ORDER TYPE' => 'project_status',
             'DESCRIPTION' => 'subject',
             'CORRECTIVE ACTION' => 'remarks',
-            // Формат 2: EEF.xlsx (Договора), полный EEF Registry, 28 колонок
+            // Полный реестр (общие названия)
             'EEF Number' => 'eef_number',
+            '1. EEF Number' => 'eef_number',
+            'EEF No' => 'eef_number',
+            'EEF NO' => 'eef_number',
             'NRC Number' => 'nrc_number',
+            'NRC No' => 'nrc_number',
             'NRC No.' => 'nrc_number',
             'AC Type' => 'ac_type',
             'ATA' => 'ata',
@@ -2072,26 +2188,38 @@ class InspectionDataController extends Controller
             'Link' . "\n" . 'Path' => 'link_path',
             'Link' . "\r\n" . 'Path' => 'link_path',
             'Man Hours' => 'man_hours',
+            'MHRs' => 'man_hours',
+            'Total Engineering Man Hours' => 'man_hours',
             'Chargeable to Customer?' => 'chargeable_to_customer',
+            'CHARGEABLE' => 'chargeable_to_customer',
             'Customer Name' => 'customer_name',
+            'Customer' => 'customer_name',
             'Customer' . "\n" . 'Name' => 'customer_name',
             'Customer' . "\r\n" . 'Name' => 'customer_name',
             'Inspection Source Task' => 'inspection_source_task',
             'RC#' => 'rc_number',
             'Open Date' => 'open_date',
             'Assigned Engineering Engineer' => 'assigned_engineering_engineer',
+            'Engineer' => 'assigned_engineering_engineer',
             'OPEN/Continuation Raised by Production Dates' => 'open_continuation_raised_by_production_dates',
+            'Continuation Raised by Production Dates' => 'open_continuation_raised_by_production_dates',
             'Answer provided by Engineering  Dates' => 'answer_provided_by_engineering_dates',
             'Answer provided by Engineering Dates' => 'answer_provided_by_engineering_dates',
             'OEM Communication Reference' => 'oem_communication_reference',
             'GAES EO' => 'gaes_eo',
+            'VDG EO' => 'gaes_eo',
             'Manual limits (OUT / WITHIN)' => 'manual_limits_out_within',
             'Manual limits' . "\n" . '(OUT / WITHIN)' => 'manual_limits_out_within',
             'Back-up Engineer' => 'backup_engineer',
             'Project Status' => 'project_status',
             'EEF Priority' => 'eef_priority',
             'Latest Processing' => 'latest_processing',
+            'Latest Processing Date' => 'latest_processing',
             'Project Status2' => 'project_status2',
+            'Project Status3' => 'project_status3',
+            'EEF with' => 'eef_with',
+            'Standard Remarks On Current Progress' => 'standard_remarks_on_current_progress',
+            'Latest Comments / Short Answer' => 'latest_comments_short_answer',
         ];
     }
 

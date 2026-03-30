@@ -39,6 +39,10 @@ class InspectionEefRegistry extends Model
         'eef_priority',
         'latest_processing',
         'project_status2',
+        'eef_with',
+        'standard_remarks_on_current_progress',
+        'latest_comments_short_answer',
+        'project_status3',
     ];
 
     protected $casts = [

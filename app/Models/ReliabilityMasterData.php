@@ -8,17 +8,27 @@ use Illuminate\Database\Eloquent\Model;
 
 class ReliabilityMasterData extends Model
 {
-    protected $table = 'RC_master_data';
+    /** Master data Work Cards (единая таблица; вкладки RC/NRC — фильтр в запросе). */
+    protected $table = 'work_cards_master';
 
     protected $fillable = [
-        'id_file',
+        'project',
+        'project_type',
         'aircraft_type',
-        'cust_card',
+        'tail_number',
+        'wo_station',
+        'work_order',
+        'item',
+        'src_order',
+        'src_item',
+        'src_cust_card',
         'description',
-        'prim_skill',
+        'corrective_action',
+        'ata',
+        'cust_card',
         'order_type',
+        'avg_time',
         'act_time',
-        'child_card_count',
-        'eef',
+        'aircraft_location',
     ];
 }
