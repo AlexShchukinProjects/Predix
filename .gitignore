@@ -22,7 +22,7 @@ storage/framework/sessions/*
 storage/framework/views/*
 storage/logs/*
 
-excel
+excel/
 
 # Bootstrap cache (keep directory, ignore compiled files)
 bootstrap/cache/*.php
