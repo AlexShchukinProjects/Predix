@@ -43,47 +43,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th class="text-center" style="width: 2.5rem;"><input type="checkbox" id="work-card-materials-select-all" class="form-check-input" title="Select all on page"></th>
-                                <th>id</th>
-                                <th>PROJECT #</th>
-                                <th>WORK ORDER #</th>
-                                <th>ZONE #</th>
-                                <th>ITEM #</th>
-                                <th>WIP STATUS</th>
-                                <th>CARD DESCRIPTION</th>
-                                <th>CUSTOMER WORK CARD</th>
-                                <th>SOURCE CARD #</th>
-                                <th>SOURCE CUSTOMER CARD</th>
-                                <th>TAIL #</th>
-                                <th>EST. TIME</th>
-                                <th>TAG #</th>
-                                <th>PART #</th>
-                                <th>DESCRIPTION</th>
-                                <th>OEM SPEC. #</th>
-                                <th>GROUP CODE</th>
-                                <th>EXPIRE DT.</th>
-                                <th>CSP</th>
-                                <th>ORDER #</th>
-                                <th>REQ. DT.</th>
-                                <th>REQ. DUE DT.</th>
-                                <th>REQ. QTY.</th>
-                                <th>REQ. LINE INTERNAL COMMENT</th>
-                                <th>LOCATION</th>
-                                <th>ORDER #</th>
-                                <th>ORDER DT.</th>
-                                <th>ORDER DUE DT.</th>
-                                <th>ORDER QTY.</th>
-                                <th>RECEIPT DT.</th>
-                                <th>WAYBILL</th>
-                                <th>ETA DT.</th>
-                                <th>STATUS</th>
-                                <th>REASON</th>
-                                <th>ALLOC. QTY.</th>
-                                <th>UNIT COST</th>
-                                <th>ITEM LIST PRICE</th>
-                                <th>ORDER UNIT COST</th>
-                                <th>CURRENCY</th>
-                                <th>created_at</th>
-                                <th>updated_at</th>
+                                @include('Modules.Reliability.inspection_settings.partials.sort_headers_work_card_materials')
                             </tr>
                         </thead>
                         <tbody>

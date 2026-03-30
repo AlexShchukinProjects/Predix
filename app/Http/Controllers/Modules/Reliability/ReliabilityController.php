@@ -21,6 +21,9 @@ use App\Models\SystemSetting;
 use App\Models\InspectionWorkCard;
 use App\Models\InspectionProject;
 use App\Models\InspectionEefRegistry;
+use App\Models\ReliabilityMasterData;
+use Illuminate\Support\Collection;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -325,6 +328,7 @@ class ReliabilityController extends Controller
 
     /**
      * Dashboards: таблица по заказчикам, бар-чарт Task/Manhours по типу карты, круговые по ATA (Routine / Nonroutine).
+     * Агрегации в SQL + chunk для pie — без загрузки всех строк (память при больших импортах).
      */
     public function dashboards(Request $request)
     {
@@ -332,23 +336,32 @@ class ReliabilityController extends Controller
         $aircraftTypeFilter = $request->input('aircraft_type', 'all');
         $tailFilter = $request->input('tail_number', 'all');
 
-        $workCards = InspectionWorkCard::query()
-            ->selectRaw("id, COALESCE(NULLIF(TRIM(customer), ''), '—') as customer_name, project, tail_number, aircraft_type, order_type, ata, prim_skill, act_time")
-            ->when($customerFilter !== 'all', fn ($q) => $q->whereRaw('COALESCE(NULLIF(TRIM(customer), ""), "—") = ?', [$customerFilter]))
-            ->when($aircraftTypeFilter !== 'all', fn ($q) => $q->where('aircraft_type', $aircraftTypeFilter))
-            ->when($tailFilter !== 'all', fn ($q) => $q->where('tail_number', $tailFilter))
+        $useMaster = ! $this->dashboardWorkCardsHasRows($customerFilter, $aircraftTypeFilter, $tailFilter);
+        $table = $useMaster ? 'work_cards_master' : 'work_cards';
+        $customerExpr = $useMaster
+            ? "COALESCE(NULLIF(TRIM(project), ''), '—')"
+            : "COALESCE(NULLIF(TRIM(customer), ''), '—')";
+
+        $aggRows = $this->dashboardBaseTableQuery($table, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter)
+            ->selectRaw("{$customerExpr} AS cn, COUNT(*) AS task, COUNT(DISTINCT NULLIF(TRIM(project), '')) AS project_count, COALESCE(SUM(COALESCE(act_time, 0)), 0) AS mhrs")
+            ->groupByRaw($customerExpr)
             ->get();
 
-        $customers = $workCards->groupBy('customer_name')->map(function ($rows, $name) {
-            $projects = $rows->pluck('project')->unique()->filter();
-            $task = $rows->count();
-            $mhrs = (float) $rows->sum('act_time');
-            $eefCount = InspectionEefRegistry::where('customer_name', $name)->count();
+        $customers = collect($aggRows)->map(function ($row) {
+            $name = $row->cn;
+            $trimName = trim((string) $name);
+            $eefCount = InspectionEefRegistry::query()
+                ->where(function ($q) use ($name, $trimName) {
+                    $q->where('customer_name', $name)
+                        ->orWhereRaw('TRIM(COALESCE(project_no, \'\')) = ?', [$trimName]);
+                })
+                ->count();
+
             return [
                 'customer' => $name,
-                'project_count' => $projects->count(),
-                'task' => $task,
-                'mhrs' => round($mhrs, 0),
+                'project_count' => (int) $row->project_count,
+                'task' => (int) $row->task,
+                'mhrs' => round((float) $row->mhrs, 0),
                 'eef' => $eefCount ?: null,
             ];
         })->values();
@@ -357,18 +370,7 @@ class ReliabilityController extends Controller
         $totalMhrs = $customers->sum('mhrs');
         $totalEef = $customers->sum(fn ($c) => $c['eef'] ?? 0);
 
-        $routine = $workCards->filter(fn ($r) => ! str_contains(strtoupper((string) $r->order_type), 'NON') && ! str_contains(strtoupper((string) $r->order_type), 'NRC'));
-        $nonroutine = $workCards->filter(fn ($r) => str_contains(strtoupper((string) $r->order_type), 'NON') || str_contains(strtoupper((string) $r->order_type), 'NRC'));
-        if ($routine->isEmpty() && $nonroutine->isEmpty()) {
-            $routine = $workCards->filter(fn ($r) => stripos((string) $r->prim_skill, 'STR') === false);
-            $nonroutine = $workCards->filter(fn ($r) => stripos((string) $r->prim_skill, 'STR') !== false);
-        }
-
-        $barChart = [
-            'labels' => ['Routine', 'Nonroutine'],
-            'manhours' => [(float) $routine->sum('act_time'), (float) $nonroutine->sum('act_time')],
-            'task' => [$routine->count(), $nonroutine->count()],
-        ];
+        $barChart = $this->dashboardBarChartAggregates($table, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter);
 
         $ataLabel = function ($ata, $prim) {
             $ata = trim((string) $ata);
@@ -379,15 +381,16 @@ class ReliabilityController extends Controller
                     return $ch . ' + ' . (str_contains(strtoupper($prim), 'STR') ? 'STR' : (str_contains(strtoupper($prim), 'INT') ? 'INT' : (str_contains(strtoupper($prim), 'PROP') ? 'PROP' : 'OTHER')));
                 }
             }
+
             return $ata !== '' ? $ata : 'SYSTEMS';
         };
 
-        $routineByTrade = $routine->groupBy(fn ($r) => $ataLabel($r->ata, $r->prim_skill))->map->count()->sortDesc();
-        $nonroutineByTrade = $nonroutine->groupBy(fn ($r) => $ataLabel($r->ata, $r->prim_skill))->map->count()->sortDesc();
+        $routineByTrade = $this->dashboardTradeLabelCounts($useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter, true, $ataLabel);
+        $nonroutineByTrade = $this->dashboardTradeLabelCounts($useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter, false, $ataLabel);
 
         $customerList = $customers->pluck('customer')->unique()->filter()->values()->all();
-        $aircraftTypes = $workCards->pluck('aircraft_type')->unique()->filter()->values()->all();
-        $tailNumbers = $workCards->pluck('tail_number')->unique()->filter()->values()->all();
+        $aircraftTypes = $this->dashboardDistinctColumn($table, $useMaster, 'aircraft_type', $customerFilter, $aircraftTypeFilter, $tailFilter);
+        $tailNumbers = $this->dashboardDistinctColumn($table, $useMaster, 'tail_number', $customerFilter, $aircraftTypeFilter, $tailFilter);
 
         return view('Modules.Reliability.dashboards', [
             'customers' => $customers,
@@ -405,6 +408,204 @@ class ReliabilityController extends Controller
             'selectedAircraftType' => $aircraftTypeFilter,
             'selectedTailNumber' => $tailFilter,
         ]);
+    }
+
+    private function dashboardWorkCardsHasRows(string $customerFilter, string $aircraftTypeFilter, string $tailFilter): bool
+    {
+        $q = InspectionWorkCard::query();
+        $this->dashboardApplyFiltersEloquent($q, $customerFilter, $aircraftTypeFilter, $tailFilter, false);
+
+        return $q->exists();
+    }
+
+    private function dashboardBaseTableQuery(
+        string $table,
+        bool $useMaster,
+        string $customerFilter,
+        string $aircraftTypeFilter,
+        string $tailFilter,
+    ): QueryBuilder {
+        $q = DB::table($table);
+        $this->dashboardApplyFiltersQuery($q, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter);
+
+        return $q;
+    }
+
+    private function dashboardApplyFiltersQuery(
+        QueryBuilder $q,
+        bool $useMaster,
+        string $customerFilter,
+        string $aircraftTypeFilter,
+        string $tailFilter,
+    ): void {
+        $customerExpr = $useMaster
+            ? "COALESCE(NULLIF(TRIM(project), ''), '—')"
+            : "COALESCE(NULLIF(TRIM(customer), ''), '—')";
+        if ($customerFilter !== 'all') {
+            $q->whereRaw("{$customerExpr} = ?", [$customerFilter]);
+        }
+        if ($aircraftTypeFilter !== 'all') {
+            $q->where('aircraft_type', $aircraftTypeFilter);
+        }
+        if ($tailFilter !== 'all') {
+            $q->where('tail_number', $tailFilter);
+        }
+    }
+
+    /** @param \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Relations\Relation $q */
+    private function dashboardApplyFiltersEloquent($q, string $customerFilter, string $aircraftTypeFilter, string $tailFilter, bool $useMaster): void
+    {
+        if ($useMaster) {
+            $q->when($customerFilter !== 'all', fn ($qq) => $qq->whereRaw("COALESCE(NULLIF(TRIM(project), ''), '—') = ?", [$customerFilter]));
+        } else {
+            $q->when($customerFilter !== 'all', fn ($qq) => $qq->whereRaw("COALESCE(NULLIF(TRIM(customer), ''), '—') = ?", [$customerFilter]));
+        }
+        if ($aircraftTypeFilter !== 'all') {
+            $q->where('aircraft_type', $aircraftTypeFilter);
+        }
+        if ($tailFilter !== 'all') {
+            $q->where('tail_number', $tailFilter);
+        }
+    }
+
+    /**
+     * @return array{labels: list<string>, manhours: list<float>, task: list<int>}
+     */
+    private function dashboardBarChartAggregates(
+        string $table,
+        bool $useMaster,
+        string $customerFilter,
+        string $aircraftTypeFilter,
+        string $tailFilter,
+    ): array {
+        $base = $this->dashboardBaseTableQuery($table, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter);
+        $routineSql = "NOT (UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
+        $nonroutineSql = "(UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
+
+        $rTask = (int) $base->clone()->whereRaw($routineSql)->count();
+        $nTask = (int) $base->clone()->whereRaw($nonroutineSql)->count();
+        $rMhrs = (float) ($base->clone()->whereRaw($routineSql)->sum('act_time') ?? 0);
+        $nMhrs = (float) ($base->clone()->whereRaw($nonroutineSql)->sum('act_time') ?? 0);
+
+        if ($rTask === 0 && $nTask === 0 && ! $useMaster) {
+            $tot = (int) $base->clone()->count();
+            if ($tot > 0) {
+                $split = $this->dashboardBarSplitByPrimSkill($customerFilter, $aircraftTypeFilter, $tailFilter);
+                $rTask = $split['r_task'];
+                $nTask = $split['n_task'];
+                $rMhrs = $split['r_mhrs'];
+                $nMhrs = $split['n_mhrs'];
+            }
+        }
+
+        return [
+            'labels' => ['Routine', 'Nonroutine'],
+            'manhours' => [$rMhrs, $nMhrs],
+            'task' => [$rTask, $nTask],
+        ];
+    }
+
+    /**
+     * Резерв, если order_type не даёт ни routine, ни nonroutine (редко).
+     *
+     * @return array{r_task: int, n_task: int, r_mhrs: float, n_mhrs: float}
+     */
+    private function dashboardBarSplitByPrimSkill(string $customerFilter, string $aircraftTypeFilter, string $tailFilter): array
+    {
+        $rTask = 0;
+        $nTask = 0;
+        $rMhrs = 0.0;
+        $nMhrs = 0.0;
+        $q = InspectionWorkCard::query();
+        $this->dashboardApplyFiltersEloquent($q, $customerFilter, $aircraftTypeFilter, $tailFilter, false);
+        $q->select(['id', 'act_time', 'prim_skill'])->chunkById(4000, function ($rows) use (&$rTask, &$nTask, &$rMhrs, &$nMhrs) {
+            foreach ($rows as $r) {
+                $mh = $this->dashboardParseActTime($r->act_time ?? null);
+                if (stripos((string) $r->prim_skill, 'STR') !== false) {
+                    $nTask++;
+                    $nMhrs += $mh;
+                } else {
+                    $rTask++;
+                    $rMhrs += $mh;
+                }
+            }
+        });
+
+        return ['r_task' => $rTask, 'n_task' => $nTask, 'r_mhrs' => $rMhrs, 'n_mhrs' => $nMhrs];
+    }
+
+    private function dashboardParseActTime(mixed $value): float
+    {
+        if ($value === null || $value === '') {
+            return 0.0;
+        }
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+        $s = trim((string) $value);
+        if ($s === '') {
+            return 0.0;
+        }
+        $s = str_replace(',', '.', preg_replace('/[^\d,.-]/', '', $s));
+        if ($s === '' || ! is_numeric($s)) {
+            return 0.0;
+        }
+
+        return (float) $s;
+    }
+
+    private function dashboardTradeLabelCounts(
+        bool $useMaster,
+        string $customerFilter,
+        string $aircraftTypeFilter,
+        string $tailFilter,
+        bool $routineBucket,
+        callable $ataLabel,
+    ): Collection {
+        $model = $useMaster ? ReliabilityMasterData::class : InspectionWorkCard::class;
+        $q = $model::query();
+        $this->dashboardApplyFiltersEloquent($q, $customerFilter, $aircraftTypeFilter, $tailFilter, $useMaster);
+        $routineSql = "NOT (UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
+        $nonroutineSql = "(UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
+        $q->whereRaw($routineBucket ? $routineSql : $nonroutineSql);
+        if ($useMaster) {
+            $q->select(['id', 'ata', 'order_type']);
+        } else {
+            $q->select(['id', 'ata', 'prim_skill', 'order_type']);
+        }
+
+        $counts = [];
+        $q->chunkById(4000, function ($rows) use (&$counts, $ataLabel, $useMaster) {
+            foreach ($rows as $r) {
+                $prim = $useMaster ? '' : (string) ($r->prim_skill ?? '');
+                $k = $ataLabel($r->ata, $prim);
+                $counts[$k] = ($counts[$k] ?? 0) + 1;
+            }
+        });
+
+        return collect($counts)->sortDesc();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function dashboardDistinctColumn(
+        string $table,
+        bool $useMaster,
+        string $column,
+        string $customerFilter,
+        string $aircraftTypeFilter,
+        string $tailFilter,
+    ): array {
+        return $this->dashboardBaseTableQuery($table, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter)
+            ->whereNotNull($column)
+            ->where($column, '!=', '')
+            ->distinct()
+            ->orderBy($column)
+            ->pluck($column)
+            ->filter()
+            ->values()
+            ->all();
     }
 
     /**

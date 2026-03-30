@@ -148,29 +148,37 @@ document.addEventListener('DOMContentLoaded', function() {
     var colors = ['#5b9bd5', '#1e3a5f', '#ed7d31', '#7030a0', '#70ad47', '#44546a', '#2f5496', '#c55a11', '#5b9bd5', '#ffc000'];
 
     if (document.getElementById('barChart')) {
+        var mh = (barData.manhours || []).map(Number);
+        var tk = (barData.task || []).map(Number);
+        var allPositive = mh.concat(tk).every(function (v) { return v > 0; });
+        var yScale = allPositive
+            ? { type: 'logarithmic', min: 1 }
+            : { beginAtZero: true, ticks: { precision: 0 } };
         new Chart(document.getElementById('barChart'), {
             type: 'bar',
             data: {
                 labels: barData.labels,
                 datasets: [
-                    { label: 'MANHOURS', data: barData.manhours, backgroundColor: 'rgba(91, 155, 213, 0.8)' },
-                    { label: 'TASK', data: barData.task, backgroundColor: 'rgba(30, 58, 95, 0.9)' }
+                    { label: 'MANHOURS', data: mh, backgroundColor: 'rgba(91, 155, 213, 0.8)' },
+                    { label: 'TASK', data: tk, backgroundColor: 'rgba(30, 58, 95, 0.9)' }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                scales: {
-                    y: { type: 'logarithmic', min: 1 }
-                },
+                scales: { y: yScale },
                 plugins: { legend: { display: false } }
             }
         });
     }
 
     function buildPieChart(id, data) {
-        var labels = Object.keys(data);
-        var values = Object.values(data);
+        var labels = Object.keys(data || {});
+        var values = Object.values(data || {});
+        if (labels.length === 0) {
+            labels = ['Нет данных'];
+            values = [1];
+        }
         var bg = labels.map(function(_, i) { return colors[i % colors.length]; });
         if (document.getElementById(id)) {
             new Chart(document.getElementById(id), {

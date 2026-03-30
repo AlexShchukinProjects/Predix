@@ -43,41 +43,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th class="text-center" style="width: 2.5rem;"><input type="checkbox" id="eef-registry-select-all" class="form-check-input" title="Select all on page"></th>
-                                <th>id</th>
-                                <th>EEF Number</th>
-                                <th>NRC Number</th>
-                                <th>AC Type</th>
-                                <th>ATA</th>
-                                <th>Project No.</th>
-                                <th>Subject</th>
-                                <th>Remarks</th>
-                                <th>Location</th>
-                                <th>EEF Status</th>
-                                <th>Link</th>
-                                <th>Link Path</th>
-                                <th>Man Hours</th>
-                                <th>Chargeable to Customer?</th>
-                                <th>Customer Name</th>
-                                <th>Inspection Source Task</th>
-                                <th>RC#</th>
-                                <th>Open Date</th>
-                                <th>Assigned Engineering Engineer</th>
-                                <th>OPEN/Continuation Raised by Production Dates</th>
-                                <th>Answer provided by Engineering Dates</th>
-                                <th>OEM Communication Reference</th>
-                                <th>GAES EO</th>
-                                <th>Manual limits (OUT / WITHIN)</th>
-                                <th>Back-up Engineer</th>
-                                <th>Project Status</th>
-                                <th>EEF Priority</th>
-                                <th>Latest Processing</th>
-                                <th>Project Status2</th>
-                                <th>EEF with</th>
-                                <th>Standard remarks (progress)</th>
-                                <th>Latest comments / short answer</th>
-                                <th>Project Status3</th>
-                                <th>created_at</th>
-                                <th>updated_at</th>
+                                @include('Modules.Reliability.inspection_settings.partials.sort_headers_eef_registry')
                             </tr>
                         </thead>
                         <tbody>

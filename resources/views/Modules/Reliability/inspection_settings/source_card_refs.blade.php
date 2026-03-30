@@ -43,11 +43,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th class="text-center" style="width: 2.5rem;"><input type="checkbox" id="source-card-refs-select-all" class="form-check-input" title="Select all on page"></th>
-                                <th>id</th>
-                                <th>code</th>
-                                <th>name</th>
-                                <th>created_at</th>
-                                <th>updated_at</th>
+                                @include('Modules.Reliability.inspection_settings.partials.sort_headers_source_card_refs')
                             </tr>
                         </thead>
                         <tbody>

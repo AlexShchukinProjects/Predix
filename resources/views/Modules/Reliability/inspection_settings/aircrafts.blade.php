@@ -40,69 +40,10 @@
             <div class="reliability-table-scroll-wrap">
                 <div class="table-responsive">
                     <table class="table table-bordered table-sm mb-0">
-                    <thead class="table-light">
+                        <thead class="table-light">
                         <tr>
                             <th class="text-center" style="width: 2.5rem;"><input type="checkbox" id="aircrafts-select-all" class="form-check-input" title="Select all on page"></th>
-                            <th>id</th>
-                            <th>SERIAL #</th>
-                            <th>TAIL #</th>
-                            <th>AIRCRAFT TYPE</th>
-                            <th>VISIT</th>
-                            <th>CUSTOMER #</th>
-                            <th>OWNER #</th>
-                            <th>ENGINE TYPE</th>
-                            <th>APU TYPE</th>
-                            <th>GROUP CODE</th>
-                            <th>DELIVERY DATE</th>
-                            <th>REDELIVERY DATE</th>
-                            <th>ETOPS</th>
-                            <th>AMM GROUP</th>
-                            <th>CUSTOMER NAME</th>
-                            <th>OWNER NAME</th>
-                            <th>APP. STD</th>
-                            <th>LINE NO</th>
-                            <th>VARIABLE NO</th>
-                            <th>EFFECTIVITY</th>
-                            <th>SELCAL</th>
-                            <th>LEASE DATE</th>
-                            <th>MANUFACTURED</th>
-                            <th>INS. DATE</th>
-                            <th>PAS.CAP.</th>
-                            <th>SEAT MAT.</th>
-                            <th>MAX.TAXI</th>
-                            <th>MAX.TO.</th>
-                            <th>MAX.LAND</th>
-                            <th>MAXIMUM ZERO FUEL WEIGHT</th>
-                            <th>MAX.PAY.</th>
-                            <th>DRY OPE.</th>
-                            <th>FUEL</th>
-                            <th>FUEL BURN RATIO</th>
-                            <th>FWD CARGO</th>
-                            <th>AFT CARGO</th>
-                            <th>FWD AREA</th>
-                            <th>AFT AREA</th>
-                            <th>SIDE NOISE</th>
-                            <th>APP.NOISE</th>
-                            <th>START NOISE</th>
-                            <th>ENG.RATE</th>
-                            <th>MOD</th>
-                            <th>COLOR</th>
-                            <th>FLIGHT NUMBER</th>
-                            <th>SCHEDULED FROM</th>
-                            <th>SCHEDULED TO</th>
-                            <th>SCHEDULED OFF BLOCK</th>
-                            <th>SCHEDULED ON BLOCK</th>
-                            <th>ACTUAL FROM</th>
-                            <th>ACTUAL TO</th>
-                            <th>ACTUAL OFF BLOCK</th>
-                            <th>ACTUAL ON BLOCK</th>
-                            <th>ROUTE DEV. DIST.</th>
-                            <th>ROUTE DEV. TIME</th>
-                            <th>WNG.</th>
-                            <th>ARCHIVE</th>
-                            <th>ACTIVE</th>
-                            <th>created_at</th>
-                            <th>updated_at</th>
+                            @include('Modules.Reliability.inspection_settings.partials.sort_headers_aircrafts')
                         </tr>
                     </thead>
                     <tbody>

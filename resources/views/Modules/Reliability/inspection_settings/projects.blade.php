@@ -43,73 +43,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th class="text-center" style="width: 2.5rem;"><input type="checkbox" id="projects-select-all" class="form-check-input" title="Select all on page"></th>
-                                <th>id</th>
-                                <th>PROJECT #</th>
-                                <th>STATUS</th>
-                                <th>TAIL NUMBER</th>
-                                <th>AIRCRAFT TYPE</th>
-                                <th>SCOPE</th>
-                                <th>OPEN DATE</th>
-                                <th>CLOSE DATE</th>
-                                <th>CUSTOMER #</th>
-                                <th>CUSTOMER NAME</th>
-                                <th>CUSTOMER PO</th>
-                                <th>EST.NON-ROUTINE</th>
-                                <th>TARGET DAYS</th>
-                                <th>ARRIVAL DATE</th>
-                                <th>INDUCTION DATE</th>
-                                <th>INSPECTION DATE</th>
-                                <th>DELIVERY DATE</th>
-                                <th>REV.DELIVERY DATE</th>
-                                <th>LATEST DELIVERY DATE</th>
-                                <th>ACTUAL ARRIVAL DATE</th>
-                                <th>ACTUAL INDUCTION DATE</th>
-                                <th>ACTUAL INSPECTION DATE</th>
-                                <th>ACTUAL DELIVERY DATE</th>
-                                <th>PROJECT TYPE</th>
-                                <th>APPLICABLE STANDARD</th>
-                                <th>RESOURCES</th>
-                                <th>BAY</th>
-                                <th>PLANNED SPAN</th>
-                                <th>DAY OF CHECK</th>
-                                <th>AIRCRAFT TSN</th>
-                                <th>AIRCRAFT CSN</th>
-                                <th>ENGINE TYPE</th>
-                                <th>QUOTED MHRS</th>
-                                <th>O&A MHRS</th>
-                                <th>ADD WORKS MHRS</th>
-                                <th>CWR MHRS</th>
-                                <th>AIRCRAFT SERIES</th>
-                                <th>STATION</th>
-                                <th>OPEN REQUISITIONS</th>
-                                <th>OPEN ORDER LINES</th>
-                                <th>AWAITING TO RETURN STORE</th>
-                                <th>UNINVOICE ORDER LINES</th>
-                                <th>OPEN WORK CARDS</th>
-                                <th>OPEN WORK ORDERS</th>
-                                <th>ENG'G MHRS</th>
-                                <th>TOTAL MHRS</th>
-                                <th>ENGINE 1 SERIAL</th>
-                                <th>ENGINE 2 SERIAL</th>
-                                <th>ENGINE 3 SERIAL</th>
-                                <th>ENGINE 4 SERIAL</th>
-                                <th>ENGINE 1 TSN</th>
-                                <th>ENGINE 1 CSN</th>
-                                <th>ENGINE 2 TSN</th>
-                                <th>ENGINE 2 CSN</th>
-                                <th>ENGINE 3 TSN</th>
-                                <th>ENGINE 3 CSN</th>
-                                <th>ENGINE 4 TSN</th>
-                                <th>ENGINE 4 CSN</th>
-                                <th>APU PN</th>
-                                <th>APU SERIAL</th>
-                                <th>APU TSN</th>
-                                <th>APU CSN</th>
-                                <th>SPARES ORDER CUT OFF</th>
-                                <th>SPARES DELIVERY CUT OFF</th>
-                                <th>MHRS CAP</th>
-                                <th>created_at</th>
-                                <th>updated_at</th>
+                                @include('Modules.Reliability.inspection_settings.partials.sort_headers_projects')
                             </tr>
                         </thead>
                         <tbody>

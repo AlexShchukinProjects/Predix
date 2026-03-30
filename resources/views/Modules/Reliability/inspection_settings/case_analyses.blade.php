@@ -43,15 +43,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th class="text-center" style="width: 2.5rem;"><input type="checkbox" id="case-analyses-select-all" class="form-check-input" title="Select all on page"></th>
-                                <th>id</th>
-                                <th>work_card_id</th>
-                                <th>tc_number</th>
-                                <th>file_path</th>
-                                <th>file_name</th>
-                                <th>is_critical</th>
-                                <th>remarks</th>
-                                <th>created_at</th>
-                                <th>updated_at</th>
+                                @include('Modules.Reliability.inspection_settings.partials.sort_headers_case_analyses')
                             </tr>
                         </thead>
                         <tbody>

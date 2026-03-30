@@ -14,6 +14,7 @@ use App\Models\InspectionWorkCard;
 use App\Models\InspectionWorkCardMaterial;
 use App\Models\ReliabilityMasterData;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -42,8 +43,11 @@ class InspectionDataController extends Controller
         if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
-        $items = InspectionProject::orderBy('id')->paginate($perPage)->withQueryString();
-        return view('Modules.Reliability.inspection_settings.projects', compact('items', 'perPage'));
+        [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionProject::class);
+        $query = InspectionProject::query();
+        $this->applyInspectionSettingsSort($query, $sortColumn, $sortDirection);
+        $items = $query->paginate($perPage)->withQueryString();
+        return view('Modules.Reliability.inspection_settings.projects', compact('items', 'perPage', 'sortColumn', 'sortDirection'));
     }
 
     public function projectsUpload(Request $request)
@@ -484,6 +488,51 @@ class InspectionDataController extends Controller
     }
 
     private function applyMasterDataSort(Builder $query, string $column, string $direction): void
+    {
+        $query->orderBy($column, $direction);
+        if ($column !== 'id') {
+            $query->orderBy('id', 'asc');
+        }
+    }
+
+    /**
+     * @param  class-string<Model>  $modelClass
+     * @return list<string>
+     */
+    private function inspectionSettingsSortableColumnNames(string $modelClass): array
+    {
+        $model = new $modelClass();
+        $cols = array_merge(['id'], $model->getFillable(), ['created_at', 'updated_at']);
+        $out = [];
+        foreach ($cols as $c) {
+            if ($c !== '' && !in_array($c, $out, true)) {
+                $out[] = $c;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  class-string<Model>  $modelClass
+     * @return array{0: string, 1: string}
+     */
+    private function resolveInspectionSettingsSort(Request $request, string $modelClass): array
+    {
+        $allowed = $this->inspectionSettingsSortableColumnNames($modelClass);
+        $sort = (string) $request->input('sort', 'id');
+        if (!in_array($sort, $allowed, true)) {
+            $sort = 'id';
+        }
+        $dir = strtolower((string) $request->input('dir', 'asc'));
+        if (!in_array($dir, ['asc', 'desc'], true)) {
+            $dir = 'asc';
+        }
+
+        return [$sort, $dir];
+    }
+
+    private function applyInspectionSettingsSort(Builder $query, string $column, string $direction): void
     {
         $query->orderBy($column, $direction);
         if ($column !== 'id') {
@@ -1210,8 +1259,11 @@ class InspectionDataController extends Controller
         if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
-        $items = InspectionAircraft::orderBy('id')->paginate($perPage)->withQueryString();
-        return view('Modules.Reliability.inspection_settings.aircrafts', compact('items', 'perPage'));
+        [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionAircraft::class);
+        $query = InspectionAircraft::query();
+        $this->applyInspectionSettingsSort($query, $sortColumn, $sortDirection);
+        $items = $query->paginate($perPage)->withQueryString();
+        return view('Modules.Reliability.inspection_settings.aircrafts', compact('items', 'perPage', 'sortColumn', 'sortDirection'));
     }
 
     public function aircraftsUpload(Request $request)
@@ -1294,8 +1346,11 @@ class InspectionDataController extends Controller
         if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
-        $items = InspectionWorkCard::orderBy('id')->paginate($perPage)->withQueryString();
-        return view('Modules.Reliability.inspection_settings.work_cards', compact('items', 'perPage'));
+        [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionWorkCard::class);
+        $query = InspectionWorkCard::query();
+        $this->applyInspectionSettingsSort($query, $sortColumn, $sortDirection);
+        $items = $query->paginate($perPage)->withQueryString();
+        return view('Modules.Reliability.inspection_settings.work_cards', compact('items', 'perPage', 'sortColumn', 'sortDirection'));
     }
 
     /**
@@ -1977,8 +2032,11 @@ class InspectionDataController extends Controller
         if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
-        $items = InspectionEefRegistry::orderBy('id')->paginate($perPage)->withQueryString();
-        return view('Modules.Reliability.inspection_settings.eef_registry', compact('items', 'perPage'));
+        [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionEefRegistry::class);
+        $query = InspectionEefRegistry::query();
+        $this->applyInspectionSettingsSort($query, $sortColumn, $sortDirection);
+        $items = $query->paginate($perPage)->withQueryString();
+        return view('Modules.Reliability.inspection_settings.eef_registry', compact('items', 'perPage', 'sortColumn', 'sortDirection'));
     }
 
     public function eefRegistryUpload(Request $request)
@@ -2577,8 +2635,11 @@ class InspectionDataController extends Controller
         if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
-        $items = InspectionWorkCardMaterial::orderBy('id')->paginate($perPage)->withQueryString();
-        return view('Modules.Reliability.inspection_settings.work_card_materials', compact('items', 'perPage'));
+        [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionWorkCardMaterial::class);
+        $query = InspectionWorkCardMaterial::query();
+        $this->applyInspectionSettingsSort($query, $sortColumn, $sortDirection);
+        $items = $query->paginate($perPage)->withQueryString();
+        return view('Modules.Reliability.inspection_settings.work_card_materials', compact('items', 'perPage', 'sortColumn', 'sortDirection'));
     }
 
     /** IC_0097 Material Data – колонки как в CSV. Дубликат "ORDER #" маппится: 1-й → order_number, 2-й → order_number_2 */
@@ -2909,8 +2970,11 @@ class InspectionDataController extends Controller
         if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
-        $items = InspectionSourceCardRef::orderBy('id')->paginate($perPage)->withQueryString();
-        return view('Modules.Reliability.inspection_settings.source_card_refs', compact('items', 'perPage'));
+        [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionSourceCardRef::class);
+        $query = InspectionSourceCardRef::query();
+        $this->applyInspectionSettingsSort($query, $sortColumn, $sortDirection);
+        $items = $query->paginate($perPage)->withQueryString();
+        return view('Modules.Reliability.inspection_settings.source_card_refs', compact('items', 'perPage', 'sortColumn', 'sortDirection'));
     }
 
     public function sourceCardRefsUpload(Request $request)
@@ -2932,8 +2996,11 @@ class InspectionDataController extends Controller
         if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
             $perPage = 50;
         }
-        $items = InspectionCaseAnalysis::with('workCard')->orderBy('id')->paginate($perPage)->withQueryString();
-        return view('Modules.Reliability.inspection_settings.case_analyses', compact('items', 'perPage'));
+        [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionCaseAnalysis::class);
+        $query = InspectionCaseAnalysis::query()->with('workCard');
+        $this->applyInspectionSettingsSort($query, $sortColumn, $sortDirection);
+        $items = $query->paginate($perPage)->withQueryString();
+        return view('Modules.Reliability.inspection_settings.case_analyses', compact('items', 'perPage', 'sortColumn', 'sortDirection'));
     }
 
     public function caseAnalysesUpload(Request $request)
