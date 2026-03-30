@@ -2631,6 +2631,39 @@ class InspectionDataController extends Controller
         return ['ORDER #' => ['order_number', 'order_number_2']];
     }
 
+    /**
+     * Поля таблицы work_card_materials для batch insert (без id).
+     * У всех строк пачки должен быть один и тот же набор ключей, иначе MySQL 1136.
+     *
+     * @return list<string>
+     */
+    private static function workCardMaterialsInsertKeys(): array
+    {
+        static $keys = null;
+        if ($keys === null) {
+            $keys = array_values(array_merge(
+                (new InspectionWorkCardMaterial())->getFillable(),
+                ['created_at', 'updated_at'],
+            ));
+        }
+
+        return $keys;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private static function normalizeWorkCardMaterialInsertRow(array $data): array
+    {
+        $out = [];
+        foreach (self::workCardMaterialsInsertKeys() as $key) {
+            $out[$key] = $data[$key] ?? null;
+        }
+
+        return $out;
+    }
+
     /** Строит маппинг индекс колонки → поле БД с учётом дубликатов заголовков */
     private function workCardMaterialsIndexToKey(array $headers): array
     {
@@ -2742,7 +2775,7 @@ class InspectionDataController extends Controller
                 if (!empty($data)) {
                     $data['created_at'] = $now;
                     $data['updated_at'] = $now;
-                    $buffer[] = $data;
+                    $buffer[] = self::normalizeWorkCardMaterialInsertRow($data);
                     if (count($buffer) >= $chunkSize) {
                         DB::table('work_card_materials')->insert($buffer);
                         $count += count($buffer);
@@ -2794,7 +2827,7 @@ class InspectionDataController extends Controller
                     if (!empty($data)) {
                         $data['created_at'] = $now;
                         $data['updated_at'] = $now;
-                        $buffer[] = $data;
+                        $buffer[] = self::normalizeWorkCardMaterialInsertRow($data);
                         if (count($buffer) >= $chunkSize) {
                             DB::table('work_card_materials')->insert($buffer);
                             $count += count($buffer);
@@ -2836,7 +2869,7 @@ class InspectionDataController extends Controller
             if (!empty($data)) {
                 $data['created_at'] = $now;
                 $data['updated_at'] = $now;
-                $buffer[] = $data;
+                $buffer[] = self::normalizeWorkCardMaterialInsertRow($data);
                 if (count($buffer) >= $chunkSize) {
                     DB::table('work_card_materials')->insert($buffer);
                     $count += count($buffer);

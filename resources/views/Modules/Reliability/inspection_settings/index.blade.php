@@ -9,11 +9,8 @@
                     ['name' => 'Master data', 'route' => route('modules.reliability.settings.master-data.index')],
                     ['name' => 'Projects', 'route' => route('modules.reliability.settings.inspection.projects')],
                     ['name' => 'Aircrafts', 'route' => route('modules.reliability.settings.inspection.aircrafts')],
-                    ['name' => 'Work cards', 'route' => route('modules.reliability.settings.inspection.work-cards')],
                     ['name' => 'EEF registry', 'route' => route('modules.reliability.settings.inspection.eef-registry')],
                     ['name' => 'Work card materials', 'route' => route('modules.reliability.settings.inspection.work-card-materials')],
-                    ['name' => 'Source card refs', 'route' => route('modules.reliability.settings.inspection.source-card-refs')],
-                    ['name' => 'Case analyses', 'route' => route('modules.reliability.settings.inspection.case-analyses')],
                 ];
             @endphp
             @foreach($tiles as $tile)
