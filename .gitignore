@@ -3,7 +3,7 @@
 .env.*.local
 
 # Composer
-composer.phar
+
 
 # Node/Vite
 node_modules/
