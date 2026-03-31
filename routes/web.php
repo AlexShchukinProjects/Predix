@@ -50,6 +50,7 @@ Route::middleware('auth')->group(function () {
     Route::prefix('modules')->name('modules.')->group(function () {
         // Надежность
         Route::get('/reliability', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'index'])->name('reliability.index');
+        Route::get('/reliability/master-data-schema', fn() => view('Modules.Reliability.master_data_schema'))->name('reliability.master-data-schema');
         Route::get('/reliability/dashboards', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'dashboards'])->name('reliability.dashboards');
         Route::get('/reliability/export-excel', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'exportFailuresToExcel'])->name('reliability.export-excel');
         Route::get('/reliability/export-buf', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'exportFailuresToBuf'])->name('reliability.export-buf');

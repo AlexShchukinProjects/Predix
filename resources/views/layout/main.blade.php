@@ -393,14 +393,14 @@
     <div style="display: flex; align-items: center; gap: 12px;">
         <i class="fas fa-user-shield" style="font-size: 20px;"></i>
         <span style="font-weight: 600; font-size: 15px;">
-            Вы авторизованы под пользователем: {{ auth()->user()->name }}
+            Logged in as: {{ auth()->user()->name }}
         </span>
     </div>
     <form action="{{ route('admin.users.stop-impersonating') }}" method="POST" style="margin: 0;">
         @csrf
         <button type="submit" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 16px; border-radius: 6px; font-weight: 500; font-size: 14px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
             <i class="fas fa-sign-out-alt me-1"></i>
-            Вернуться к своему аккаунту
+            Back to my account
         </button>
     </form>
 </div>
@@ -450,13 +450,14 @@
                         @if($currentRoute === 'dashboard')
                             @if($can('settings.index'))
                             <li class="nav-ul nav-item">
-                                <a href="/settings" class="nav_link_nav">НАСТРОЙКИ</a>
+                                <a href="/settings" class="nav_link_nav">SETTINGS</a>
                             </li>
                             @endif
                         @elseif($currentModule === 'reliability')
                                 @if($can('modules.reliability.index'))<li class="nav-ul nav-item"><a href="{{ route('modules.reliability.dashboards') }}" class="nav_link_nav {{ $currentRoute === 'modules.reliability.dashboards' ? 'active' : '' }}">DASHBOARDS</a></li>@endif
                                 @if($can('modules.reliability.index'))<li class="nav-ul nav-item"><a href="{{ route('modules.reliability.index') }}" class="nav_link_nav {{ $currentRoute === 'modules.reliability.index' ? 'active' : '' }}">ANALYSIS</a></li>@endif
                             @if($can('modules.reliability.settings.index'))<li class="nav-ul nav-item"><a href="{{ route('modules.reliability.settings.index') }}" class="nav_link_nav {{ str_starts_with($currentRoute, 'modules.reliability.settings') ? 'active' : '' }}">DATA</a></li>@endif
+                            @if($can('modules.reliability.settings.index'))<li class="nav-ul nav-item"><a href="{{ route('modules.reliability.master-data-schema') }}" class="nav_link_nav {{ $currentRoute === 'modules.reliability.master-data-schema' ? 'active' : '' }}" style="display:inline-flex;align-items:center;gap:5px;">MASTER DATA <i class="fas fa-diagram-project" style="font-size:11px;opacity:.65;"></i></a></li>@endif
                         @endif
 
 
@@ -514,34 +515,34 @@
                 <div class="user-dropdown" id="userDropdown">
                     <div class="user-info">
                         <div class="user-info-row">
-                            <span class="label">Имя:</span>
-                            <span class="value">{{ Auth::user()->name ?? 'Не указано' }}</span>
+                            <span class="label">Name:</span>
+                            <span class="value">{{ Auth::user()->name ?? 'Not set' }}</span>
                         </div>
                         <div class="user-info-row">
                             <span class="label">Email:</span>
-                            <span class="value">{{ Auth::user()->email ?? 'Не указан' }}</span>
+                            <span class="value">{{ Auth::user()->email ?? 'Not set' }}</span>
                         </div>
                         <div class="user-info-row">
-                            <span class="label">Логин:</span>
-                            <span class="value">{{ Auth::user()->login ?? Auth::user()->email ?? 'Не указан' }}</span>
+                            <span class="label">Login:</span>
+                            <span class="value">{{ Auth::user()->login ?? Auth::user()->email ?? 'Not set' }}</span>
                         </div>
                         <div class="user-info-row">
-                            <span class="label">Статус:</span>
+                            <span class="label">Status:</span>
                             <span class="value status-{{ Auth::user()->status ?? 'active' }}">
-                                {{ Auth::user()->status === 'active' ? 'Активный' : 'Заблокирован' }}
+                                {{ Auth::user()->status === 'active' ? 'Active' : 'Blocked' }}
                             </span>
                         </div>
                         <div class="user-info-row">
-                            <span class="label">Должность:</span>
-                            <span class="value">{{ Auth::user()->position ?? 'Не указана' }}</span>
+                            <span class="label">Position:</span>
+                            <span class="value">{{ Auth::user()->position ?? 'Not set' }}</span>
                         </div>
                         <div class="user-info-row">
-                            <span class="label">Роли:</span>
+                            <span class="label">Roles:</span>
                             <span class="value">
                                 @if(Auth::user() && Auth::user()->roles && Auth::user()->roles->count() > 0)
                                     {{ Auth::user()->roles->pluck('name')->join(', ') }}
                                 @else
-                                    Не назначены
+                                    Not assigned
                                 @endif
                             </span>
                         </div>
@@ -550,7 +551,7 @@
                                 @csrf
                                 <button type="submit" class="logout-btn">
                                     <i class="fas fa-sign-out-alt"></i>
-                                    Выйти
+                                    Log out
                                 </button>
                             </form>
                         </div>
