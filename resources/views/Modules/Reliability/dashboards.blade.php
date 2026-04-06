@@ -154,6 +154,35 @@
             </div>
         </div>
     </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-12 col-xl-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title mb-3 d-flex justify-content-between align-items-center">
+                        <span>ATA VS NRC COUNT</span>
+                        <span class="small text-muted">Total NRC Count: {{ $nrcAtaDistribution['total'] ?? 0 }}</span>
+                    </h6>
+                    <div style="height: 320px;">
+                        <canvas id="nrcAtaChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-6">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title mb-3 d-flex justify-content-between align-items-center">
+                        <span>ATA VS EEF COUNT</span>
+                        <span class="small text-muted">Total EEF Count: {{ $eefAtaDistribution['total'] ?? 0 }}</span>
+                    </h6>
+                    <div style="height: 320px;">
+                        <canvas id="eefAtaChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -162,6 +191,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var barData = @json($barChart);
     var routineByTrade = @json($routineByTrade);
     var nonroutineByTrade = @json($nonroutineByTrade);
+    var nrcAta = @json($nrcAtaDistribution);
+    var eefAta = @json($eefAtaDistribution);
 
     var colors = ['#5b9bd5', '#1e3a5f', '#ed7d31', '#7030a0', '#70ad47', '#44546a', '#2f5496', '#c55a11', '#5b9bd5', '#ffc000'];
 
@@ -223,6 +254,36 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     buildPieChart('pieRoutine', routineByTrade);
     buildPieChart('pieNonroutine', nonroutineByTrade);
+
+    function buildAtaBarChart(id, data, color) {
+        var labels = (data && data.labels) ? data.labels : [];
+        var values = (data && data.counts) ? data.counts.map(Number) : [];
+        if (labels.length === 0) {
+            labels = ['No data'];
+            values = [0];
+        }
+        if (document.getElementById(id)) {
+            new Chart(document.getElementById(id), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{ data: values, backgroundColor: color, borderColor: color, borderWidth: 1 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } },
+                        x: { ticks: { maxRotation: 0, autoSkip: false } }
+                    }
+                }
+            });
+        }
+    }
+
+    buildAtaBarChart('nrcAtaChart', nrcAta, 'rgba(18, 95, 129, 0.95)');
+    buildAtaBarChart('eefAtaChart', eefAta, 'rgba(56, 102, 183, 0.95)');
 });
 </script>
 @endsection

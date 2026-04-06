@@ -383,6 +383,8 @@ class ReliabilityController extends Controller
 
         $routineByTrade = $this->dashboardTradeLabelCounts($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter, true, $ataLabel);
         $nonroutineByTrade = $this->dashboardTradeLabelCounts($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter, false, $ataLabel);
+        $nrcAtaDistribution = $this->dashboardNrcAtaDistribution($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
+        $eefAtaDistribution = $this->dashboardEefAtaDistribution($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
 
         $projectList = $projects->pluck('project')->unique()->filter()->values()->all();
         $customerList = $this->dashboardDistinctCustomerList($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
@@ -399,6 +401,8 @@ class ReliabilityController extends Controller
             'barChart' => $barChart,
             'routineByTrade' => $routineByTrade,
             'nonroutineByTrade' => $nonroutineByTrade,
+            'nrcAtaDistribution' => $nrcAtaDistribution,
+            'eefAtaDistribution' => $eefAtaDistribution,
             'projectList' => $projectList,
             'customerList' => $customerList,
             'aircraftTypes' => $aircraftTypes,
@@ -648,6 +652,127 @@ class ReliabilityController extends Controller
         });
 
         return collect($counts)->sortDesc();
+    }
+
+    /**
+     * @return array{labels: list<string>, counts: list<int>, total: int}
+     */
+    private function dashboardNrcAtaDistribution(
+        bool $useMaster,
+        string $projectFilter,
+        string $customerFilter,
+        string $aircraftTypeFilter,
+        string $tailFilter,
+        string $msnFilter,
+    ): array {
+        $model = $useMaster ? ReliabilityMasterData::class : InspectionWorkCard::class;
+        $q = $model::query();
+        $this->dashboardApplyFiltersEloquent($q, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter, $useMaster);
+        $q->whereRaw("(LOWER(TRIM(COALESCE(order_type, ''))) IN ('addnrc', 'nonroutine') AND TRIM(COALESCE(src_cust_card, '')) <> '')");
+        $q->select(['id', 'ata']);
+
+        $counts = [];
+        $total = 0;
+        $q->chunkById(4000, function ($rows) use (&$counts, &$total) {
+            foreach ($rows as $row) {
+                $ata = $this->dashboardAtaChapter((string) ($row->ata ?? ''));
+                if ($ata === null) {
+                    continue;
+                }
+                $counts[$ata] = ($counts[$ata] ?? 0) + 1;
+                $total++;
+            }
+        });
+
+        if ($counts === []) {
+            return ['labels' => [], 'counts' => [], 'total' => 0];
+        }
+
+        uksort($counts, fn (string $a, string $b) => (int) $a <=> (int) $b);
+
+        return ['labels' => array_keys($counts), 'counts' => array_values($counts), 'total' => $total];
+    }
+
+    /**
+     * @return array{labels: list<string>, counts: list<int>, total: int}
+     */
+    private function dashboardEefAtaDistribution(
+        bool $useMaster,
+        string $projectFilter,
+        string $customerFilter,
+        string $aircraftTypeFilter,
+        string $tailFilter,
+        string $msnFilter,
+    ): array {
+        $projectKeys = $this->dashboardFilteredProjectKeys($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
+        if ($projectKeys === []) {
+            return ['labels' => [], 'counts' => [], 'total' => 0];
+        }
+
+        $counts = [];
+        $total = 0;
+        InspectionEefRegistry::query()
+            ->select(['id', 'ata', 'project_no'])
+            ->chunkById(4000, function ($rows) use (&$counts, &$total, $projectKeys) {
+                foreach ($rows as $row) {
+                    $projectNo = strtoupper(trim((string) ($row->project_no ?? '')));
+                    if ($projectNo === '' || !isset($projectKeys[$projectNo])) {
+                        continue;
+                    }
+                    $ata = $this->dashboardAtaChapter((string) ($row->ata ?? ''));
+                    if ($ata === null) {
+                        continue;
+                    }
+                    $counts[$ata] = ($counts[$ata] ?? 0) + 1;
+                    $total++;
+                }
+            });
+
+        if ($counts === []) {
+            return ['labels' => [], 'counts' => [], 'total' => 0];
+        }
+
+        uksort($counts, fn (string $a, string $b) => (int) $a <=> (int) $b);
+
+        return ['labels' => array_keys($counts), 'counts' => array_values($counts), 'total' => $total];
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function dashboardFilteredProjectKeys(
+        bool $useMaster,
+        string $projectFilter,
+        string $customerFilter,
+        string $aircraftTypeFilter,
+        string $tailFilter,
+        string $msnFilter,
+    ): array {
+        $model = $useMaster ? ReliabilityMasterData::class : InspectionWorkCard::class;
+        $q = $model::query();
+        $this->dashboardApplyFiltersEloquent($q, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter, $useMaster);
+        $q->select(['id', 'project']);
+
+        $keys = [];
+        $q->chunkById(4000, function ($rows) use (&$keys) {
+            foreach ($rows as $row) {
+                $project = strtoupper(trim((string) ($row->project ?? '')));
+                if ($project !== '') {
+                    $keys[$project] = true;
+                }
+            }
+        });
+
+        return $keys;
+    }
+
+    private function dashboardAtaChapter(string $ata): ?string
+    {
+        if (preg_match('/\d{2}/', strtoupper(trim($ata)), $m) !== 1) {
+            return null;
+        }
+
+        return $m[0];
     }
 
     /**
