@@ -2,13 +2,13 @@
 
 @section('content')
 <div class="container-fluid reliability-dashboards">
-    {{-- Header: Customer + KPIs + Filters --}}
+    {{-- Header: Project + KPIs + Filters --}}
     <div class="dashboard-header mb-4" style="background: #1e3a5f; color: #fff; padding: 1rem 1.5rem; border-radius: 8px;">
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
             <div class="d-flex align-items-center gap-4">
                 <div>
-                    <div class="text-uppercase small opacity-75">CUSTOMER</div>
-                    <div class="fw-bold fs-5">{{ $selectedCustomer === 'all' ? 'All' : $selectedCustomer }}</div>
+                    <div class="text-uppercase small opacity-75">PROJECT</div>
+                    <div class="fw-bold fs-5">{{ $selectedProject === 'all' ? 'All' : $selectedProject }}</div>
                 </div>
                 <div class="d-flex gap-3">
                     <div class="kpi-box px-3 py-2 rounded" style="background: rgba(254, 205, 69, 0.25); color: #FECD45;">
@@ -27,11 +27,20 @@
             </div>
             <form method="GET" action="{{ route('modules.reliability.dashboards') }}" class="d-flex flex-wrap gap-2 align-items-end">
                 <div>
+                    <label class="form-label small mb-0 text-white opacity-75">PROJECT</label>
+                    <select name="project" class="form-select form-select-sm" style="width: 180px;">
+                        <option value="all" {{ $selectedProject === 'all' ? 'selected' : '' }}>All</option>
+                        @foreach($projectList as $project)
+                            <option value="{{ $project }}" {{ $selectedProject === $project ? 'selected' : '' }}>{{ $project }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
                     <label class="form-label small mb-0 text-white opacity-75">CUSTOMER</label>
-                    <select name="customer" class="form-select form-select-sm" style="width: 160px;">
+                    <select name="customer_name" class="form-select form-select-sm" style="width: 180px;">
                         <option value="all" {{ $selectedCustomer === 'all' ? 'selected' : '' }}>All</option>
-                        @foreach($customerList as $c)
-                            <option value="{{ $c }}" {{ $selectedCustomer === $c ? 'selected' : '' }}>{{ $c }}</option>
+                        @foreach($customerList as $customer)
+                            <option value="{{ $customer }}" {{ $selectedCustomer === $customer ? 'selected' : '' }}>{{ $customer }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -59,7 +68,7 @@
     </div>
 
     <div class="row g-4">
-        {{-- Left: Customer table --}}
+        {{-- Left: Project table --}}
         <div class="col-12 col-lg-4">
             <div class="card h-100">
                 <div class="card-body p-0">
@@ -67,7 +76,7 @@
                         <table class="table table-sm table-hover mb-0">
                             <thead class="table-light sticky-top">
                                 <tr>
-                                    <th class="ps-3">CUSTOMER</th>
+                                    <th class="ps-3">PROJECT</th>
                                     <th>PROJECT COUNT</th>
                                     <th>TASK</th>
                                     <th>MHRS</th>
@@ -75,9 +84,9 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach($customers as $row)
+                                @foreach($projects as $row)
                                 <tr>
-                                    <td class="ps-3">{{ $row['customer'] }}</td>
+                                    <td class="ps-3">{{ $row['project'] }}</td>
                                     <td>{{ $row['project_count'] }}</td>
                                     <td>{{ number_format($row['task']) }}</td>
                                     <td>{{ number_format($row['mhrs']) }}</td>

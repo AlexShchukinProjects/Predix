@@ -332,16 +332,17 @@ class ReliabilityController extends Controller
      */
     public function dashboards(Request $request)
     {
-        $customerFilter = $request->input('customer', 'all');
+        $projectFilter = $request->input('project', $request->input('customer', 'all'));
+        $customerFilter = $request->input('customer_name', 'all');
         $aircraftTypeFilter = $request->input('aircraft_type', 'all');
         $tailFilter = $request->input('tail_number', 'all');
 
-        $useMaster = ! $this->dashboardWorkCardsHasRows($customerFilter, $aircraftTypeFilter, $tailFilter);
+        $useMaster = ! $this->dashboardWorkCardsHasRows($projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter);
         $table = $useMaster ? 'work_cards_master' : 'work_cards';
 
-        $aggRows = $this->dashboardCustomerAggregateQuery($table, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter)->get();
+        $aggRows = $this->dashboardCustomerAggregateQuery($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter)->get();
 
-        $customers = collect($aggRows)->map(function ($row) {
+        $projects = collect($aggRows)->map(function ($row) {
             $name = $row->cn;
             $trimName = trim((string) $name);
             $eefCount = InspectionEefRegistry::query()
@@ -352,7 +353,7 @@ class ReliabilityController extends Controller
                 ->count();
 
             return [
-                'customer' => $name,
+                'project' => $name,
                 'project_count' => (int) $row->project_count,
                 'task' => (int) $row->task,
                 'mhrs' => round((float) $row->mhrs, 0),
@@ -360,11 +361,11 @@ class ReliabilityController extends Controller
             ];
         })->values();
 
-        $totalTask = $customers->sum('task');
-        $totalMhrs = $customers->sum('mhrs');
-        $totalEef = $customers->sum(fn ($c) => $c['eef'] ?? 0);
+        $totalTask = $projects->sum('task');
+        $totalMhrs = $projects->sum('mhrs');
+        $totalEef = $projects->sum(fn ($c) => $c['eef'] ?? 0);
 
-        $barChart = $this->dashboardBarChartAggregates($table, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter);
+        $barChart = $this->dashboardBarChartAggregates($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter);
 
         $ataLabel = function ($ata, $prim) {
             $ata = trim((string) $ata);
@@ -379,35 +380,38 @@ class ReliabilityController extends Controller
             return $ata !== '' ? $ata : 'SYSTEMS';
         };
 
-        $routineByTrade = $this->dashboardTradeLabelCounts($useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter, true, $ataLabel);
-        $nonroutineByTrade = $this->dashboardTradeLabelCounts($useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter, false, $ataLabel);
+        $routineByTrade = $this->dashboardTradeLabelCounts($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, true, $ataLabel);
+        $nonroutineByTrade = $this->dashboardTradeLabelCounts($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, false, $ataLabel);
 
-        $customerList = $customers->pluck('customer')->unique()->filter()->values()->all();
-        $aircraftTypes = $this->dashboardDistinctColumn($table, $useMaster, 'aircraft_type', $customerFilter, $aircraftTypeFilter, $tailFilter);
-        $tailNumbers = $this->dashboardDistinctColumn($table, $useMaster, 'tail_number', $customerFilter, $aircraftTypeFilter, $tailFilter);
+        $projectList = $projects->pluck('project')->unique()->filter()->values()->all();
+        $customerList = $this->dashboardDistinctCustomerList($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter);
+        $aircraftTypes = $this->dashboardDistinctColumn($table, $useMaster, 'aircraft_type', $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter);
+        $tailNumbers = $this->dashboardDistinctColumn($table, $useMaster, 'tail_number', $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter);
 
         return view('Modules.Reliability.dashboards', [
-            'customers' => $customers,
+            'projects' => $projects,
             'totalTask' => $totalTask,
             'totalMhrs' => $totalMhrs,
             'totalEef' => $totalEef,
-            'totalProjectCount' => $customers->sum('project_count'),
+            'totalProjectCount' => $projects->sum('project_count'),
             'barChart' => $barChart,
             'routineByTrade' => $routineByTrade,
             'nonroutineByTrade' => $nonroutineByTrade,
+            'projectList' => $projectList,
             'customerList' => $customerList,
             'aircraftTypes' => $aircraftTypes,
             'tailNumbers' => $tailNumbers,
+            'selectedProject' => $projectFilter,
             'selectedCustomer' => $customerFilter,
             'selectedAircraftType' => $aircraftTypeFilter,
             'selectedTailNumber' => $tailFilter,
         ]);
     }
 
-    private function dashboardWorkCardsHasRows(string $customerFilter, string $aircraftTypeFilter, string $tailFilter): bool
+    private function dashboardWorkCardsHasRows(string $projectFilter, string $customerFilter, string $aircraftTypeFilter, string $tailFilter): bool
     {
         $q = InspectionWorkCard::query();
-        $this->dashboardApplyFiltersEloquent($q, $customerFilter, $aircraftTypeFilter, $tailFilter, false);
+        $this->dashboardApplyFiltersEloquent($q, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, false);
 
         return $q->exists();
     }
@@ -415,12 +419,13 @@ class ReliabilityController extends Controller
     private function dashboardBaseTableQuery(
         string $table,
         bool $useMaster,
+        string $projectFilter,
         string $customerFilter,
         string $aircraftTypeFilter,
         string $tailFilter,
     ): QueryBuilder {
         $q = DB::table($table);
-        $this->dashboardApplyFiltersQuery($q, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter);
+        $this->dashboardApplyFiltersQuery($q, $table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter);
 
         return $q;
     }
@@ -432,16 +437,15 @@ class ReliabilityController extends Controller
     private function dashboardCustomerAggregateQuery(
         string $table,
         bool $useMaster,
+        string $projectFilter,
         string $customerFilter,
         string $aircraftTypeFilter,
         string $tailFilter,
     ): QueryBuilder {
-        $customerExpr = $useMaster
-            ? "COALESCE(NULLIF(TRIM(project), ''), '—')"
-            : "COALESCE(NULLIF(TRIM(customer), ''), '—')";
+        $projectExpr = "COALESCE(NULLIF(TRIM(project), ''), '—')";
 
-        $sub = $this->dashboardBaseTableQuery($table, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter)
-            ->selectRaw("{$customerExpr} AS cn, NULLIF(TRIM(project), '') AS project_key, COALESCE(act_time, 0) AS act_val");
+        $sub = $this->dashboardBaseTableQuery($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter)
+            ->selectRaw("{$projectExpr} AS cn, NULLIF(TRIM(project), '') AS project_key, COALESCE(act_time, 0) AS act_val");
 
         return DB::query()
             ->fromSub($sub, 'd')
@@ -451,16 +455,27 @@ class ReliabilityController extends Controller
 
     private function dashboardApplyFiltersQuery(
         QueryBuilder $q,
+        string $table,
         bool $useMaster,
+        string $projectFilter,
         string $customerFilter,
         string $aircraftTypeFilter,
         string $tailFilter,
     ): void {
-        $customerExpr = $useMaster
-            ? "COALESCE(NULLIF(TRIM(project), ''), '—')"
-            : "COALESCE(NULLIF(TRIM(customer), ''), '—')";
+        if ($projectFilter !== 'all') {
+            $q->whereRaw("COALESCE(NULLIF(TRIM(project), ''), '—') = ?", [$projectFilter]);
+        }
         if ($customerFilter !== 'all') {
-            $q->whereRaw("{$customerExpr} = ?", [$customerFilter]);
+            if ($useMaster) {
+                $q->whereExists(function ($sub) use ($table, $customerFilter) {
+                    $sub->selectRaw('1')
+                        ->from('projects')
+                        ->whereRaw("TRIM(COALESCE(project_number, '')) = TRIM(COALESCE({$table}.project, ''))")
+                        ->whereRaw("COALESCE(NULLIF(TRIM(customer_name), ''), '—') = ?", [$customerFilter]);
+                });
+            } else {
+                $q->whereRaw("COALESCE(NULLIF(TRIM(customer), ''), '—') = ?", [$customerFilter]);
+            }
         }
         if ($aircraftTypeFilter !== 'all') {
             $q->where('aircraft_type', $aircraftTypeFilter);
@@ -471,12 +486,21 @@ class ReliabilityController extends Controller
     }
 
     /** @param \Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Eloquent\Relations\Relation $q */
-    private function dashboardApplyFiltersEloquent($q, string $customerFilter, string $aircraftTypeFilter, string $tailFilter, bool $useMaster): void
+    private function dashboardApplyFiltersEloquent($q, string $projectFilter, string $customerFilter, string $aircraftTypeFilter, string $tailFilter, bool $useMaster): void
     {
-        if ($useMaster) {
-            $q->when($customerFilter !== 'all', fn ($qq) => $qq->whereRaw("COALESCE(NULLIF(TRIM(project), ''), '—') = ?", [$customerFilter]));
-        } else {
-            $q->when($customerFilter !== 'all', fn ($qq) => $qq->whereRaw("COALESCE(NULLIF(TRIM(customer), ''), '—') = ?", [$customerFilter]));
+        $q->when($projectFilter !== 'all', fn ($qq) => $qq->whereRaw("COALESCE(NULLIF(TRIM(project), ''), '—') = ?", [$projectFilter]));
+        if ($customerFilter !== 'all') {
+            if ($useMaster) {
+                $table = $q->getModel()->getTable();
+                $q->whereExists(function ($sub) use ($table, $customerFilter) {
+                    $sub->selectRaw('1')
+                        ->from('projects')
+                        ->whereRaw("TRIM(COALESCE(project_number, '')) = TRIM(COALESCE({$table}.project, ''))")
+                        ->whereRaw("COALESCE(NULLIF(TRIM(customer_name), ''), '—') = ?", [$customerFilter]);
+                });
+            } else {
+                $q->whereRaw("COALESCE(NULLIF(TRIM(customer), ''), '—') = ?", [$customerFilter]);
+            }
         }
         if ($aircraftTypeFilter !== 'all') {
             $q->where('aircraft_type', $aircraftTypeFilter);
@@ -492,11 +516,12 @@ class ReliabilityController extends Controller
     private function dashboardBarChartAggregates(
         string $table,
         bool $useMaster,
+        string $projectFilter,
         string $customerFilter,
         string $aircraftTypeFilter,
         string $tailFilter,
     ): array {
-        $base = $this->dashboardBaseTableQuery($table, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter);
+        $base = $this->dashboardBaseTableQuery($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter);
         $routineSql = "NOT (UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
         $nonroutineSql = "(UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
 
@@ -508,7 +533,7 @@ class ReliabilityController extends Controller
         if ($rTask === 0 && $nTask === 0 && ! $useMaster) {
             $tot = (int) $base->clone()->count();
             if ($tot > 0) {
-                $split = $this->dashboardBarSplitByPrimSkill($customerFilter, $aircraftTypeFilter, $tailFilter);
+                $split = $this->dashboardBarSplitByPrimSkill($projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter);
                 $rTask = $split['r_task'];
                 $nTask = $split['n_task'];
                 $rMhrs = $split['r_mhrs'];
@@ -528,14 +553,14 @@ class ReliabilityController extends Controller
      *
      * @return array{r_task: int, n_task: int, r_mhrs: float, n_mhrs: float}
      */
-    private function dashboardBarSplitByPrimSkill(string $customerFilter, string $aircraftTypeFilter, string $tailFilter): array
+    private function dashboardBarSplitByPrimSkill(string $projectFilter, string $customerFilter, string $aircraftTypeFilter, string $tailFilter): array
     {
         $rTask = 0;
         $nTask = 0;
         $rMhrs = 0.0;
         $nMhrs = 0.0;
         $q = InspectionWorkCard::query();
-        $this->dashboardApplyFiltersEloquent($q, $customerFilter, $aircraftTypeFilter, $tailFilter, false);
+        $this->dashboardApplyFiltersEloquent($q, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, false);
         $q->select(['id', 'act_time', 'prim_skill'])->chunkById(4000, function ($rows) use (&$rTask, &$nTask, &$rMhrs, &$nMhrs) {
             foreach ($rows as $r) {
                 $mh = $this->dashboardParseActTime($r->act_time ?? null);
@@ -574,6 +599,7 @@ class ReliabilityController extends Controller
 
     private function dashboardTradeLabelCounts(
         bool $useMaster,
+        string $projectFilter,
         string $customerFilter,
         string $aircraftTypeFilter,
         string $tailFilter,
@@ -582,7 +608,7 @@ class ReliabilityController extends Controller
     ): Collection {
         $model = $useMaster ? ReliabilityMasterData::class : InspectionWorkCard::class;
         $q = $model::query();
-        $this->dashboardApplyFiltersEloquent($q, $customerFilter, $aircraftTypeFilter, $tailFilter, $useMaster);
+        $this->dashboardApplyFiltersEloquent($q, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $useMaster);
         $routineSql = "NOT (UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
         $nonroutineSql = "(UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
         $q->whereRaw($routineBucket ? $routineSql : $nonroutineSql);
@@ -611,16 +637,59 @@ class ReliabilityController extends Controller
         string $table,
         bool $useMaster,
         string $column,
+        string $projectFilter,
         string $customerFilter,
         string $aircraftTypeFilter,
         string $tailFilter,
     ): array {
-        return $this->dashboardBaseTableQuery($table, $useMaster, $customerFilter, $aircraftTypeFilter, $tailFilter)
+        return $this->dashboardBaseTableQuery($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter)
             ->whereNotNull($column)
             ->where($column, '!=', '')
             ->distinct()
             ->orderBy($column)
             ->pluck($column)
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function dashboardDistinctCustomerList(
+        string $table,
+        bool $useMaster,
+        string $projectFilter,
+        string $customerFilter,
+        string $aircraftTypeFilter,
+        string $tailFilter,
+    ): array {
+        if (! $useMaster) {
+            return $this->dashboardBaseTableQuery($table, false, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter)
+                ->whereNotNull('customer')
+                ->where('customer', '!=', '')
+                ->selectRaw("COALESCE(NULLIF(TRIM(customer), ''), '—') AS customer_name")
+                ->distinct()
+                ->orderBy('customer_name')
+                ->pluck('customer_name')
+                ->filter()
+                ->values()
+                ->all();
+        }
+
+        $projectSub = $this->dashboardBaseTableQuery($table, true, $projectFilter, 'all', $aircraftTypeFilter, $tailFilter)
+            ->selectRaw("DISTINCT TRIM(COALESCE(project, '')) AS project_number");
+
+        return InspectionProject::query()
+            ->fromSub($projectSub, 'src')
+            ->join('projects', function ($join) {
+                $join->whereRaw("TRIM(COALESCE(projects.project_number, '')) = src.project_number");
+            })
+            ->when($customerFilter !== 'all', fn ($q) => $q->whereRaw("COALESCE(NULLIF(TRIM(projects.customer_name), ''), '—') = ?", [$customerFilter]))
+            ->selectRaw("COALESCE(NULLIF(TRIM(projects.customer_name), ''), '—') AS customer_name")
+            ->distinct()
+            ->orderBy('customer_name')
+            ->pluck('customer_name')
             ->filter()
             ->values()
             ->all();
