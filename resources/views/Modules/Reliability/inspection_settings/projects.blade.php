@@ -23,6 +23,35 @@
             </select>
             <span class="ms-2">Total records: {{ $items->total() }}</span>
         </div>
+        <form method="GET" action="{{ route('modules.reliability.settings.inspection.projects') }}" class="d-flex align-items-center gap-2 flex-wrap">
+            <input type="hidden" name="per_page" value="{{ $currentPerPage }}">
+            <input type="hidden" name="sort" value="{{ $sortColumn ?? 'id' }}">
+            <input type="hidden" name="direction" value="{{ $sortDirection ?? 'asc' }}">
+            <label for="project-filter" class="small text-muted mb-0">Project</label>
+            <input
+                id="project-filter"
+                name="project"
+                type="text"
+                class="form-control form-control-sm"
+                style="width: 180px;"
+                value="{{ $projectFilter ?? request('project') }}"
+                placeholder="PROJECT #"
+            >
+            <label for="tail-number-filter" class="small text-muted mb-0">Tail Number</label>
+            <input
+                id="tail-number-filter"
+                name="tail_number"
+                type="text"
+                class="form-control form-control-sm"
+                style="width: 150px;"
+                value="{{ $tailNumberFilter ?? request('tail_number') }}"
+                placeholder="TAIL NUMBER"
+            >
+            <button type="submit" class="btn efds-btn efds-btn--outline-primary btn-sm">Apply</button>
+            @if(!empty($projectFilter) || !empty($tailNumberFilter))
+                <a href="{{ route('modules.reliability.settings.inspection.projects', ['per_page' => $currentPerPage, 'sort' => ($sortColumn ?? 'id'), 'direction' => ($sortDirection ?? 'asc')]) }}" class="btn btn-sm btn-link text-decoration-none">Reset</a>
+            @endif
+        </form>
         <div class="efds-table-header__actions">
             <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#projectsUploadModal"><i class="fas fa-file-excel me-1"></i>Add from Excel / CSV</button>
             <a href="#" class="btn efds-btn efds-btn--primary btn-sm"><i class="fas fa-plus me-1"></i>Add</a>

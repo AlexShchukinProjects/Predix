@@ -45,9 +45,17 @@ class InspectionDataController extends Controller
         }
         [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionProject::class);
         $query = InspectionProject::query();
+        $projectFilter = trim((string) $request->get('project', ''));
+        $tailNumberFilter = trim((string) $request->get('tail_number', ''));
+        if ($projectFilter !== '') {
+            $query->whereRaw('TRIM(COALESCE(project_number, \'\')) LIKE ?', ['%' . $projectFilter . '%']);
+        }
+        if ($tailNumberFilter !== '') {
+            $query->whereRaw('TRIM(COALESCE(tail_number, \'\')) LIKE ?', ['%' . $tailNumberFilter . '%']);
+        }
         $this->applyInspectionSettingsSort($query, $sortColumn, $sortDirection);
         $items = $query->paginate($perPage)->withQueryString();
-        return view('Modules.Reliability.inspection_settings.projects', compact('items', 'perPage', 'sortColumn', 'sortDirection'));
+        return view('Modules.Reliability.inspection_settings.projects', compact('items', 'perPage', 'sortColumn', 'sortDirection', 'projectFilter', 'tailNumberFilter'));
     }
 
     public function projectsUpload(Request $request)

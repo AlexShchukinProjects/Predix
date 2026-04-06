@@ -62,6 +62,15 @@
                         @endforeach
                     </select>
                 </div>
+                <div>
+                    <label class="form-label small mb-0 text-white opacity-75">MSN</label>
+                    <select name="msn" class="form-select form-select-sm" style="width: 140px;">
+                        <option value="all" {{ ($selectedMsn ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
+                        @foreach($msnList as $msn)
+                            <option value="{{ $msn }}" {{ ($selectedMsn ?? 'all') === $msn ? 'selected' : '' }}>{{ $msn }}</option>
+                        @endforeach
+                    </select>
+                </div>
                 <button type="submit" class="btn btn-sm btn-light">Apply</button>
             </form>
         </div>
