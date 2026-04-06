@@ -466,16 +466,12 @@ class ReliabilityController extends Controller
             $q->whereRaw("COALESCE(NULLIF(TRIM(project), ''), '—') = ?", [$projectFilter]);
         }
         if ($customerFilter !== 'all') {
-            if ($useMaster) {
-                $q->whereExists(function ($sub) use ($table, $customerFilter) {
-                    $sub->selectRaw('1')
-                        ->from('projects')
-                        ->whereRaw("TRIM(COALESCE(project_number, '')) = TRIM(COALESCE({$table}.project, ''))")
-                        ->whereRaw("COALESCE(NULLIF(TRIM(customer_name), ''), '—') = ?", [$customerFilter]);
-                });
-            } else {
-                $q->whereRaw("COALESCE(NULLIF(TRIM(customer), ''), '—') = ?", [$customerFilter]);
-            }
+            $q->whereExists(function ($sub) use ($table, $customerFilter) {
+                $sub->selectRaw('1')
+                    ->from('projects')
+                    ->whereRaw("TRIM(COALESCE(project_number, '')) = TRIM(COALESCE({$table}.project, ''))")
+                    ->whereRaw("COALESCE(NULLIF(TRIM(customer_name), ''), '—') = ?", [$customerFilter]);
+            });
         }
         if ($aircraftTypeFilter !== 'all') {
             $q->where('aircraft_type', $aircraftTypeFilter);
@@ -490,17 +486,13 @@ class ReliabilityController extends Controller
     {
         $q->when($projectFilter !== 'all', fn ($qq) => $qq->whereRaw("COALESCE(NULLIF(TRIM(project), ''), '—') = ?", [$projectFilter]));
         if ($customerFilter !== 'all') {
-            if ($useMaster) {
-                $table = $q->getModel()->getTable();
-                $q->whereExists(function ($sub) use ($table, $customerFilter) {
-                    $sub->selectRaw('1')
-                        ->from('projects')
-                        ->whereRaw("TRIM(COALESCE(project_number, '')) = TRIM(COALESCE({$table}.project, ''))")
-                        ->whereRaw("COALESCE(NULLIF(TRIM(customer_name), ''), '—') = ?", [$customerFilter]);
-                });
-            } else {
-                $q->whereRaw("COALESCE(NULLIF(TRIM(customer), ''), '—') = ?", [$customerFilter]);
-            }
+            $table = $q->getModel()->getTable();
+            $q->whereExists(function ($sub) use ($table, $customerFilter) {
+                $sub->selectRaw('1')
+                    ->from('projects')
+                    ->whereRaw("TRIM(COALESCE(project_number, '')) = TRIM(COALESCE({$table}.project, ''))")
+                    ->whereRaw("COALESCE(NULLIF(TRIM(customer_name), ''), '—') = ?", [$customerFilter]);
+            });
         }
         if ($aircraftTypeFilter !== 'all') {
             $q->where('aircraft_type', $aircraftTypeFilter);
@@ -664,20 +656,7 @@ class ReliabilityController extends Controller
         string $aircraftTypeFilter,
         string $tailFilter,
     ): array {
-        if (! $useMaster) {
-            return $this->dashboardBaseTableQuery($table, false, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter)
-                ->whereNotNull('customer')
-                ->where('customer', '!=', '')
-                ->selectRaw("COALESCE(NULLIF(TRIM(customer), ''), '—') AS customer_name")
-                ->distinct()
-                ->orderBy('customer_name')
-                ->pluck('customer_name')
-                ->filter()
-                ->values()
-                ->all();
-        }
-
-        $projectSub = $this->dashboardBaseTableQuery($table, true, $projectFilter, 'all', $aircraftTypeFilter, $tailFilter)
+        $projectSub = $this->dashboardBaseTableQuery($table, $useMaster, $projectFilter, 'all', $aircraftTypeFilter, $tailFilter)
             ->selectRaw("DISTINCT TRIM(COALESCE(project, '')) AS project_number");
 
         return InspectionProject::query()
