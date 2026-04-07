@@ -13,6 +13,7 @@ use App\Models\InspectionSourceCardRef;
 use App\Models\InspectionWorkCard;
 use App\Models\InspectionWorkCardMaterial;
 use App\Models\ReliabilityMasterData;
+use App\Support\MpdCardNormalizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -261,6 +262,7 @@ class InspectionDataController extends Controller
             $row->setAttribute('master_data_source', $eef?->inspection_source_task);
             $row->setAttribute('master_material', $materialStr);
             $row->setAttribute('master_equipment', $engine);
+            $row->setAttribute('master_cust_card_norm', MpdCardNormalizer::normalize((string) ($row->cust_card ?? '')));
         }
     }
 

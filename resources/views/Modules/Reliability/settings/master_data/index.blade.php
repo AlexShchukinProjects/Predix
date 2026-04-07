@@ -193,6 +193,7 @@
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'corrective_action', 'label' => 'CORRECTIVE ACTION', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'ata', 'label' => 'ATA', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'cust_card', 'label' => 'CUST. CARD', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['label' => 'CUST. CARD NORM', 'sortable' => false])
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'order_type', 'label' => 'ORDER TYPE', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'avg_time', 'label' => 'AVG. TIME', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'act_time', 'label' => 'ACT. TIME', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
@@ -226,6 +227,7 @@
                                 <td>{{ Str::limit($row->corrective_action, 60) }}</td>
                                 <td>{{ $row->ata }}</td>
                                 <td>{{ $row->cust_card }}</td>
+                                <td>{{ $row->master_cust_card_norm ?: '—' }}</td>
                                 <td>{{ $row->order_type }}</td>
                                 <td>{{ $row->avg_time }}</td>
                                 <td>{{ $row->act_time }}</td>
@@ -233,7 +235,7 @@
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="28" class="text-center py-4 text-muted">No records. Upload data from Excel / CSV.</td>
+                                <td colspan="29" class="text-center py-4 text-muted">No records. Upload data from Excel / CSV.</td>
                             </tr>
                             @endforelse
                         </tbody>
