@@ -56,7 +56,70 @@ class InspectionDataController extends Controller
         }
         $this->applyInspectionSettingsSort($query, $sortColumn, $sortDirection);
         $items = $query->paginate($perPage)->withQueryString();
+        $this->enrichProjectsAge($items->getCollection());
         return view('Modules.Reliability.inspection_settings.projects', compact('items', 'perPage', 'sortColumn', 'sortDirection', 'projectFilter', 'tailNumberFilter'));
+    }
+
+    private function enrichProjectsAge(Collection $rows): void
+    {
+        if ($rows->isEmpty()) {
+            return;
+        }
+
+        $tails = $rows->pluck('tail_number')
+            ->map(fn ($v) => strtoupper(trim((string) $v)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($tails === []) {
+            foreach ($rows as $row) {
+                $row->setAttribute('project_age', null);
+            }
+            return;
+        }
+
+        $firstFlightByTail = [];
+        InspectionAircraft::query()
+            ->selectRaw("UPPER(TRIM(COALESCE(tail_number, ''))) AS tail_key, MIN(first_flight) AS first_flight")
+            ->whereNotNull('first_flight')
+            ->whereRaw("TRIM(COALESCE(tail_number, '')) <> ''")
+            ->where(function ($q) use ($tails) {
+                foreach ($tails as $tail) {
+                    $q->orWhereRaw("UPPER(TRIM(COALESCE(tail_number, ''))) = ?", [$tail]);
+                }
+            })
+            ->groupBy('tail_key')
+            ->get()
+            ->each(function ($row) use (&$firstFlightByTail) {
+                $firstFlightByTail[(string) $row->tail_key] = (string) $row->first_flight;
+            });
+
+        foreach ($rows as $row) {
+            $openDate = $row->open_date;
+            $tailKey = strtoupper(trim((string) ($row->tail_number ?? '')));
+            $firstFlight = $tailKey !== '' ? ($firstFlightByTail[$tailKey] ?? null) : null;
+            $row->setAttribute('project_age', $this->calculateAgeYears($openDate, $firstFlight));
+        }
+    }
+
+    private function calculateAgeYears(mixed $openDate, mixed $firstFlight): ?float
+    {
+        if (!$openDate || !$firstFlight) {
+            return null;
+        }
+        try {
+            $open = $openDate instanceof \DateTimeInterface ? Carbon::instance($openDate) : Carbon::parse((string) $openDate);
+            $first = $firstFlight instanceof \DateTimeInterface ? Carbon::instance($firstFlight) : Carbon::parse((string) $firstFlight);
+            if ($open->lt($first)) {
+                return null;
+            }
+            $days = $first->diffInDays($open);
+            return round($days / 365.25, 1);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function projectsUpload(Request $request)
@@ -255,7 +318,7 @@ class InspectionDataController extends Controller
             $materialStr = $matList !== [] ? implode('; ', array_slice(array_unique($matList), 0, 5)) : null;
             $engine = $pr?->engine_type ?? $ac?->engine_type;
             $row->setAttribute('master_msn', $ac?->serial_number);
-            $row->setAttribute('master_age', $ac?->manufactured);
+            $row->setAttribute('master_age', $this->calculateAgeYears($pr?->open_date, $ac?->first_flight));
             $row->setAttribute('master_fc', $pr?->aircraft_csn);
             $row->setAttribute('master_fh', $pr?->aircraft_tsn);
             $row->setAttribute('master_eef', $eef?->eef_number);
@@ -1280,10 +1343,106 @@ class InspectionDataController extends Controller
     {
         set_time_limit(0);
         $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls|max:51200']);
-        $count = $this->importFromFile($request->file('file'), $this->aircraftHeaderMap(), function (array $row) {
-            InspectionAircraft::create($row);
-        });
+        $clearBefore = $request->boolean('clear_before');
+        $streamRequested = $request->header('Accept') === 'application/x-ndjson'
+            || $request->header('X-WC-Stream') === '1';
+        if ($streamRequested) {
+            return $this->aircraftsUploadStream($request->file('file'), $clearBefore);
+        }
+        if ($clearBefore) {
+            InspectionAircraft::query()->delete();
+        }
+        $ext = strtolower($request->file('file')->getClientOriginalExtension());
+        if (in_array($ext, ['xlsx', 'xls'], true)) {
+            $count = $this->importAircraftFleetWorkbook($request->file('file')->getRealPath());
+        } else {
+            $count = $this->importFromFile($request->file('file'), $this->aircraftHeaderMap(), function (array $row) {
+                InspectionAircraft::create($row);
+            });
+        }
         return redirect()->route('modules.reliability.settings.inspection.aircrafts')->with('success', "Imported records: {$count}");
+    }
+
+    private function aircraftsUploadStream($file, bool $clearBefore = false): StreamedResponse
+    {
+        $send = function (array $data): void {
+            echo json_encode($data, JSON_UNESCAPED_UNICODE) . "\n";
+            if (ob_get_level()) {
+                ob_flush();
+            }
+            flush();
+        };
+
+        return new StreamedResponse(function () use ($file, $clearBefore, $send): void {
+            try {
+                $path = $file->getRealPath();
+                $ext = strtolower($file->getClientOriginalExtension());
+                $total = $this->countAircraftRows($path, $ext);
+                $send(['total' => $total]);
+
+                if ($clearBefore) {
+                    InspectionAircraft::query()->delete();
+                }
+
+                if (in_array($ext, ['xlsx', 'xls'], true)) {
+                    $count = $this->importAircraftFleetWorkbook($path, function (int $processed, int $tot) use ($send): void {
+                        $send(['processed' => $processed, 'total' => $tot]);
+                    }, $total);
+                } else {
+                    $count = $this->importFromFile($file, $this->aircraftHeaderMap(), function (array $row): void {
+                        InspectionAircraft::create($row);
+                    });
+                    $send(['processed' => $count, 'total' => $total ?: $count]);
+                }
+
+                $send(['done' => true, 'count' => $count]);
+            } catch (\Throwable $e) {
+                report($e);
+                $msg = strlen($e->getMessage()) > 300 ? substr($e->getMessage(), 0, 300) . '…' : $e->getMessage();
+                $send(['error' => $msg]);
+            }
+        }, 200, [
+            'Content-Type' => 'application/x-ndjson; charset=utf-8',
+            'Cache-Control' => 'no-cache',
+            'X-Accel-Buffering' => 'no',
+        ]);
+    }
+
+    private function countAircraftRows(string $path, string $ext): int
+    {
+        if ($ext === 'csv' || $ext === 'txt') {
+            $fh = fopen($path, 'r');
+            if ($fh === false) {
+                return 0;
+            }
+            $total = 0;
+            $first = fgetcsv($fh, 0, ',');
+            if ($first !== false && isset($first[0]) && str_starts_with(trim((string) $first[0]), 'sep=')) {
+                // header line is next one
+                fgetcsv($fh, 0, ',');
+            }
+            while (fgetcsv($fh) !== false) {
+                $total++;
+            }
+            fclose($fh);
+            return max(0, $total);
+        }
+
+        try {
+            $reader = IOFactory::createReaderForFile($path);
+            if (method_exists($reader, 'listWorksheetInfo')) {
+                $info = $reader->listWorksheetInfo($path);
+                $total = 0;
+                foreach ($info as $sheetInfo) {
+                    $total += max(0, (int) ($sheetInfo['totalRows'] ?? 0) - 1);
+                }
+                return $total;
+            }
+        } catch (\Throwable) {
+            // ignore and return 0
+        }
+
+        return 0;
     }
 
     /** Aircraft: маппинг заголовков файла на поля БД */
@@ -1348,6 +1507,111 @@ class InspectionDataController extends Controller
             'ARCHIVE' => 'archive',
             'ACTIVE' => 'active',
         ];
+    }
+
+    /**
+     * Import aircraft fleet workbook where each sheet name is Type AC.
+     * Expected columns: MSN, LN, Type, Airline, First flight, Registration, Status.
+     */
+    private function importAircraftFleetWorkbook(string $path, ?callable $onProgress = null, ?int $knownTotal = null): int
+    {
+        $spreadsheet = IOFactory::load($path);
+        $count = 0;
+        $processed = 0;
+        $total = $knownTotal ?? 0;
+
+        foreach ($spreadsheet->getWorksheetIterator() as $sheet) {
+            $typeAc = trim((string) $sheet->getTitle());
+            $rows = $sheet->toArray(null, true, true, false);
+            if ($rows === []) {
+                continue;
+            }
+
+            $headers = array_map(fn ($h) => $this->normalizeAircraftFleetHeader((string) $h), $rows[0] ?? []);
+            $headerIndex = array_flip($headers);
+
+            if (!isset($headerIndex['MSN']) || !isset($headerIndex['REGISTRATION'])) {
+                continue;
+            }
+
+            $idxMsn = $headerIndex['MSN'];
+            $idxLn = $headerIndex['LN'] ?? null;
+            $idxType = $headerIndex['TYPE'] ?? null;
+            $idxAirline = $headerIndex['AIRLINE'] ?? null;
+            $idxFirstFlight = $headerIndex['FIRST FLIGHT'] ?? null;
+            $idxRegistration = $headerIndex['REGISTRATION'];
+            $idxStatus = $headerIndex['STATUS'] ?? null;
+
+            for ($i = 1, $len = count($rows); $i < $len; $i++) {
+                $row = $rows[$i] ?? [];
+                $processed++;
+                $serialNumber = $this->cleanAircraftFleetValue((string) ($row[$idxMsn] ?? ''));
+                $tailNumber = $this->cleanAircraftFleetValue((string) ($row[$idxRegistration] ?? ''));
+                if ($serialNumber === '' && $tailNumber === '') {
+                    if ($onProgress !== null && ($processed % 300) === 0) {
+                        $onProgress($processed, $total > 0 ? $total : $processed);
+                    }
+                    continue;
+                }
+
+                $firstFlightRaw = $this->cleanAircraftFleetValue((string) ($idxFirstFlight !== null ? ($row[$idxFirstFlight] ?? '') : ''));
+                $firstFlight = $this->parseAircraftFleetDate($firstFlightRaw);
+
+                InspectionAircraft::create([
+                    'serial_number' => $serialNumber !== '' ? $serialNumber : null,   // MSN
+                    'line_no' => $this->cleanAircraftFleetValue((string) ($idxLn !== null ? ($row[$idxLn] ?? '') : '')),
+                    'aircraft_type' => $this->cleanAircraftFleetValue((string) ($idxType !== null ? ($row[$idxType] ?? '') : '')),
+                    'customer_name' => $this->cleanAircraftFleetValue((string) ($idxAirline !== null ? ($row[$idxAirline] ?? '') : '')), // airline
+                    'tail_number' => $tailNumber !== '' ? $tailNumber : null, // Registration / TAIL #
+                    'status' => $this->cleanAircraftFleetValue((string) ($idxStatus !== null ? ($row[$idxStatus] ?? '') : '')),
+                    'first_flight' => $firstFlight,
+                    'type_ac' => $typeAc !== '' ? $typeAc : null,
+                ]);
+                $count++;
+                if ($onProgress !== null && ($processed % 300) === 0) {
+                    $onProgress($processed, $total > 0 ? $total : $processed);
+                }
+            }
+        }
+
+        unset($spreadsheet);
+        if ($onProgress !== null) {
+            $onProgress($processed, $total > 0 ? $total : $processed);
+        }
+
+        return $count;
+    }
+
+    private function normalizeAircraftFleetHeader(string $header): string
+    {
+        $h = str_replace(["\xC2\xA0", "\r", "\n", "\t"], ' ', strtoupper(trim($header)));
+        $h = preg_replace('/\s+/', ' ', $h) ?? $h;
+        $h = trim($h);
+
+        return $h;
+    }
+
+    private function cleanAircraftFleetValue(string $value): string
+    {
+        $v = str_replace("\xC2\xA0", ' ', $value);
+        $v = trim($v);
+        $v = preg_replace('/\s+/', ' ', $v) ?? $v;
+
+        return $v;
+    }
+
+    private function parseAircraftFleetDate(string $value): ?string
+    {
+        $v = trim($value);
+        if ($v === '') {
+            return null;
+        }
+
+        $dt = \DateTime::createFromFormat('d/m/Y', $v)
+            ?: \DateTime::createFromFormat('d-m-Y', $v)
+            ?: \DateTime::createFromFormat('Y-m-d', $v);
+
+        return $dt ? $dt->format('Y-m-d') : null;
     }
 
     public function workCards(Request $request): View

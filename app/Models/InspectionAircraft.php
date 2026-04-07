@@ -68,6 +68,9 @@ class InspectionAircraft extends Model
         'wng',
         'archive',
         'active',
+        'status',
+        'first_flight',
+        'type_ac',
     ];
 
     protected $casts = [
@@ -75,5 +78,6 @@ class InspectionAircraft extends Model
         'redelivery_date' => 'date',
         'lease_date' => 'date',
         'ins_date' => 'date',
+        'first_flight' => 'date',
     ];
 }

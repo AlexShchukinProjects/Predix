@@ -10,6 +10,7 @@
         ['aircraft_type', 'AIRCRAFT TYPE'],
         ['scope', 'SCOPE'],
         ['open_date', 'OPEN DATE'],
+        [null, 'AGE'],
         ['close_date', 'CLOSE DATE'],
         ['customer_number', 'CUSTOMER #'],
         ['customer_name', 'CUSTOMER NAME'],
@@ -73,5 +74,9 @@
     ];
 @endphp
 @foreach ($pairs as [$col, $label])
-    @include($sortTh, ['column' => $col, 'label' => $label, 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+    @if($col === null)
+        @include($sortTh, ['label' => $label, 'sortable' => false])
+    @else
+        @include($sortTh, ['column' => $col, 'label' => $label, 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+    @endif
 @endforeach

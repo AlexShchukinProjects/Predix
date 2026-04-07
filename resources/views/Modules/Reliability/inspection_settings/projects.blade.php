@@ -86,6 +86,7 @@
                                 <td>{{ $row->aircraft_type }}</td>
                                 <td>{{ Str::limit($row->scope, 40) }}</td>
                                 <td>{{ $row->open_date?->format('Y-m-d') }}</td>
+                                <td>{{ $row->project_age !== null ? $row->project_age . ' y' : '' }}</td>
                                 <td>{{ $row->close_date?->format('Y-m-d') }}</td>
                                 <td>{{ $row->customer_number }}</td>
                                 <td>{{ $row->customer_name }}</td>
