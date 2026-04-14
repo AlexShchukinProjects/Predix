@@ -113,7 +113,12 @@ self.addEventListener('fetch', function (event) {
 
     // Everything else: network only, silent fallback to cache
     event.respondWith(
-        fetch(event.request).catch(function () { return caches.match(event.request); })
+        fetch(event.request).catch(function () {
+            return caches.match(event.request).then(function (cached) {
+                // respondWith must always resolve to a Response.
+                return cached || new Response('', { status: 503, statusText: 'Offline' });
+            });
+        })
     );
 });
 

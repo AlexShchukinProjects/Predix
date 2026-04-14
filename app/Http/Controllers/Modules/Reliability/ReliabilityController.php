@@ -22,8 +22,10 @@ use App\Models\InspectionWorkCard;
 use App\Models\InspectionProject;
 use App\Models\InspectionEefRegistry;
 use App\Models\ReliabilityMasterData;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -340,12 +342,31 @@ class ReliabilityController extends Controller
 
         $useMaster = ! $this->dashboardWorkCardsHasRows($projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
         $table = $useMaster ? 'work_cards_master' : 'work_cards';
+        $cacheSuffix = sha1(json_encode([
+            'table' => $table,
+            'use_master' => $useMaster,
+            'project' => $projectFilter,
+            'customer' => $customerFilter,
+            'aircraft_type' => $aircraftTypeFilter,
+            'tail' => $tailFilter,
+            'msn' => $msnFilter,
+        ], JSON_UNESCAPED_UNICODE));
+        $aggCacheKey = 'rel:dash:agg_rows:' . $cacheSuffix;
+        $aggRows = collect(Cache::remember($aggCacheKey, now()->addMinutes(5), function () use ($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter) {
+            return $this->dashboardCustomerAggregateQuery($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter)
+                ->get()
+                ->map(fn ($row) => (array) $row)
+                ->values()
+                ->all();
+        }))->map(fn ($row) => (object) $row)->values();
 
-        $aggRows = $this->dashboardCustomerAggregateQuery($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter)->get();
+        $metaCacheKey = 'rel:dash:project_meta:' . $cacheSuffix;
+        $projectMeta = Cache::remember($metaCacheKey, now()->addMinutes(5), fn () => $this->dashboardProjectMetaByProject($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter));
 
-        $projects = collect($aggRows)->map(function ($row) {
+        $projects = collect($aggRows)->map(function ($row) use ($projectMeta) {
             $name = $row->cn;
             $trimName = trim((string) $name);
+            $meta = $projectMeta[$this->dashboardProjectKey($trimName)] ?? [];
             $eefCount = InspectionEefRegistry::query()
                 ->where(function ($q) use ($name, $trimName) {
                     $q->where('customer_name', $name)
@@ -359,6 +380,12 @@ class ReliabilityController extends Controller
                 'task' => (int) $row->task,
                 'mhrs' => round((float) $row->mhrs, 0),
                 'eef' => $eefCount ?: null,
+                'aircraft_type' => $meta['aircraft_type'] ?? null,
+                'tail_number' => $meta['tail_number'] ?? null,
+                'scope' => $meta['scope'] ?? null,
+                'age' => $meta['age'] ?? null,
+                'aircraft_tsn' => $meta['aircraft_tsn'] ?? null,
+                'aircraft_csn' => $meta['aircraft_csn'] ?? null,
             ];
         })->values();
 
@@ -366,7 +393,8 @@ class ReliabilityController extends Controller
         $totalMhrs = $projects->sum('mhrs');
         $totalEef = $projects->sum(fn ($c) => $c['eef'] ?? 0);
 
-        $barChart = $this->dashboardBarChartAggregates($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
+        $barCacheKey = 'rel:dash:bar_chart:' . $cacheSuffix;
+        $barChart = Cache::remember($barCacheKey, now()->addMinutes(5), fn () => $this->dashboardBarChartAggregates($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter));
 
         $ataLabel = function ($ata, $prim) {
             $ata = trim((string) $ata);
@@ -381,16 +409,25 @@ class ReliabilityController extends Controller
             return $ata !== '' ? $ata : 'SYSTEMS';
         };
 
-        $routineByTrade = $this->dashboardTradeLabelCounts($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter, true, $ataLabel);
-        $nonroutineByTrade = $this->dashboardTradeLabelCounts($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter, false, $ataLabel);
-        $nrcAtaDistribution = $this->dashboardNrcAtaDistribution($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
-        $eefAtaDistribution = $this->dashboardEefAtaDistribution($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
+        $ataCacheKey = 'rel:dash:ata_bundle:' . $cacheSuffix;
+        $ataBundle = Cache::remember($ataCacheKey, now()->addMinutes(5), function () use ($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter, $ataLabel) {
+            return [
+                'routine' => $this->dashboardTradeLabelCounts($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter, true, $ataLabel)->all(),
+                'nonroutine' => $this->dashboardTradeLabelCounts($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter, false, $ataLabel)->all(),
+                'nrc' => $this->dashboardNrcAtaDistribution($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter),
+                'eef' => $this->dashboardEefAtaDistribution($useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter),
+            ];
+        });
+        $routineByTrade = collect($ataBundle['routine'] ?? []);
+        $nonroutineByTrade = collect($ataBundle['nonroutine'] ?? []);
+        $nrcAtaDistribution = $ataBundle['nrc'] ?? ['labels' => [], 'counts' => [], 'total' => 0];
+        $eefAtaDistribution = $ataBundle['eef'] ?? ['labels' => [], 'counts' => [], 'total' => 0];
 
         $projectList = $projects->pluck('project')->unique()->filter()->values()->all();
         $customerList = $this->dashboardDistinctCustomerList($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
         $aircraftTypes = $this->dashboardDistinctColumn($table, $useMaster, 'aircraft_type', $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
         $tailNumbers = $this->dashboardDistinctColumn($table, $useMaster, 'tail_number', $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
-        $msnList = $this->dashboardDistinctMsnList($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
+        $msnList = $this->dashboardDistinctMsnList($tailNumbers, $msnFilter);
 
         return view('Modules.Reliability.dashboards', [
             'projects' => $projects,
@@ -463,6 +500,250 @@ class ReliabilityController extends Controller
             ->fromSub($sub, 'd')
             ->selectRaw('d.cn, COUNT(*) AS task, COUNT(DISTINCT d.project_key) AS project_count, COALESCE(SUM(d.act_val), 0) AS mhrs')
             ->groupBy('d.cn');
+    }
+
+    /**
+     * @return array<string, array{aircraft_type: ?string, tail_number: ?string, scope: ?string, age: ?string, aircraft_tsn: ?string, aircraft_csn: ?string}>
+     */
+    private function dashboardProjectMetaByProject(
+        string $table,
+        bool $useMaster,
+        string $projectFilter,
+        string $customerFilter,
+        string $aircraftTypeFilter,
+        string $tailFilter,
+        string $msnFilter,
+    ): array {
+        $rows = $this->dashboardBaseTableQuery($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter)
+            ->selectRaw("COALESCE(NULLIF(TRIM(project), ''), '—') AS project_cn")
+            ->selectRaw('TRIM(COALESCE(project, \'\')) AS project_number')
+            ->selectRaw('TRIM(COALESCE(aircraft_type, \'\')) AS aircraft_type')
+            ->selectRaw('TRIM(COALESCE(tail_number, \'\')) AS tail_number')
+            ->distinct()
+            ->get();
+
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $projectNumbers = $rows->pluck('project_number')->map(fn ($v) => trim((string) $v))->filter()->unique()->values()->all();
+        $tailNumbers = $rows->pluck('tail_number')->map(fn ($v) => trim((string) $v))->filter()->unique()->values()->all();
+
+        $projects = $projectNumbers !== []
+            ? InspectionProject::query()
+                ->select(['project_number', 'tail_number', 'scope', 'aircraft_tsn', 'aircraft_csn', 'open_date', 'aircraft_type'])
+                ->where(function ($q) use ($projectNumbers) {
+                    foreach ($projectNumbers as $pn) {
+                        $q->orWhereRaw("TRIM(COALESCE(project_number, '')) = ?", [$pn]);
+                    }
+                })->get()
+            : collect();
+
+        $projectTailNumbers = $projects
+            ->pluck('tail_number')
+            ->map(fn ($v) => trim((string) $v))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $tailKeys = collect(array_merge($tailNumbers, $projectTailNumbers))
+            ->map(fn ($v) => strtoupper(trim((string) $v)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $aircrafts = $tailKeys !== []
+            ? DB::table('aircrafts')
+                ->selectRaw("UPPER(TRIM(COALESCE(tail_number, ''))) AS tail_number")
+                ->addSelect(['first_flight', 'aircraft_type'])
+                ->whereIn(DB::raw("UPPER(TRIM(COALESCE(tail_number, '')))"), $tailKeys)
+                ->get()
+            : collect();
+
+        $aircraftByTail = [];
+        foreach ($aircrafts as $aircraft) {
+            $tailKey = $this->dashboardTailKey((string) ($aircraft->tail_number ?? ''));
+            if ($tailKey === '' || isset($aircraftByTail[$tailKey])) {
+                continue;
+            }
+            $aircraftByTail[$tailKey] = $aircraft;
+        }
+
+        $projectsByNumber = [];
+        $projectsByProjectTail = [];
+        foreach ($projects as $project) {
+            $projectNumber = trim((string) ($project->project_number ?? ''));
+            $projectKey = $this->dashboardProjectKey($projectNumber);
+            if ($projectKey === '') {
+                continue;
+            }
+
+            $projectsByNumber[$projectKey] ??= [];
+            $projectsByNumber[$projectKey][] = $project;
+
+            $projectTailKey = $this->dashboardProjectTailKey($projectNumber, (string) ($project->tail_number ?? ''));
+            if ($projectTailKey !== '') {
+                $projectsByProjectTail[$projectTailKey] ??= [];
+                $projectsByProjectTail[$projectTailKey][] = $project;
+            }
+        }
+
+        $meta = [];
+        foreach ($rows as $row) {
+            $projectCn = trim((string) ($row->project_cn ?? ''));
+            $projectNumber = trim((string) ($row->project_number ?? ''));
+            $tailNumber = trim((string) ($row->tail_number ?? ''));
+            $projectKey = $this->dashboardProjectKey($projectCn);
+            $projectTailKey = $this->dashboardProjectTailKey($projectNumber, $tailNumber);
+
+            if ($projectKey === '') {
+                continue;
+            }
+            if (!isset($meta[$projectKey])) {
+                $meta[$projectKey] = [
+                    'aircraft_type_set' => [],
+                    'tail_number_set' => [],
+                    'scope_set' => [],
+                    'age_values' => [],
+                    'aircraft_tsn_set' => [],
+                    'aircraft_csn_set' => [],
+                ];
+            }
+
+            if ($row->aircraft_type !== '') {
+                $meta[$projectKey]['aircraft_type_set'][$row->aircraft_type] = true;
+            }
+            if ($tailNumber !== '') {
+                $meta[$projectKey]['tail_number_set'][$tailNumber] = true;
+            }
+
+            $matchedProjects = $projectTailKey !== '' ? ($projectsByProjectTail[$projectTailKey] ?? []) : [];
+            if ($matchedProjects === [] && $projectNumber !== '') {
+                $matchedProjects = $projectsByNumber[$this->dashboardProjectKey($projectNumber)] ?? [];
+            }
+
+            foreach ($matchedProjects as $project) {
+                if (!empty($project->aircraft_type)) {
+                    $meta[$projectKey]['aircraft_type_set'][trim((string) $project->aircraft_type)] = true;
+                }
+                if (!empty($project->tail_number)) {
+                    $meta[$projectKey]['tail_number_set'][trim((string) $project->tail_number)] = true;
+                }
+                if (!empty($project->scope)) {
+                    $meta[$projectKey]['scope_set'][trim((string) $project->scope)] = true;
+                }
+                if ($project->aircraft_tsn !== null && $project->aircraft_tsn !== '') {
+                    $meta[$projectKey]['aircraft_tsn_set'][$this->dashboardFormatDecimal($project->aircraft_tsn)] = true;
+                }
+                if ($project->aircraft_csn !== null && $project->aircraft_csn !== '') {
+                    $meta[$projectKey]['aircraft_csn_set'][$this->dashboardFormatDecimal($project->aircraft_csn)] = true;
+                }
+
+                $tailKey = $this->dashboardTailKey((string) ($project->tail_number ?? $tailNumber));
+                $firstFlight = $tailKey !== '' ? ($aircraftByTail[$tailKey]->first_flight ?? null) : null;
+                $age = $this->dashboardCalculateAgeYears($project->open_date, $firstFlight);
+                if ($age !== null) {
+                    $meta[$projectKey]['age_values'][] = $age;
+                }
+            }
+
+            $tailKey = $this->dashboardTailKey($tailNumber);
+            if ($tailKey !== '' && isset($aircraftByTail[$tailKey]) && !empty($aircraftByTail[$tailKey]->aircraft_type)) {
+                $meta[$projectKey]['aircraft_type_set'][trim((string) $aircraftByTail[$tailKey]->aircraft_type)] = true;
+            }
+        }
+
+        $result = [];
+        foreach ($meta as $projectKey => $info) {
+            $ages = $info['age_values'];
+            sort($ages);
+
+            $ageLabel = null;
+            if ($ages !== []) {
+                $min = (float) $ages[0];
+                $max = (float) $ages[count($ages) - 1];
+                $ageLabel = abs($max - $min) < 0.05
+                    ? number_format($min, 1, '.', '')
+                    : number_format($min, 1, '.', '') . '-' . number_format($max, 1, '.', '');
+            }
+
+            $result[$projectKey] = [
+                'aircraft_type' => $this->dashboardJoinSetValues($info['aircraft_type_set']),
+                'tail_number' => $this->dashboardJoinSetValues($info['tail_number_set']),
+                'scope' => $this->dashboardJoinSetValues($info['scope_set']),
+                'age' => $ageLabel,
+                'aircraft_tsn' => $this->dashboardJoinSetValues($info['aircraft_tsn_set']),
+                'aircraft_csn' => $this->dashboardJoinSetValues($info['aircraft_csn_set']),
+            ];
+        }
+
+        return $result;
+    }
+
+    private function dashboardJoinSetValues(array $set): ?string
+    {
+        if ($set === []) {
+            return null;
+        }
+        $values = array_keys($set);
+        natcasesort($values);
+        $values = array_values(array_filter($values, fn ($v) => trim((string) $v) !== ''));
+
+        return $values !== [] ? implode(', ', $values) : null;
+    }
+
+    private function dashboardProjectKey(string $project): string
+    {
+        return strtoupper(trim($project));
+    }
+
+    private function dashboardTailKey(string $tail): string
+    {
+        return strtoupper(trim($tail));
+    }
+
+    private function dashboardProjectTailKey(string $project, string $tail): string
+    {
+        $p = trim($project);
+        $t = $this->dashboardTailKey($tail);
+        if ($p === '' || $t === '') {
+            return '';
+        }
+
+        return $this->dashboardProjectKey($p) . '|' . $t;
+    }
+
+    private function dashboardCalculateAgeYears(mixed $openDate, mixed $firstFlight): ?float
+    {
+        if (!$openDate || !$firstFlight) {
+            return null;
+        }
+
+        try {
+            $open = $openDate instanceof \DateTimeInterface ? Carbon::instance($openDate) : Carbon::parse((string) $openDate);
+            $first = $firstFlight instanceof \DateTimeInterface ? Carbon::instance($firstFlight) : Carbon::parse((string) $firstFlight);
+            if ($open->lt($first)) {
+                return null;
+            }
+
+            return round($first->diffInDays($open) / 365.25, 1);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function dashboardFormatDecimal(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+        $float = (float) $value;
+        if (abs($float - round($float)) < 0.00001) {
+            return (string) ((int) round($float));
+        }
+
+        return rtrim(rtrim(number_format($float, 2, '.', ''), '0'), '.');
     }
 
     private function dashboardApplyFiltersQuery(
@@ -630,26 +911,30 @@ class ReliabilityController extends Controller
         bool $routineBucket,
         callable $ataLabel,
     ): Collection {
-        $model = $useMaster ? ReliabilityMasterData::class : InspectionWorkCard::class;
-        $q = $model::query();
-        $this->dashboardApplyFiltersEloquent($q, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter, $useMaster);
+        $table = $useMaster ? 'work_cards_master' : 'work_cards';
+        $q = DB::table($table);
+        $this->dashboardApplyFiltersQuery($q, $table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
         $routineSql = "NOT (UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
         $nonroutineSql = "(UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
         $q->whereRaw($routineBucket ? $routineSql : $nonroutineSql);
-        if ($useMaster) {
-            $q->select(['id', 'ata', 'order_type']);
-        } else {
-            $q->select(['id', 'ata', 'prim_skill', 'order_type']);
-        }
+
+        $rows = $q->selectRaw("TRIM(COALESCE(ata, '')) AS ata_key")
+            ->selectRaw($useMaster ? "'' AS prim_group" : "CASE
+                WHEN UPPER(COALESCE(prim_skill, '')) LIKE '%STR%' THEN 'STR'
+                WHEN UPPER(COALESCE(prim_skill, '')) LIKE '%INT%' THEN 'INT'
+                WHEN UPPER(COALESCE(prim_skill, '')) LIKE '%PROP%' THEN 'PROP'
+                WHEN TRIM(COALESCE(prim_skill, '')) <> '' THEN 'OTHER'
+                ELSE ''
+            END AS prim_group")
+            ->selectRaw('COUNT(*) AS c')
+            ->groupBy('ata_key', 'prim_group')
+            ->get();
 
         $counts = [];
-        $q->chunkById(4000, function ($rows) use (&$counts, $ataLabel, $useMaster) {
-            foreach ($rows as $r) {
-                $prim = $useMaster ? '' : (string) ($r->prim_skill ?? '');
-                $k = $ataLabel($r->ata, $prim);
-                $counts[$k] = ($counts[$k] ?? 0) + 1;
-            }
-        });
+        foreach ($rows as $r) {
+            $k = $ataLabel((string) ($r->ata_key ?? ''), (string) ($r->prim_group ?? ''));
+            $counts[$k] = ($counts[$k] ?? 0) + (int) ($r->c ?? 0);
+        }
 
         return collect($counts)->sortDesc();
     }
@@ -665,24 +950,26 @@ class ReliabilityController extends Controller
         string $tailFilter,
         string $msnFilter,
     ): array {
-        $model = $useMaster ? ReliabilityMasterData::class : InspectionWorkCard::class;
-        $q = $model::query();
-        $this->dashboardApplyFiltersEloquent($q, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter, $useMaster);
+        $table = $useMaster ? 'work_cards_master' : 'work_cards';
+        $q = DB::table($table);
+        $this->dashboardApplyFiltersQuery($q, $table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
         $q->whereRaw("(LOWER(TRIM(COALESCE(order_type, ''))) IN ('addnrc', 'nonroutine') AND TRIM(COALESCE(src_cust_card, '')) <> '')");
-        $q->select(['id', 'ata']);
+        $rows = $q->selectRaw("TRIM(COALESCE(ata, '')) AS ata_key")
+            ->selectRaw('COUNT(*) AS c')
+            ->groupBy('ata_key')
+            ->get();
 
         $counts = [];
         $total = 0;
-        $q->chunkById(4000, function ($rows) use (&$counts, &$total) {
-            foreach ($rows as $row) {
-                $ata = $this->dashboardAtaChapter((string) ($row->ata ?? ''));
-                if ($ata === null) {
-                    continue;
-                }
-                $counts[$ata] = ($counts[$ata] ?? 0) + 1;
-                $total++;
+        foreach ($rows as $row) {
+            $ata = $this->dashboardAtaChapter((string) ($row->ata_key ?? ''));
+            if ($ata === null) {
+                continue;
             }
-        });
+            $count = (int) ($row->c ?? 0);
+            $counts[$ata] = ($counts[$ata] ?? 0) + $count;
+            $total += $count;
+        }
 
         if ($counts === []) {
             return ['labels' => [], 'counts' => [], 'total' => 0];
@@ -709,24 +996,25 @@ class ReliabilityController extends Controller
             return ['labels' => [], 'counts' => [], 'total' => 0];
         }
 
+        $keys = array_keys($projectKeys);
+        $rows = InspectionEefRegistry::query()
+            ->whereIn(DB::raw("UPPER(TRIM(COALESCE(project_no, '')))"), $keys)
+            ->selectRaw("TRIM(COALESCE(ata, '')) AS ata_key")
+            ->selectRaw('COUNT(*) AS c')
+            ->groupBy('ata_key')
+            ->get();
+
         $counts = [];
         $total = 0;
-        InspectionEefRegistry::query()
-            ->select(['id', 'ata', 'project_no'])
-            ->chunkById(4000, function ($rows) use (&$counts, &$total, $projectKeys) {
-                foreach ($rows as $row) {
-                    $projectNo = strtoupper(trim((string) ($row->project_no ?? '')));
-                    if ($projectNo === '' || !isset($projectKeys[$projectNo])) {
-                        continue;
-                    }
-                    $ata = $this->dashboardAtaChapter((string) ($row->ata ?? ''));
-                    if ($ata === null) {
-                        continue;
-                    }
-                    $counts[$ata] = ($counts[$ata] ?? 0) + 1;
-                    $total++;
-                }
-            });
+        foreach ($rows as $row) {
+            $ata = $this->dashboardAtaChapter((string) ($row->ata_key ?? ''));
+            if ($ata === null) {
+                continue;
+            }
+            $count = (int) ($row->c ?? 0);
+            $counts[$ata] = ($counts[$ata] ?? 0) + $count;
+            $total += $count;
+        }
 
         if ($counts === []) {
             return ['labels' => [], 'counts' => [], 'total' => 0];
@@ -748,21 +1036,20 @@ class ReliabilityController extends Controller
         string $tailFilter,
         string $msnFilter,
     ): array {
-        $model = $useMaster ? ReliabilityMasterData::class : InspectionWorkCard::class;
-        $q = $model::query();
-        $this->dashboardApplyFiltersEloquent($q, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter, $useMaster);
-        $q->select(['id', 'project']);
+        $table = $useMaster ? 'work_cards_master' : 'work_cards';
+        $rows = $this->dashboardBaseTableQuery($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter)
+            ->selectRaw("DISTINCT UPPER(TRIM(COALESCE(project, ''))) AS project_key")
+            ->whereRaw("TRIM(COALESCE(project, '')) <> ''")
+            ->pluck('project_key')
+            ->all();
 
         $keys = [];
-        $q->chunkById(4000, function ($rows) use (&$keys) {
-            foreach ($rows as $row) {
-                $project = strtoupper(trim((string) ($row->project ?? '')));
-                if ($project !== '') {
-                    $keys[$project] = true;
-                }
+        foreach ($rows as $project) {
+            $project = strtoupper(trim((string) $project));
+            if ($project !== '') {
+                $keys[$project] = true;
             }
-        });
-
+        }
         return $keys;
     }
 
@@ -803,22 +1090,21 @@ class ReliabilityController extends Controller
      * @return list<string>
      */
     private function dashboardDistinctMsnList(
-        string $table,
-        bool $useMaster,
-        string $projectFilter,
-        string $customerFilter,
-        string $aircraftTypeFilter,
-        string $tailFilter,
+        array $tailNumbers,
         string $msnFilter,
     ): array {
-        $tailSub = $this->dashboardBaseTableQuery($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, 'all')
-            ->selectRaw("DISTINCT UPPER(TRIM(COALESCE(tail_number, ''))) AS tail_number")
-            ->whereRaw("TRIM(COALESCE(tail_number, '')) <> ''");
+        $tails = collect($tailNumbers)
+            ->map(fn ($v) => strtoupper(trim((string) $v)))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        if ($tails === []) {
+            return [];
+        }
 
         return DB::table('aircrafts')
-            ->joinSub($tailSub, 'src', function ($join) {
-                $join->whereRaw("UPPER(TRIM(COALESCE(aircrafts.tail_number, ''))) = src.tail_number");
-            })
+            ->whereIn(DB::raw("UPPER(TRIM(COALESCE(tail_number, '')))"), $tails)
             ->when($msnFilter !== 'all', fn ($q) => $q->whereRaw("COALESCE(NULLIF(TRIM(aircrafts.serial_number), ''), '—') = ?", [$msnFilter]))
             ->selectRaw("COALESCE(NULLIF(TRIM(aircrafts.serial_number), ''), '—') AS msn")
             ->distinct()
