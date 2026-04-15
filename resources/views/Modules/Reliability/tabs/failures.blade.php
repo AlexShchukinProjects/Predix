@@ -15,7 +15,10 @@
             <span>Total records: {{ count($failures ?? []) }}</span>
         @endif
     </div>
-    <div class="efds-table-header__actions">
+    <div class="efds-table-header__actions d-flex flex-wrap gap-2 align-items-center">
+        <button type="button" class="btn efds-btn efds-btn--outline-primary" data-bs-toggle="modal" data-bs-target="#taskCardsExcelModal">
+            <i class="fas fa-file-excel me-1"></i>Add from Excel
+        </button>
         <a href="{{ route('modules.reliability.failures.create') }}" class="btn efds-btn efds-btn--primary">
             <i class="fas fa-plus me-1"></i>Add task card
         </a>
@@ -172,6 +175,48 @@
     </div>
 @endif
 
+<div class="modal fade" id="taskCardsExcelModal" tabindex="-1" aria-labelledby="taskCardsExcelModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="taskCardsExcelModalLabel">Add from Excel</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">Выберите файл и колонку с номерами task cards. Нормализация совпадает с колонкой CUST. CARD NORM в master data (как для SRC. CUST. CARD).</p>
+                <div class="mb-3">
+                    <label class="form-label" for="taskCardsExcelFile">Файл Excel / CSV</label>
+                    <input type="file" class="form-control form-control-sm" id="taskCardsExcelFile" accept=".xlsx,.xls,.csv,.txt">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" for="taskCardsExcelColumn">Колонка с номерами task cards</label>
+                    <select class="form-select form-select-sm" id="taskCardsExcelColumn" disabled>
+                        <option value="">Сначала выберите файл…</option>
+                    </select>
+                </div>
+                <div id="taskCardsExcelAlert" class="alert alert-danger py-2 px-3 small d-none" role="alert"></div>
+                <div class="d-flex gap-2 mb-3">
+                    <button type="button" class="btn btn-primary btn-sm d-none" id="taskCardsExcelSubmit">Загрузить</button>
+                </div>
+                <div id="taskCardsExcelPreviewWrap" class="d-none">
+                    <p id="taskCardsExcelTruncated" class="text-warning small d-none mb-2">Показаны только первые 2000 строк файла.</p>
+                    <div class="table-responsive" style="max-height: 50vh;">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Task cards</th>
+                                    <th>Task cards normalised</th>
+                                </tr>
+                            </thead>
+                            <tbody id="taskCardsExcelPreviewBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.clickable-row[data-href]').forEach(function(row) {
@@ -181,6 +226,152 @@ document.addEventListener('DOMContentLoaded', function() {
             if (href) window.location.href = href;
         });
     });
+
+    (function taskCardsExcelModalInit() {
+        var modalEl = document.getElementById('taskCardsExcelModal');
+        if (!modalEl) return;
+        var fileInput = document.getElementById('taskCardsExcelFile');
+        var colSelect = document.getElementById('taskCardsExcelColumn');
+        var btnSubmit = document.getElementById('taskCardsExcelSubmit');
+        var alertEl = document.getElementById('taskCardsExcelAlert');
+        var previewWrap = document.getElementById('taskCardsExcelPreviewWrap');
+        var previewBody = document.getElementById('taskCardsExcelPreviewBody');
+        var truncatedEl = document.getElementById('taskCardsExcelTruncated');
+        var headersUrl = "{{ route('modules.reliability.task-cards-excel.headers') }}";
+        var previewUrl = "{{ route('modules.reliability.task-cards-excel.preview') }}";
+
+        function csrfHeaders() {
+            var token = document.querySelector('meta[name="csrf-token"]');
+            return {
+                'X-CSRF-TOKEN': token ? token.getAttribute('content') : '',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            };
+        }
+        function hideAlert() {
+            alertEl.classList.add('d-none');
+            alertEl.textContent = '';
+        }
+        function showAlert(msg) {
+            alertEl.textContent = msg;
+            alertEl.classList.remove('d-none');
+        }
+        function firstErrorMessage(j) {
+            if (!j) return 'Ошибка запроса';
+            if (j.message) return j.message;
+            if (j.errors) {
+                var keys = Object.keys(j.errors);
+                if (keys.length && j.errors[keys[0]][0]) return j.errors[keys[0]][0];
+            }
+            return 'Ошибка запроса';
+        }
+        function resetModalState() {
+            fileInput.value = '';
+            colSelect.innerHTML = '<option value="">Сначала выберите файл…</option>';
+            colSelect.disabled = true;
+            btnSubmit.classList.add('d-none');
+            previewWrap.classList.add('d-none');
+            truncatedEl.classList.add('d-none');
+            previewBody.innerHTML = '';
+            hideAlert();
+        }
+        function toggleSubmit() {
+            var hasFile = fileInput.files && fileInput.files.length > 0;
+            var col = colSelect.value;
+            if (hasFile && col !== '') {
+                btnSubmit.classList.remove('d-none');
+            } else {
+                btnSubmit.classList.add('d-none');
+            }
+        }
+        modalEl.addEventListener('hidden.bs.modal', resetModalState);
+        fileInput.addEventListener('change', function() {
+            hideAlert();
+            previewWrap.classList.add('d-none');
+            previewBody.innerHTML = '';
+            truncatedEl.classList.add('d-none');
+            colSelect.innerHTML = '<option value="">Загрузка колонок…</option>';
+            colSelect.disabled = true;
+            btnSubmit.classList.add('d-none');
+            if (!fileInput.files || !fileInput.files.length) {
+                colSelect.innerHTML = '<option value="">Сначала выберите файл…</option>';
+                return;
+            }
+            var fd = new FormData();
+            fd.append('file', fileInput.files[0]);
+            fetch(headersUrl, { method: 'POST', headers: csrfHeaders(), body: fd, credentials: 'same-origin' })
+                .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, status: r.status, j: j }; }); })
+                .then(function(res) {
+                    if (!res.ok) {
+                        colSelect.innerHTML = '<option value="">Ошибка</option>';
+                        showAlert(firstErrorMessage(res.j));
+                        return;
+                    }
+                    var cols = res.j.columns || [];
+                    colSelect.innerHTML = '';
+                    if (!cols.length) {
+                        colSelect.innerHTML = '<option value="">Колонки не найдены</option>';
+                        showAlert('Не удалось прочитать заголовки.');
+                        return;
+                    }
+                    var opt0 = document.createElement('option');
+                    opt0.value = '';
+                    opt0.textContent = '— выберите колонку —';
+                    colSelect.appendChild(opt0);
+                    cols.forEach(function(c) {
+                        var o = document.createElement('option');
+                        o.value = String(c.index);
+                        o.textContent = c.letter + ' — ' + c.label;
+                        colSelect.appendChild(o);
+                    });
+                    colSelect.disabled = false;
+                    toggleSubmit();
+                })
+                .catch(function() {
+                    colSelect.innerHTML = '<option value="">Ошибка сети</option>';
+                    showAlert('Сеть или сервер недоступны.');
+                });
+        });
+        colSelect.addEventListener('change', toggleSubmit);
+        btnSubmit.addEventListener('click', function() {
+            hideAlert();
+            if (!fileInput.files || !fileInput.files.length || colSelect.value === '') return;
+            var fd = new FormData();
+            fd.append('file', fileInput.files[0]);
+            fd.append('column_index', colSelect.value);
+            btnSubmit.disabled = true;
+            fetch(previewUrl, { method: 'POST', headers: csrfHeaders(), body: fd, credentials: 'same-origin' })
+                .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+                .then(function(res) {
+                    btnSubmit.disabled = false;
+                    if (!res.ok) {
+                        showAlert(firstErrorMessage(res.j));
+                        return;
+                    }
+                    previewBody.innerHTML = '';
+                    (res.j.rows || []).forEach(function(row) {
+                        var tr = document.createElement('tr');
+                        var td1 = document.createElement('td');
+                        td1.textContent = row.task_card != null && row.task_card !== '' ? row.task_card : '—';
+                        var td2 = document.createElement('td');
+                        td2.textContent = row.task_card_normalised != null && row.task_card_normalised !== '' ? row.task_card_normalised : '—';
+                        tr.appendChild(td1);
+                        tr.appendChild(td2);
+                        previewBody.appendChild(tr);
+                    });
+                    if (res.j.truncated) {
+                        truncatedEl.classList.remove('d-none');
+                    } else {
+                        truncatedEl.classList.add('d-none');
+                    }
+                    previewWrap.classList.remove('d-none');
+                })
+                .catch(function() {
+                    btnSubmit.disabled = false;
+                    showAlert('Сеть или сервер недоступны.');
+                });
+        });
+    })();
 });
 var PER_PAGE_STORAGE_KEY = 'reliability_inspection_per_page';
 (function applyStoredPerPage() {

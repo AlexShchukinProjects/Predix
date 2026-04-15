@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Modules\Reliability;
 
 use App\Http\Controllers\Controller;
 use App\Models\RelBufSetting;
+use App\Support\ReliabilityTaskCardNormalizer;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Models\RelFailureDetectionStage;
 use App\Models\RelFailureConsequence;
@@ -29,6 +31,8 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use OpenSpout\Reader\XLSX\Reader as XlsxReader;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
@@ -2820,6 +2824,261 @@ class ReliabilityController extends Controller
         }
         $s = str_replace('-', '', $s);
         return $s !== '' ? $s : '-';
+    }
+
+    /**
+     * Первая строка Excel/CSV: список колонок для выбора источника task card.
+     */
+    public function taskCardsExcelHeaders(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:15360',
+        ]);
+
+        $file = $request->file('file');
+        if ($file === null) {
+            return response()->json(['message' => 'File is required.'], 422);
+        }
+
+        $path = $file->getRealPath();
+        if ($path === false || !is_readable($path)) {
+            return response()->json(['message' => 'Cannot read uploaded file.'], 422);
+        }
+
+        $ext = strtolower((string) ($file->getClientOriginalExtension() ?: $file->guessExtension() ?: ''));
+
+        try {
+            $headerCells = $this->reliabilityTaskCardsReadHeaderRow($path, $ext);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Failed to read spreadsheet: ' . $e->getMessage()], 422);
+        }
+
+        if ($headerCells === []) {
+            return response()->json(['columns' => [], 'message' => 'No header row found.'], 422);
+        }
+
+        $maxIndex = max(array_keys($headerCells));
+        $columns = [];
+        for ($i = 0; $i <= $maxIndex; $i++) {
+            $label = $headerCells[$i] ?? '';
+            $letter = Coordinate::stringFromColumnIndex($i + 1);
+            $columns[] = [
+                'index' => $i,
+                'letter' => $letter,
+                'label' => $label !== '' ? $label : ('Column ' . $letter),
+            ];
+        }
+
+        return response()->json(['columns' => $columns]);
+    }
+
+    /**
+     * Превью: значения из выбранной колонки и нормализованный вид (как CUST. CARD NORM в master data).
+     */
+    public function taskCardsExcelPreview(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:15360',
+            'column_index' => 'required|integer|min:0|max:4095',
+        ]);
+
+        $file = $request->file('file');
+        if ($file === null) {
+            return response()->json(['message' => 'File is required.'], 422);
+        }
+
+        $path = $file->getRealPath();
+        if ($path === false || !is_readable($path)) {
+            return response()->json(['message' => 'Cannot read uploaded file.'], 422);
+        }
+
+        $ext = strtolower((string) ($file->getClientOriginalExtension() ?: $file->guessExtension() ?: ''));
+        $columnIndex = (int) $request->input('column_index');
+
+        try {
+            $rows = $this->reliabilityTaskCardsReadColumnValues($path, $ext, $columnIndex);
+        } catch (\Throwable $e) {
+            return response()->json(['message' => 'Failed to read spreadsheet: ' . $e->getMessage()], 422);
+        }
+
+        $out = [];
+        foreach ($rows as $raw) {
+            $norm = ReliabilityTaskCardNormalizer::normalize($raw);
+            $out[] = [
+                'task_card' => $raw,
+                'task_card_normalised' => $norm,
+            ];
+        }
+
+        return response()->json(['rows' => $out, 'truncated' => count($rows) >= 2000]);
+    }
+
+    /**
+     * @return array<int, string> индекс колонки → текст заголовка
+     */
+    private function reliabilityTaskCardsReadHeaderRow(string $path, string $ext): array
+    {
+        if (in_array($ext, ['csv', 'txt'], true)) {
+            return $this->reliabilityTaskCardsCsvHeaderRow($path);
+        }
+
+        return $this->reliabilityTaskCardsXlsxFirstRow($path, $ext);
+    }
+
+    /**
+     * @return list<string> значения ячеек (с пустыми строками), до 2000 строк данных после заголовка
+     */
+    private function reliabilityTaskCardsReadColumnValues(string $path, string $ext, int $columnIndex): array
+    {
+        if (in_array($ext, ['csv', 'txt'], true)) {
+            return $this->reliabilityTaskCardsCsvColumnValues($path, $columnIndex);
+        }
+
+        return $this->reliabilityTaskCardsXlsxColumnValues($path, $ext, $columnIndex);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function reliabilityTaskCardsCsvHeaderRow(string $path): array
+    {
+        $fh = fopen($path, 'r');
+        if ($fh === false) {
+            throw new \RuntimeException('Cannot open CSV');
+        }
+        $sep = ',';
+        $first = fgetcsv($fh, 0, $sep);
+        if ($first !== false && isset($first[0]) && str_starts_with(trim((string) $first[0]), 'sep=')) {
+            $sep = trim(substr(trim((string) $first[0]), 4)) ?: ',';
+            $first = fgetcsv($fh, 0, $sep);
+        }
+        fclose($fh);
+        if ($first === false) {
+            return [];
+        }
+        $out = [];
+        foreach ($first as $i => $h) {
+            $out[(int) $i] = trim((string) $h);
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function reliabilityTaskCardsCsvColumnValues(string $path, int $columnIndex): array
+    {
+        $fh = fopen($path, 'r');
+        if ($fh === false) {
+            throw new \RuntimeException('Cannot open CSV');
+        }
+        $sep = ',';
+        $first = fgetcsv($fh, 0, $sep);
+        if ($first !== false && isset($first[0]) && str_starts_with(trim((string) $first[0]), 'sep=')) {
+            $sep = trim(substr(trim((string) $first[0]), 4)) ?: ',';
+            $first = fgetcsv($fh, 0, $sep);
+        }
+        $values = [];
+        $limit = 2000;
+        while (count($values) < $limit && ($row = fgetcsv($fh, 0, $sep)) !== false) {
+            $raw = isset($row[$columnIndex]) ? $this->reliabilitySpreadsheetCellToString($row[$columnIndex]) : '';
+            $values[] = $raw;
+        }
+        fclose($fh);
+
+        return $values;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function reliabilityTaskCardsXlsxFirstRow(string $path, string $ext): array
+    {
+        $reader = new XlsxReader();
+        if ($ext === 'xls') {
+            $reader = \OpenSpout\Reader\Common\Creator\ReaderEntityFactory::createXLSReader();
+        }
+        $reader->open($path);
+        $values = [];
+        try {
+            foreach ($reader->getSheetIterator() as $sheet) {
+                foreach ($sheet->getRowIterator() as $row) {
+                    foreach ($row->getCells() as $idx => $cell) {
+                        $values[(int) $idx] = $this->reliabilitySpreadsheetCellToString($cell->getValue());
+                    }
+                    break 2;
+                }
+            }
+        } finally {
+            $reader->close();
+        }
+
+        return $values;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function reliabilityTaskCardsXlsxColumnValues(string $path, string $ext, int $columnIndex): array
+    {
+        $reader = new XlsxReader();
+        if ($ext === 'xls') {
+            $reader = \OpenSpout\Reader\Common\Creator\ReaderEntityFactory::createXLSReader();
+        }
+        $reader->open($path);
+        $values = [];
+        $limit = 2000;
+        try {
+            foreach ($reader->getSheetIterator() as $sheet) {
+                $rowIndex = 0;
+                foreach ($sheet->getRowIterator() as $row) {
+                    if ($rowIndex === 0) {
+                        $rowIndex++;
+                        continue;
+                    }
+                    $raw = '';
+                    foreach ($row->getCells() as $idx => $cell) {
+                        if ((int) $idx === $columnIndex) {
+                            $raw = $this->reliabilitySpreadsheetCellToString($cell->getValue());
+                            break;
+                        }
+                    }
+                    $values[] = $raw;
+                    if (count($values) >= $limit) {
+                        break 2;
+                    }
+                    $rowIndex++;
+                }
+                break;
+            }
+        } finally {
+            $reader->close();
+        }
+
+        return $values;
+    }
+
+    private function reliabilitySpreadsheetCellToString(mixed $v): string
+    {
+        if ($v instanceof \DateTimeInterface) {
+            return $v->format('Y-m-d H:i:s');
+        }
+        if ($v === null) {
+            return '';
+        }
+        if (is_int($v)) {
+            return (string) $v;
+        }
+        if (is_float($v) && is_finite($v)) {
+            if (abs($v - round($v)) < 1e-9) {
+                return (string) (int) round($v);
+            }
+
+            return rtrim(rtrim(sprintf('%.12F', $v), '0'), '.');
+        }
+
+        return trim((string) $v);
     }
 }
 
