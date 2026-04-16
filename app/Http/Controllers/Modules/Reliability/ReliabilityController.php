@@ -135,25 +135,35 @@ class ReliabilityController extends Controller
         // work_cards_master: NRC = ADDNRC|NONROUTINE + непустой src_cust_card; RC = дополнение (чтобы RC+NRC = все строки)
         // # of RC / Max Hours on RC — по подмножеству RC; NRC-метрики — по подмножеству NRC + STR
         // EEF Count: зарезервировано (0)
+        $requiresCalculatedSqlFilters = ($request->filled('max_hours_rc') && is_numeric($request->input('max_hours_rc')))
+            || ($request->filled('num_str_nrcs') && is_numeric($request->input('num_str_nrcs')));
+
         $wcm = 'work_cards_master';
-        $nrcTab = "(LOWER(TRIM(COALESCE({$wcm}.order_type, ''))) IN ('addnrc', 'nonroutine') AND TRIM(COALESCE({$wcm}.src_cust_card, '')) <> '')";
-        $rcTab = "((LOWER(TRIM(COALESCE({$wcm}.order_type, ''))) NOT IN ('addnrc', 'nonroutine')) OR (TRIM(COALESCE({$wcm}.src_cust_card, '')) = ''))";
-        $nrcStrMatch = "(
-                UPPER(COALESCE({$wcm}.description, '')) LIKE '%STR%'
-                OR UPPER(COALESCE({$wcm}.corrective_action, '')) LIKE '%STR%'
-                OR UPPER(COALESCE({$wcm}.order_type, '')) LIKE '%STR%'
-            )";
-        $failuresQuery = ReliabilityFailure::query()
-            ->selectRaw("rel_stub.*,
-                (SELECT COUNT(*) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$rcTab}) as num_rc,
-                (SELECT MAX(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.work_order_number), '') != '' AND {$wcm}.cust_card LIKE CONCAT('%', rel_stub.work_order_number, '%') AND {$rcTab}) as max_hours_on_rc,
-                (SELECT COUNT(*) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as num_str_nrcs,
-                (SELECT MAX(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as max_mhs_str_nrc,
-                (SELECT AVG(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as avg_str_mhs_raw,
-                (SELECT 0) as eef_count")
-            ->with(['detectionStage', 'consequence', 'takenMeasure'])
-            ->orderByDesc('failure_date')
-            ->orderByDesc('id');
+        if ($requiresCalculatedSqlFilters) {
+            $nrcTab = "(LOWER(TRIM(COALESCE({$wcm}.order_type, ''))) IN ('addnrc', 'nonroutine') AND TRIM(COALESCE({$wcm}.src_cust_card, '')) <> '')";
+            $rcTab = "((LOWER(TRIM(COALESCE({$wcm}.order_type, ''))) NOT IN ('addnrc', 'nonroutine')) OR (TRIM(COALESCE({$wcm}.src_cust_card, '')) = ''))";
+            $nrcStrMatch = "(
+                    UPPER(COALESCE({$wcm}.description, '')) LIKE '%STR%'
+                    OR UPPER(COALESCE({$wcm}.corrective_action, '')) LIKE '%STR%'
+                    OR UPPER(COALESCE({$wcm}.order_type, '')) LIKE '%STR%'
+                )";
+            $failuresQuery = ReliabilityFailure::query()
+                ->selectRaw("rel_stub.*,
+                    (SELECT COUNT(*) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$rcTab}) as num_rc,
+                    (SELECT MAX(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.work_order_number), '') != '' AND {$wcm}.cust_card LIKE CONCAT('%', rel_stub.work_order_number, '%') AND {$rcTab}) as max_hours_on_rc,
+                    (SELECT COUNT(*) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as num_str_nrcs,
+                    (SELECT MAX(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as max_mhs_str_nrc,
+                    (SELECT AVG(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as avg_str_mhs_raw,
+                    (SELECT 0) as eef_count")
+                ->with(['detectionStage', 'consequence', 'takenMeasure'])
+                ->orderByDesc('failure_date')
+                ->orderByDesc('id');
+        } else {
+            $failuresQuery = ReliabilityFailure::query()
+                ->with(['detectionStage', 'consequence', 'takenMeasure'])
+                ->orderByDesc('failure_date')
+                ->orderByDesc('id');
+        }
 
         // Фильтр по дате создания (failure_date)
         $dateFrom = $request->input('date_from');
@@ -190,12 +200,12 @@ class ReliabilityController extends Controller
         }
 
         // Max Hours on RC (calculated: filter by minimum value)
-        if ($request->filled('max_hours_rc') && is_numeric($request->input('max_hours_rc'))) {
+        if ($requiresCalculatedSqlFilters && $request->filled('max_hours_rc') && is_numeric($request->input('max_hours_rc'))) {
             $failuresQuery->havingRaw('max_hours_on_rc >= ?', [(float) $request->input('max_hours_rc')]);
         }
 
         // # of STR NRCs (calculated: filter by minimum value)
-        if ($request->filled('num_str_nrcs') && is_numeric($request->input('num_str_nrcs'))) {
+        if ($requiresCalculatedSqlFilters && $request->filled('num_str_nrcs') && is_numeric($request->input('num_str_nrcs'))) {
             $failuresQuery->havingRaw('num_str_nrcs >= ?', [(int) $request->input('num_str_nrcs')]);
         }
 
@@ -261,6 +271,130 @@ class ReliabilityController extends Controller
             }
         }
         $query->whereIn($column, $arr);
+    }
+
+    private function enrichFailureMetricsFromWorkCards(Collection $failures): void
+    {
+        if ($failures->isEmpty()) {
+            return;
+        }
+
+        $mpdByFailure = [];
+        $workOrderByFailure = [];
+        foreach ($failures as $failure) {
+            $failureId = (int) $failure->id;
+            $mpd = trim((string) ($failure->mpd ?? ''));
+            $workOrder = trim((string) ($failure->work_order_number ?? ''));
+            if ($mpd !== '') {
+                $mpdByFailure[$failureId] = $mpd;
+            }
+            if ($workOrder !== '') {
+                $workOrderByFailure[$failureId] = $workOrder;
+            }
+        }
+
+        $mpdKeys = array_values(array_unique(array_values($mpdByFailure)));
+        $workOrderKeys = array_values(array_unique(array_values($workOrderByFailure)));
+        $combinedRcKeys = array_values(array_unique(array_merge($mpdKeys, $workOrderKeys)));
+
+        $numRcByMpd = [];
+        $maxHoursByWorkOrder = [];
+        if ($combinedRcKeys !== []) {
+            $rcRows = DB::table('work_cards_master')
+                ->select(['cust_card', 'act_time'])
+                ->whereRaw("((LOWER(TRIM(COALESCE(order_type, ''))) NOT IN ('addnrc', 'nonroutine')) OR (TRIM(COALESCE(src_cust_card, '')) = ''))")
+                ->where(function ($query) use ($combinedRcKeys): void {
+                    foreach ($combinedRcKeys as $key) {
+                        $query->orWhere('cust_card', 'like', '%' . $this->escapeLikeForSql($key) . '%');
+                    }
+                })
+                ->get();
+
+            foreach ($rcRows as $row) {
+                $custCard = (string) ($row->cust_card ?? '');
+                if ($custCard === '') {
+                    continue;
+                }
+                $actTime = is_numeric($row->act_time) ? (float) $row->act_time : null;
+
+                foreach ($mpdKeys as $mpdKey) {
+                    if (stripos($custCard, $mpdKey) !== false) {
+                        $numRcByMpd[$mpdKey] = ($numRcByMpd[$mpdKey] ?? 0) + 1;
+                    }
+                }
+                foreach ($workOrderKeys as $workOrderKey) {
+                    if ($actTime !== null && stripos($custCard, $workOrderKey) !== false) {
+                        if (!isset($maxHoursByWorkOrder[$workOrderKey]) || $actTime > $maxHoursByWorkOrder[$workOrderKey]) {
+                            $maxHoursByWorkOrder[$workOrderKey] = $actTime;
+                        }
+                    }
+                }
+            }
+        }
+
+        $numStrNrcByMpd = [];
+        $maxStrMhsByMpd = [];
+        $sumStrMhsByMpd = [];
+        if ($mpdKeys !== []) {
+            $nrcRows = DB::table('work_cards_master')
+                ->select(['src_cust_card', 'act_time'])
+                ->whereRaw("(LOWER(TRIM(COALESCE(order_type, ''))) IN ('addnrc', 'nonroutine') AND TRIM(COALESCE(src_cust_card, '')) <> '')")
+                ->whereRaw("(
+                    UPPER(COALESCE(description, '')) LIKE '%STR%'
+                    OR UPPER(COALESCE(corrective_action, '')) LIKE '%STR%'
+                    OR UPPER(COALESCE(order_type, '')) LIKE '%STR%'
+                )")
+                ->where(function ($query) use ($mpdKeys): void {
+                    foreach ($mpdKeys as $key) {
+                        $query->orWhere('src_cust_card', 'like', '%' . $this->escapeLikeForSql($key) . '%');
+                    }
+                })
+                ->get();
+
+            foreach ($nrcRows as $row) {
+                $srcCustCard = (string) ($row->src_cust_card ?? '');
+                if ($srcCustCard === '') {
+                    continue;
+                }
+                $actTime = is_numeric($row->act_time) ? (float) $row->act_time : null;
+
+                foreach ($mpdKeys as $mpdKey) {
+                    if (stripos($srcCustCard, $mpdKey) === false) {
+                        continue;
+                    }
+
+                    $numStrNrcByMpd[$mpdKey] = ($numStrNrcByMpd[$mpdKey] ?? 0) + 1;
+                    if ($actTime !== null) {
+                        if (!isset($maxStrMhsByMpd[$mpdKey]) || $actTime > $maxStrMhsByMpd[$mpdKey]) {
+                            $maxStrMhsByMpd[$mpdKey] = $actTime;
+                        }
+                        $sumStrMhsByMpd[$mpdKey] = ($sumStrMhsByMpd[$mpdKey] ?? 0.0) + $actTime;
+                    }
+                }
+            }
+        }
+
+        foreach ($failures as $failure) {
+            $failureId = (int) $failure->id;
+            $mpd = $mpdByFailure[$failureId] ?? null;
+            $workOrder = $workOrderByFailure[$failureId] ?? null;
+            $strCount = $mpd !== null ? ($numStrNrcByMpd[$mpd] ?? 0) : 0;
+
+            $failure->setAttribute('num_rc', $mpd !== null ? ($numRcByMpd[$mpd] ?? 0) : 0);
+            $failure->setAttribute('max_hours_on_rc', $workOrder !== null ? ($maxHoursByWorkOrder[$workOrder] ?? null) : null);
+            $failure->setAttribute('num_str_nrcs', $strCount);
+            $failure->setAttribute('max_mhs_str_nrc', $mpd !== null ? ($maxStrMhsByMpd[$mpd] ?? null) : null);
+            $failure->setAttribute(
+                'avg_str_mhs_raw',
+                ($mpd !== null && $strCount > 0) ? (($sumStrMhsByMpd[$mpd] ?? 0.0) / $strCount) : 0
+            );
+            $failure->setAttribute('eef_count', 0);
+        }
+    }
+
+    private function escapeLikeForSql(string $value): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
     }
 
     /**
@@ -1313,6 +1447,62 @@ class ReliabilityController extends Controller
         return response()->json([
             'success' => true,
             'data' => $data,
+        ]);
+    }
+
+    public function failureMetrics(int $id): JsonResponse
+    {
+        $failure = ReliabilityFailure::findOrFail($id);
+        $wcm = 'work_cards_master';
+        $mpd = trim((string) ($failure->mpd ?? ''));
+        $workOrder = trim((string) ($failure->work_order_number ?? ''));
+
+        $numRc = 0;
+        $maxHoursOnRc = null;
+        $numStrNrcs = 0;
+        $maxMhsStrNrc = null;
+        $avgStrMhsRaw = 0.0;
+
+        if ($mpd !== '') {
+            $mpdLike = '%' . $this->escapeLikeForSql($mpd) . '%';
+            $numRc = (int) DB::table($wcm)
+                ->whereRaw("cust_card LIKE ?", [$mpdLike])
+                ->whereRaw("((LOWER(TRIM(COALESCE(order_type, ''))) NOT IN ('addnrc', 'nonroutine')) OR (TRIM(COALESCE(src_cust_card, '')) = ''))")
+                ->count();
+
+            $nrcQuery = DB::table($wcm)
+                ->whereRaw("src_cust_card LIKE ?", [$mpdLike])
+                ->whereRaw("(LOWER(TRIM(COALESCE(order_type, ''))) IN ('addnrc', 'nonroutine') AND TRIM(COALESCE(src_cust_card, '')) <> '')")
+                ->whereRaw("(
+                    UPPER(COALESCE(description, '')) LIKE '%STR%'
+                    OR UPPER(COALESCE(corrective_action, '')) LIKE '%STR%'
+                    OR UPPER(COALESCE(order_type, '')) LIKE '%STR%'
+                )");
+
+            $numStrNrcs = (int) (clone $nrcQuery)->count();
+            $maxMhsStrNrc = (clone $nrcQuery)->max(DB::raw('CAST(act_time AS DECIMAL(15,2))'));
+            $avgVal = (clone $nrcQuery)->avg(DB::raw('CAST(act_time AS DECIMAL(15,2))'));
+            $avgStrMhsRaw = $avgVal !== null ? (float) $avgVal : 0.0;
+        }
+
+        if ($workOrder !== '') {
+            $workOrderLike = '%' . $this->escapeLikeForSql($workOrder) . '%';
+            $maxHoursOnRc = DB::table($wcm)
+                ->whereRaw("cust_card LIKE ?", [$workOrderLike])
+                ->whereRaw("((LOWER(TRIM(COALESCE(order_type, ''))) NOT IN ('addnrc', 'nonroutine')) OR (TRIM(COALESCE(src_cust_card, '')) = ''))")
+                ->max(DB::raw('CAST(act_time AS DECIMAL(15,2))'));
+        }
+
+        return response()->json([
+            'success' => true,
+            'metrics' => [
+                'num_rc' => $numRc,
+                'max_hours_on_rc' => $maxHoursOnRc !== null ? (float) $maxHoursOnRc : null,
+                'num_str_nrcs' => $numStrNrcs,
+                'max_mhs_str_nrc' => $maxMhsStrNrc !== null ? (float) $maxMhsStrNrc : null,
+                'avg_str_mhs_raw' => $avgStrMhsRaw,
+                'eef_count' => 0,
+            ],
         ]);
     }
 
@@ -2921,7 +3111,7 @@ class ReliabilityController extends Controller
     public function taskCardsExcelAddForAnalysis(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'task_cards' => ['required', 'array', 'min:1'],
+            'task_cards' => ['required', 'array', 'min:1', 'max:2000'],
             'task_cards.*' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -2937,23 +3127,30 @@ class ReliabilityController extends Controller
             ], 422);
         }
 
-        $cardsArray = $cards->all();
-        $existingRows = ReliabilityFailure::query()
-            ->where(function ($query) use ($cardsArray): void {
-                $query->whereIn('wo_number', $cardsArray)
-                    ->orWhereIn('work_order_number', $cardsArray);
-            })
-            ->get(['wo_number', 'work_order_number']);
+        $existingMap = [];
+        foreach ($cards->chunk(300) as $chunk) {
+            $chunkArray = $chunk->all();
+            $existingRows = ReliabilityFailure::query()
+                ->where(function ($query) use ($chunkArray): void {
+                    $query->whereIn('wo_number', $chunkArray)
+                        ->orWhereIn('work_order_number', $chunkArray);
+                })
+                ->get(['wo_number', 'work_order_number']);
 
-        $existing = $existingRows
-            ->pluck('wo_number')
-            ->merge($existingRows->pluck('work_order_number'))
-            ->map(static fn ($value): string => trim((string) $value))
-            ->filter(static fn (string $value): bool => $value !== '')
-            ->unique();
+            foreach ($existingRows as $existingRow) {
+                $wo = trim((string) ($existingRow->wo_number ?? ''));
+                $workOrder = trim((string) ($existingRow->work_order_number ?? ''));
+                if ($wo !== '') {
+                    $existingMap[$wo] = true;
+                }
+                if ($workOrder !== '') {
+                    $existingMap[$workOrder] = true;
+                }
+            }
+        }
 
         $newCards = $cards->reject(
-            static fn (string $card): bool => $existing->contains($card)
+            static fn (string $card): bool => isset($existingMap[$card])
         )->values();
 
         if ($newCards->isEmpty()) {
@@ -2965,25 +3162,28 @@ class ReliabilityController extends Controller
             ]);
         }
 
-        $now = now();
-        $rows = $newCards->map(static fn (string $card) => [
-            'failure_date' => $now->toDateString(),
-            'wo_number' => $card,
-            'work_order_number' => $card,
-            'mpd' => $card,
-            'created_by_id' => auth()->id(),
-            'include_in_buf' => true,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ])->all();
+        $createdById = auth()->id();
+        foreach ($newCards->chunk(300) as $chunk) {
+            $now = now();
+            $rows = $chunk->map(static fn (string $card) => [
+                'failure_date' => $now->toDateString(),
+                'wo_number' => $card,
+                'work_order_number' => $card,
+                'mpd' => $card,
+                'created_by_id' => $createdById,
+                'include_in_buf' => true,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])->all();
 
-        DB::table('rel_stub')->insert($rows);
+            DB::table('rel_stub')->insert($rows);
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Task card добавлены для анализа.',
-            'added' => count($rows),
-            'skipped' => $cards->count() - count($rows),
+            'added' => $newCards->count(),
+            'skipped' => $cards->count() - $newCards->count(),
         ]);
     }
 

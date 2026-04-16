@@ -62,6 +62,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/reliability/aggregates-from-modal', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'storeAggregateFromModal'])->name('reliability.aggregates.store-from-modal');
         Route::get('/reliability/failures/create', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'createFailureForm'])->name('reliability.failures.create');
         Route::get('/reliability/failures/{id}/edit', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'editFailureForm'])->name('reliability.failures.edit');
+        Route::get('/reliability/failures/{id}/metrics', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'failureMetrics'])->name('reliability.failures.metrics');
         Route::post('/reliability/failures', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'storeFailure'])->name('reliability.failures.store');
         Route::get('/reliability/failures/{id}', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'getFailure'])->name('reliability.failures.show');
         Route::match(['PUT', 'PATCH'], '/reliability/failures/{id}', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'updateFailure'])->name('reliability.failures.update');

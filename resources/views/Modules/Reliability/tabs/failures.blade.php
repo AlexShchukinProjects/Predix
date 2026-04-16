@@ -16,6 +16,9 @@
         @endif
     </div>
     <div class="efds-table-header__actions d-flex flex-wrap gap-2 align-items-center">
+        <button type="button" class="btn efds-btn efds-btn--primary" id="startFailureAnalysisBtn">
+            <i class="fas fa-play me-1"></i>Start analysis
+        </button>
         <button type="button" class="btn efds-btn efds-btn--outline-primary" data-bs-toggle="modal" data-bs-target="#taskCardsExcelModal">
             <i class="fas fa-file-excel me-1"></i>Add from Excel
         </button>
@@ -58,7 +61,7 @@
                             : 0;
                     @endphp
                     @forelse(($failures ?? []) as $failure)
-                        <tr style="cursor: pointer;" class="clickable-row" data-href="{{ route('modules.reliability.failures.edit', $failure) }}">
+                        <tr style="cursor: pointer;" class="clickable-row js-failure-row" data-failure-id="{{ $failure->id }}" data-href="{{ route('modules.reliability.failures.edit', $failure) }}">
                             <td style="padding: 8px;" class="no-click">
                                 <i class="fas fa-search text-muted"></i>
                             </td>
@@ -70,15 +73,15 @@
                                 </div>
                             </td>
                             <td style="padding: 8px;">{{ $failure->mpd ?? '—' }}</td>
-                            <td style="padding: 8px;">{{ isset($failure->num_rc) ? (int) $failure->num_rc : '—' }}</td>
-                            <td style="padding: 8px;">{{ isset($failure->max_hours_on_rc) && $failure->max_hours_on_rc !== null ? number_format((float) $failure->max_hours_on_rc, 2) : '—' }}</td>
-                            <td style="padding: 8px;">{{ isset($failure->num_str_nrcs) ? (int) $failure->num_str_nrcs : '—' }}</td>
-                            <td style="padding: 8px;">{{ (($numRc = (int)($failure->num_rc ?? 0)) > 0) ? number_format((int)($failure->num_str_nrcs ?? 0) / $numRc * 100, 2) : '0.00' }}</td>
-                            <td style="padding: 8px;">{{ isset($failure->max_mhs_str_nrc) && $failure->max_mhs_str_nrc !== null ? number_format((float) $failure->max_mhs_str_nrc, 2) : '—' }}</td>
-                            <td style="padding: 8px;">{{ (($numRcAvg = (int)($failure->num_rc ?? 0)) > 0) ? number_format(((float)($failure->avg_str_mhs_raw ?? 0) / $numRcAvg), 2) : '0.00' }}</td>
-                            <td style="padding: 8px;">{{ isset($failure->eef_count) ? (int) $failure->eef_count : '—' }}</td>
-                            <td style="padding: 8px;">{{ (($numStrNrcs = (int)($failure->num_str_nrcs ?? 0)) > 0) ? number_format((int)($failure->eef_count ?? 0) / $numStrNrcs * 100, 2) : '0.00' }}</td>
-                            <td style="padding: 8px;">{{ sprintf('%.2f', ((($nr = (int)($failure->num_rc ?? 0)) > 0 ? (int)($failure->num_str_nrcs ?? 0) / $nr * 100 : 0) * (($ns = (int)($failure->num_str_nrcs ?? 0)) > 0 ? (int)($failure->eef_count ?? 0) / $ns * 100 : 0)) / 100) }}</td>
+                            <td style="padding: 8px;" data-metric="num_rc"></td>
+                            <td style="padding: 8px;" data-metric="max_hours_on_rc"></td>
+                            <td style="padding: 8px;" data-metric="num_str_nrcs"></td>
+                            <td style="padding: 8px;" data-metric="str_percent"></td>
+                            <td style="padding: 8px;" data-metric="max_mhs_str_nrc"></td>
+                            <td style="padding: 8px;" data-metric="avg_str_mhs"></td>
+                            <td style="padding: 8px;" data-metric="eef_count"></td>
+                            <td style="padding: 8px;" data-metric="eef_percent"></td>
+                            <td style="padding: 8px;" data-metric="probable_critical_findings"></td>
                             <td style="padding: 8px; min-width: 180px;">—</td>
                             <td style="padding: 8px;">—</td>
                         </tr>
@@ -239,6 +242,112 @@ document.addEventListener('DOMContentLoaded', function() {
             if (href) window.location.href = href;
         });
     });
+
+    (function failureRowsMetricsInit() {
+        var rows = Array.prototype.slice.call(document.querySelectorAll('.js-failure-row[data-failure-id]'));
+        if (!rows.length) return;
+        var startBtn = document.getElementById('startFailureAnalysisBtn');
+        if (!startBtn) return;
+        var metricsUrlTemplate = "{{ route('modules.reliability.failures.metrics', ['id' => '__ID__']) }}";
+        var isStarted = false;
+
+        function metricCell(row, key) {
+            return row.querySelector('[data-metric="' + key + '"]');
+        }
+        function setMetricValue(row, key, value) {
+            var cell = metricCell(row, key);
+            if (!cell) return;
+            cell.textContent = value;
+        }
+        function formatFixed(value) {
+            var n = Number(value);
+            if (!isFinite(n)) return '—';
+            return n.toFixed(2);
+        }
+        function clearMetricCells() {
+            rows.forEach(function(row) {
+                row.querySelectorAll('[data-metric]').forEach(function(cell) {
+                    cell.textContent = '';
+                });
+            });
+        }
+        function showRowSpinner(row) {
+            row.classList.add('is-calculating');
+            row.querySelectorAll('[data-metric]').forEach(function(cell) {
+                cell.innerHTML = '<span class="failure-metric-spinner spinner-border spinner-border-sm" role="status" aria-label="Calculating"></span>';
+            });
+        }
+        function fillRowMetrics(row, metrics) {
+            var numRc = Number(metrics && metrics.num_rc ? metrics.num_rc : 0);
+            var numStrNrcs = Number(metrics && metrics.num_str_nrcs ? metrics.num_str_nrcs : 0);
+            var eefCount = Number(metrics && metrics.eef_count ? metrics.eef_count : 0);
+            var strPercent = numRc > 0 ? (numStrNrcs / numRc) * 100 : 0;
+            var eefPercent = numStrNrcs > 0 ? (eefCount / numStrNrcs) * 100 : 0;
+            var probableCritical = (strPercent * eefPercent) / 100;
+
+            setMetricValue(row, 'num_rc', String(numRc));
+            setMetricValue(row, 'max_hours_on_rc', metrics && metrics.max_hours_on_rc != null ? formatFixed(metrics.max_hours_on_rc) : '—');
+            setMetricValue(row, 'num_str_nrcs', String(numStrNrcs));
+            setMetricValue(row, 'str_percent', formatFixed(strPercent));
+            setMetricValue(row, 'max_mhs_str_nrc', metrics && metrics.max_mhs_str_nrc != null ? formatFixed(metrics.max_mhs_str_nrc) : '—');
+            setMetricValue(row, 'avg_str_mhs', metrics && metrics.avg_str_mhs_raw != null ? formatFixed(metrics.avg_str_mhs_raw) : '0.00');
+            setMetricValue(row, 'eef_count', String(eefCount));
+            setMetricValue(row, 'eef_percent', formatFixed(eefPercent));
+            setMetricValue(row, 'probable_critical_findings', formatFixed(probableCritical));
+            row.classList.remove('is-calculating');
+        }
+        function markRowError(row) {
+            row.querySelectorAll('[data-metric]').forEach(function(cell) {
+                cell.textContent = '';
+            });
+            row.classList.remove('is-calculating');
+        }
+        function fetchRowMetricsSequentially(index) {
+            if (index >= rows.length) {
+                startBtn.innerHTML = '<i class="fas fa-check me-1"></i>Analysis completed';
+                return;
+            }
+            var row = rows[index];
+            var failureId = row.getAttribute('data-failure-id');
+            if (!failureId) {
+                fetchRowMetricsSequentially(index + 1);
+                return;
+            }
+
+            showRowSpinner(row);
+            var url = metricsUrlTemplate.replace('__ID__', String(failureId));
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin'
+            })
+                .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+                .then(function(res) {
+                    if (!res.ok || !res.j || !res.j.metrics) {
+                        markRowError(row);
+                        return;
+                    }
+                    fillRowMetrics(row, res.j.metrics);
+                })
+                .catch(function() {
+                    markRowError(row);
+                })
+                .finally(function() {
+                    fetchRowMetricsSequentially(index + 1);
+                });
+        }
+        clearMetricCells();
+        startBtn.addEventListener('click', function() {
+            if (isStarted) return;
+            isStarted = true;
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Analyzing...';
+            fetchRowMetricsSequentially(0);
+        });
+    })();
 
     (function taskCardsExcelModalInit() {
         var modalEl = document.getElementById('taskCardsExcelModal');
@@ -507,6 +616,16 @@ function updatePerPage(value) {
 
 .table tbody tr:hover {
     background-color: #f8f9fa;
+}
+
+.js-failure-row.is-calculating td[data-metric] {
+    color: #6b7280;
+}
+
+.failure-metric-spinner {
+    width: 0.9rem;
+    height: 0.9rem;
+    border-width: 0.12em;
 }
 
 .readonly-field {
