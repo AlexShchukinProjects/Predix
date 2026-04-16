@@ -183,29 +183,42 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small mb-3">Выберите файл и колонку с номерами task cards. Нормализация совпадает с колонкой CUST. CARD NORM в master data (как для SRC. CUST. CARD).</p>
+                <p class="text-muted small mb-3">Select a file, OEM, and Excel column. The system automatically detects whether a value is a Task Card or an EASA/FAA bulletin. Masks: Task card Boeing - <code>dd-ddd-dd-dd</code>, Task card Airbus - <code>dddddd-dd-d</code>, EASA - <code>dddd-dddd</code>, FAA - <code>dddd-dd-dd</code>.</p>
                 <div class="mb-3">
-                    <label class="form-label" for="taskCardsExcelFile">Файл Excel / CSV</label>
+                    <label class="form-label" for="taskCardsExcelFile">Excel / CSV file</label>
                     <input type="file" class="form-control form-control-sm" id="taskCardsExcelFile" accept=".xlsx,.xls,.csv,.txt">
                 </div>
                 <div class="mb-3">
-                    <label class="form-label" for="taskCardsExcelColumn">Колонка с номерами task cards</label>
-                    <select class="form-select form-select-sm" id="taskCardsExcelColumn" disabled>
-                        <option value="">Сначала выберите файл…</option>
-                    </select>
+                    <label class="form-label" for="taskCardsExcelColumn">Excel column number</label>
+                    <input type="text" class="form-control form-control-sm" id="taskCardsExcelColumn" placeholder="For example: 3 or C" autocomplete="off">
+                    <div class="form-text">Use either a numeric index (1 = A, 2 = B) or a letter notation. Up to column 4096 is supported.</div>
+                </div>
+                <div class="mb-3" id="taskCardsExcelOemWrap">
+                    <label class="form-label d-block">Aircraft type</label>
+                    <div class="d-flex gap-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="taskCardsExcelOem" id="taskCardsExcelOemAirbus" value="airbus">
+                            <label class="form-check-label" for="taskCardsExcelOemAirbus">Airbus</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="taskCardsExcelOem" id="taskCardsExcelOemBoeing" value="boeing">
+                            <label class="form-check-label" for="taskCardsExcelOemBoeing">Boeing</label>
+                        </div>
+                    </div>
                 </div>
                 <div id="taskCardsExcelAlert" class="alert alert-danger py-2 px-3 small d-none" role="alert"></div>
                 <div class="d-flex gap-2 mb-3">
-                    <button type="button" class="btn btn-primary btn-sm d-none" id="taskCardsExcelSubmit">Загрузить</button>
+                    <button type="button" class="btn btn-primary btn-sm d-none" id="taskCardsExcelSubmit">Load</button>
+                    <button type="button" class="btn btn-success btn-sm d-none" id="taskCardsExcelAddForAnalysis">Add for analysis</button>
                 </div>
                 <div id="taskCardsExcelPreviewWrap" class="d-none">
-                    <p id="taskCardsExcelTruncated" class="text-warning small d-none mb-2">Показаны только первые 2000 строк файла.</p>
+                    <p id="taskCardsExcelTruncated" class="text-warning small d-none mb-2">Only the first 2000 rows are shown.</p>
                     <div class="table-responsive" style="max-height: 50vh;">
                         <table class="table table-sm table-bordered mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Task cards</th>
-                                    <th>Task cards normalised</th>
+                                    <th>Source value</th>
+                                    <th>Normalised</th>
                                 </tr>
                             </thead>
                             <tbody id="taskCardsExcelPreviewBody"></tbody>
@@ -231,14 +244,18 @@ document.addEventListener('DOMContentLoaded', function() {
         var modalEl = document.getElementById('taskCardsExcelModal');
         if (!modalEl) return;
         var fileInput = document.getElementById('taskCardsExcelFile');
-        var colSelect = document.getElementById('taskCardsExcelColumn');
+        var colInput = document.getElementById('taskCardsExcelColumn');
+        var oemInputs = modalEl.querySelectorAll('input[name="taskCardsExcelOem"]');
         var btnSubmit = document.getElementById('taskCardsExcelSubmit');
+        var btnAddForAnalysis = document.getElementById('taskCardsExcelAddForAnalysis');
         var alertEl = document.getElementById('taskCardsExcelAlert');
         var previewWrap = document.getElementById('taskCardsExcelPreviewWrap');
         var previewBody = document.getElementById('taskCardsExcelPreviewBody');
         var truncatedEl = document.getElementById('taskCardsExcelTruncated');
-        var headersUrl = "{{ route('modules.reliability.task-cards-excel.headers') }}";
         var previewUrl = "{{ route('modules.reliability.task-cards-excel.preview') }}";
+        var addForAnalysisUrl = "{{ route('modules.reliability.task-cards-excel.add-for-analysis') }}";
+        var reliabilityIndexUrl = "{{ route('modules.reliability.index', ['per_page' => 100]) }}";
+        var normalisedCards = [];
 
         function csrfHeaders() {
             var token = document.querySelector('meta[name="csrf-token"]');
@@ -257,28 +274,66 @@ document.addEventListener('DOMContentLoaded', function() {
             alertEl.classList.remove('d-none');
         }
         function firstErrorMessage(j) {
-            if (!j) return 'Ошибка запроса';
+            if (!j) return 'Request failed';
             if (j.message) return j.message;
             if (j.errors) {
                 var keys = Object.keys(j.errors);
                 if (keys.length && j.errors[keys[0]][0]) return j.errors[keys[0]][0];
             }
-            return 'Ошибка запроса';
+            return 'Request failed';
         }
         function resetModalState() {
             fileInput.value = '';
-            colSelect.innerHTML = '<option value="">Сначала выберите файл…</option>';
-            colSelect.disabled = true;
+            colInput.value = '';
+            oemInputs.forEach(function(input) { input.checked = false; });
             btnSubmit.classList.add('d-none');
+            btnAddForAnalysis.classList.add('d-none');
+            btnAddForAnalysis.disabled = false;
             previewWrap.classList.add('d-none');
             truncatedEl.classList.add('d-none');
             previewBody.innerHTML = '';
+            normalisedCards = [];
             hideAlert();
+        }
+        function getSelectedOem() {
+            var selected = modalEl.querySelector('input[name="taskCardsExcelOem"]:checked');
+            return selected ? selected.value : '';
+        }
+        function invalidatePreview() {
+            previewWrap.classList.add('d-none');
+            truncatedEl.classList.add('d-none');
+            previewBody.innerHTML = '';
+            btnAddForAnalysis.classList.add('d-none');
+            btnAddForAnalysis.disabled = false;
+            normalisedCards = [];
+        }
+        /** @returns {number|null} 0-based column index for API */
+        function parseColumnIndexFromInput(str) {
+            var s = String(str || '').trim();
+            if (!s) return null;
+            if (/^[A-Za-z]+$/.test(s)) {
+                s = s.toUpperCase();
+                var n = 0;
+                for (var i = 0; i < s.length; i++) {
+                    var code = s.charCodeAt(i);
+                    if (code < 65 || code > 90) return null;
+                    n = n * 26 + (code - 64);
+                    if (n > 4096) return null;
+                }
+                return n - 1;
+            }
+            if (/^\d+$/.test(s)) {
+                var num = parseInt(s, 10);
+                if (num < 1 || num > 4096) return null;
+                return num - 1;
+            }
+            return null;
         }
         function toggleSubmit() {
             var hasFile = fileInput.files && fileInput.files.length > 0;
-            var col = colSelect.value;
-            if (hasFile && col !== '') {
+            var idx = parseColumnIndexFromInput(colInput.value);
+            var oem = getSelectedOem();
+            if (hasFile && idx !== null && oem) {
                 btnSubmit.classList.remove('d-none');
             } else {
                 btnSubmit.classList.add('d-none');
@@ -287,58 +342,48 @@ document.addEventListener('DOMContentLoaded', function() {
         modalEl.addEventListener('hidden.bs.modal', resetModalState);
         fileInput.addEventListener('change', function() {
             hideAlert();
-            previewWrap.classList.add('d-none');
-            previewBody.innerHTML = '';
-            truncatedEl.classList.add('d-none');
-            colSelect.innerHTML = '<option value="">Загрузка колонок…</option>';
-            colSelect.disabled = true;
+            invalidatePreview();
             btnSubmit.classList.add('d-none');
             if (!fileInput.files || !fileInput.files.length) {
-                colSelect.innerHTML = '<option value="">Сначала выберите файл…</option>';
+                toggleSubmit();
+                return;
+            }
+            toggleSubmit();
+        });
+        colInput.addEventListener('input', function() {
+            hideAlert();
+            invalidatePreview();
+            toggleSubmit();
+        });
+        colInput.addEventListener('change', function() {
+            hideAlert();
+            invalidatePreview();
+            toggleSubmit();
+        });
+        oemInputs.forEach(function(input) {
+            input.addEventListener('change', function() {
+                hideAlert();
+                invalidatePreview();
+                toggleSubmit();
+            });
+        });
+        btnSubmit.addEventListener('click', function() {
+            hideAlert();
+            if (!fileInput.files || !fileInput.files.length) return;
+            var colIdx = parseColumnIndexFromInput(colInput.value);
+            var oem = getSelectedOem();
+            if (colIdx === null) {
+                showAlert('Specify a column: letters (A, AB...) or a number from 1 to 4096.');
+                return;
+            }
+            if (!oem) {
+                showAlert('Select aircraft type: Airbus or Boeing.');
                 return;
             }
             var fd = new FormData();
             fd.append('file', fileInput.files[0]);
-            fetch(headersUrl, { method: 'POST', headers: csrfHeaders(), body: fd, credentials: 'same-origin' })
-                .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, status: r.status, j: j }; }); })
-                .then(function(res) {
-                    if (!res.ok) {
-                        colSelect.innerHTML = '<option value="">Ошибка</option>';
-                        showAlert(firstErrorMessage(res.j));
-                        return;
-                    }
-                    var cols = res.j.columns || [];
-                    colSelect.innerHTML = '';
-                    if (!cols.length) {
-                        colSelect.innerHTML = '<option value="">Колонки не найдены</option>';
-                        showAlert('Не удалось прочитать заголовки.');
-                        return;
-                    }
-                    var opt0 = document.createElement('option');
-                    opt0.value = '';
-                    opt0.textContent = '— выберите колонку —';
-                    colSelect.appendChild(opt0);
-                    cols.forEach(function(c) {
-                        var o = document.createElement('option');
-                        o.value = String(c.index);
-                        o.textContent = c.letter + ' — ' + c.label;
-                        colSelect.appendChild(o);
-                    });
-                    colSelect.disabled = false;
-                    toggleSubmit();
-                })
-                .catch(function() {
-                    colSelect.innerHTML = '<option value="">Ошибка сети</option>';
-                    showAlert('Сеть или сервер недоступны.');
-                });
-        });
-        colSelect.addEventListener('change', toggleSubmit);
-        btnSubmit.addEventListener('click', function() {
-            hideAlert();
-            if (!fileInput.files || !fileInput.files.length || colSelect.value === '') return;
-            var fd = new FormData();
-            fd.append('file', fileInput.files[0]);
-            fd.append('column_index', colSelect.value);
+            fd.append('column_index', String(colIdx));
+            fd.append('oem', oem);
             btnSubmit.disabled = true;
             fetch(previewUrl, { method: 'POST', headers: csrfHeaders(), body: fd, credentials: 'same-origin' })
                 .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
@@ -349,26 +394,67 @@ document.addEventListener('DOMContentLoaded', function() {
                         return;
                     }
                     previewBody.innerHTML = '';
+                    normalisedCards = [];
                     (res.j.rows || []).forEach(function(row) {
                         var tr = document.createElement('tr');
                         var td1 = document.createElement('td');
                         td1.textContent = row.task_card != null && row.task_card !== '' ? row.task_card : '—';
                         var td2 = document.createElement('td');
                         td2.textContent = row.task_card_normalised != null && row.task_card_normalised !== '' ? row.task_card_normalised : '—';
+                        if (row.task_card_normalised != null) {
+                            var normalized = String(row.task_card_normalised).trim();
+                            if (normalized !== '') {
+                                normalisedCards.push(normalized);
+                            }
+                        }
                         tr.appendChild(td1);
                         tr.appendChild(td2);
                         previewBody.appendChild(tr);
                     });
+                    normalisedCards = Array.from(new Set(normalisedCards));
                     if (res.j.truncated) {
                         truncatedEl.classList.remove('d-none');
                     } else {
                         truncatedEl.classList.add('d-none');
                     }
                     previewWrap.classList.remove('d-none');
+                    if (normalisedCards.length > 0) {
+                        btnAddForAnalysis.classList.remove('d-none');
+                    } else {
+                        btnAddForAnalysis.classList.add('d-none');
+                    }
                 })
                 .catch(function() {
                     btnSubmit.disabled = false;
-                    showAlert('Сеть или сервер недоступны.');
+                    showAlert('Network or server is unavailable.');
+                });
+        });
+        btnAddForAnalysis.addEventListener('click', function() {
+            hideAlert();
+            if (!normalisedCards.length) {
+                showAlert('There are no normalized values to add.');
+                return;
+            }
+
+            btnAddForAnalysis.disabled = true;
+            fetch(addForAnalysisUrl, {
+                method: 'POST',
+                headers: Object.assign(csrfHeaders(), { 'Content-Type': 'application/json' }),
+                body: JSON.stringify({ task_cards: normalisedCards }),
+                credentials: 'same-origin'
+            })
+                .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+                .then(function(res) {
+                    btnAddForAnalysis.disabled = false;
+                    if (!res.ok) {
+                        showAlert(firstErrorMessage(res.j));
+                        return;
+                    }
+                    window.location.href = reliabilityIndexUrl;
+                })
+                .catch(function() {
+                    btnAddForAnalysis.disabled = false;
+                    showAlert('Network or server is unavailable.');
                 });
         });
     })();

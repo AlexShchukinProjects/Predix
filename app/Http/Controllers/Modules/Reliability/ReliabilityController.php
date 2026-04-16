@@ -2880,6 +2880,7 @@ class ReliabilityController extends Controller
         $request->validate([
             'file' => 'required|file|mimes:xlsx,xls,csv,txt|max:15360',
             'column_index' => 'required|integer|min:0|max:4095',
+            'oem' => 'required|string|in:airbus,boeing',
         ]);
 
         $file = $request->file('file');
@@ -2894,6 +2895,7 @@ class ReliabilityController extends Controller
 
         $ext = strtolower((string) ($file->getClientOriginalExtension() ?: $file->guessExtension() ?: ''));
         $columnIndex = (int) $request->input('column_index');
+        $oem = (string) $request->input('oem');
 
         try {
             $rows = $this->reliabilityTaskCardsReadColumnValues($path, $ext, $columnIndex);
@@ -2903,7 +2905,7 @@ class ReliabilityController extends Controller
 
         $out = [];
         foreach ($rows as $raw) {
-            $norm = ReliabilityTaskCardNormalizer::normalize($raw);
+            $norm = ReliabilityTaskCardNormalizer::normalize($raw, $oem);
             $out[] = [
                 'task_card' => $raw,
                 'task_card_normalised' => $norm,
@@ -2911,6 +2913,78 @@ class ReliabilityController extends Controller
         }
 
         return response()->json(['rows' => $out, 'truncated' => count($rows) >= 2000]);
+    }
+
+    /**
+     * Массовое добавление нормализованных task card в отказы для анализа.
+     */
+    public function taskCardsExcelAddForAnalysis(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'task_cards' => ['required', 'array', 'min:1'],
+            'task_cards.*' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $cards = collect($data['task_cards'])
+            ->map(static fn ($value): string => trim((string) $value))
+            ->filter(static fn (string $value): bool => $value !== '')
+            ->unique()
+            ->values();
+
+        if ($cards->isEmpty()) {
+            return response()->json([
+                'message' => 'Нет нормализованных значений для добавления.',
+            ], 422);
+        }
+
+        $cardsArray = $cards->all();
+        $existingRows = ReliabilityFailure::query()
+            ->where(function ($query) use ($cardsArray): void {
+                $query->whereIn('wo_number', $cardsArray)
+                    ->orWhereIn('work_order_number', $cardsArray);
+            })
+            ->get(['wo_number', 'work_order_number']);
+
+        $existing = $existingRows
+            ->pluck('wo_number')
+            ->merge($existingRows->pluck('work_order_number'))
+            ->map(static fn ($value): string => trim((string) $value))
+            ->filter(static fn (string $value): bool => $value !== '')
+            ->unique();
+
+        $newCards = $cards->reject(
+            static fn (string $card): bool => $existing->contains($card)
+        )->values();
+
+        if ($newCards->isEmpty()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Все выбранные task card уже есть в анализе.',
+                'added' => 0,
+                'skipped' => $cards->count(),
+            ]);
+        }
+
+        $now = now();
+        $rows = $newCards->map(static fn (string $card) => [
+            'failure_date' => $now->toDateString(),
+            'wo_number' => $card,
+            'work_order_number' => $card,
+            'mpd' => $card,
+            'created_by_id' => auth()->id(),
+            'include_in_buf' => true,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ])->all();
+
+        DB::table('rel_stub')->insert($rows);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Task card добавлены для анализа.',
+            'added' => count($rows),
+            'skipped' => $cards->count() - count($rows),
+        ]);
     }
 
     /**

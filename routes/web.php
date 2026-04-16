@@ -54,6 +54,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/reliability/dashboards', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'dashboards'])->name('reliability.dashboards');
         Route::post('/reliability/task-cards-excel-headers', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'taskCardsExcelHeaders'])->name('reliability.task-cards-excel.headers');
         Route::post('/reliability/task-cards-excel-preview', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'taskCardsExcelPreview'])->name('reliability.task-cards-excel.preview');
+        Route::post('/reliability/task-cards-excel-add-for-analysis', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'taskCardsExcelAddForAnalysis'])->name('reliability.task-cards-excel.add-for-analysis');
         Route::get('/reliability/export-excel', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'exportFailuresToExcel'])->name('reliability.export-excel');
         Route::get('/reliability/export-buf', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'exportFailuresToBuf'])->name('reliability.export-buf');
         Route::get('/reliability/aggregates', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'getAggregatesForFilter'])->name('reliability.aggregates');

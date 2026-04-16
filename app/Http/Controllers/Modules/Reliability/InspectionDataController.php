@@ -325,7 +325,8 @@ class InspectionDataController extends Controller
             $row->setAttribute('master_data_source', $eef?->inspection_source_task);
             $row->setAttribute('master_material', $materialStr);
             $row->setAttribute('master_equipment', $engine);
-            $row->setAttribute('master_cust_card_norm', ReliabilityTaskCardNormalizer::normalize((string) ($row->cust_card ?? '')));
+            $oem = $this->detectOemFromAircraftType((string) ($row->aircraft_type ?? ''));
+            $row->setAttribute('master_cust_card_norm', ReliabilityTaskCardNormalizer::normalize((string) ($row->cust_card ?? ''), $oem));
         }
     }
 
@@ -357,6 +358,27 @@ class InspectionDataController extends Controller
     private function acTypeNorm(?string $a): string
     {
         return strtolower(preg_replace('/\s+/', ' ', trim((string) $a)));
+    }
+
+    private function detectOemFromAircraftType(?string $aircraftType): ?string
+    {
+        $raw = trim((string) ($aircraftType ?? ''));
+        if ($raw === '') {
+            return null;
+        }
+
+        $normalized = strtolower(preg_replace('/\s+/', ' ', $raw));
+        $upper = strtoupper($normalized);
+
+        if (str_contains($normalized, 'boeing') || preg_match('/\bB[-\s]?\d{3,4}\b/', $upper) === 1) {
+            return 'boeing';
+        }
+
+        if (str_contains($normalized, 'airbus') || preg_match('/\bA[-\s]?\d{3,4}\b/', $upper) === 1) {
+            return 'airbus';
+        }
+
+        return null;
     }
 
     /** Spaces removed, lowercased — for comparing NRC Number strings. */
