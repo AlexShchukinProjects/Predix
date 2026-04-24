@@ -64,6 +64,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/reliability/failures/{id}/edit', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'editFailureForm'])->name('reliability.failures.edit');
         Route::get('/reliability/failures/{id}/metrics', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'failureMetrics'])->name('reliability.failures.metrics');
         Route::post('/reliability/failures', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'storeFailure'])->name('reliability.failures.store');
+        Route::post('/reliability/failures/delete-selected', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'deleteSelectedFailures'])->name('reliability.failures.delete-selected');
         Route::get('/reliability/failures/{id}', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'getFailure'])->name('reliability.failures.show');
         Route::match(['PUT', 'PATCH'], '/reliability/failures/{id}', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'updateFailure'])->name('reliability.failures.update');
         Route::match(['PUT', 'PATCH'], '/reliability/failures/{id}/include-in-buf', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'updateIncludeInBuf'])->name('reliability.failures.include-in-buf');

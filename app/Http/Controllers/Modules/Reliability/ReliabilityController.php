@@ -1427,6 +1427,26 @@ class ReliabilityController extends Controller
         return Storage::disk('public')->download($path, $att->original_name);
     }
 
+    public function deleteSelectedFailures(Request $request)
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1',
+            'ids.*' => 'integer|min:1',
+        ]);
+
+        $ids = array_values(array_unique(array_map('intval', $validated['ids'])));
+
+        if ($ids === []) {
+            return redirect()->route('modules.reliability.index', $request->query())
+                ->with('error', 'No rows selected.');
+        }
+
+        ReliabilityFailure::query()->whereIn('id', $ids)->delete();
+
+        return redirect()->route('modules.reliability.index', $request->query())
+            ->with('success', 'Selected rows deleted.');
+    }
+
     /**
      * Получение данных отказа (AJAX, например для экспорта)
      */

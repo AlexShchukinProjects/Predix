@@ -26,8 +26,23 @@
             <i class="fas fa-plus me-1"></i>Add task card
         </a>
         <a href="{{ route('modules.reliability.export-excel', request()->all()) }}" class="btn efds-btn efds-btn--primary">Excel</a>
+        <button type="button" class="btn btn-danger btn-sm d-none" id="deleteSelectedFailuresBtn">Delete</button>
     </div>
 </div>
+
+<form id="deleteSelectedFailuresForm" method="POST" action="{{ route('modules.reliability.failures.delete-selected') }}" class="d-none">
+    @csrf
+    @foreach(request()->query() as $key => $value)
+        @if(is_array($value))
+            @foreach($value as $nested)
+                <input type="hidden" name="{{ $key }}[]" value="{{ $nested }}">
+            @endforeach
+        @else
+            <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+        @endif
+    @endforeach
+    <div id="deleteSelectedFailuresIds"></div>
+</form>
 
 <!-- Таблица отказов -->
 <div class="card">
@@ -37,6 +52,9 @@
                 <table class="table table-hover table-sm mb-0" style="font-size: 0.875rem;">
                 <thead style="background: #1E64D4; color: white;">
                     <tr>
+                        <th style="padding: 12px; width: 40px;" class="no-click">
+                            <input type="checkbox" class="form-check-input" id="selectAllFailuresCheckbox" title="Select all on page">
+                        </th>
                         <th style="padding: 12px; width: 40px;"></th>
                         <th style="padding: 12px;">SEQ</th>
                         <th style="padding: 12px;">TASK CARD</th>
@@ -63,6 +81,9 @@
                     @forelse(($failures ?? []) as $failure)
                         <tr style="cursor: pointer;" class="clickable-row js-failure-row" data-failure-id="{{ $failure->id }}" data-href="{{ route('modules.reliability.failures.edit', $failure) }}">
                             <td style="padding: 8px;" class="no-click">
+                                <input type="checkbox" class="form-check-input js-failure-checkbox" value="{{ $failure->id }}" aria-label="Select failure {{ $failure->id }}">
+                            </td>
+                            <td style="padding: 8px;" class="no-click">
                                 <i class="fas fa-search text-muted"></i>
                             </td>
                             <td style="padding: 8px;">{{ $seqBase + $loop->iteration }}</td>
@@ -87,7 +108,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="15" class="text-center py-3 text-muted">
+                            <td colspan="16" class="text-center py-3 text-muted">
                                 No failures saved.
                             </td>
                         </tr>
@@ -347,6 +368,63 @@ document.addEventListener('DOMContentLoaded', function() {
             startBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Analyzing...';
             fetchRowMetricsSequentially(0);
         });
+    })();
+
+    (function failureSelectionInit() {
+        var selectAll = document.getElementById('selectAllFailuresCheckbox');
+        var rowCheckboxes = Array.prototype.slice.call(document.querySelectorAll('.js-failure-checkbox'));
+        var deleteBtn = document.getElementById('deleteSelectedFailuresBtn');
+        var deleteForm = document.getElementById('deleteSelectedFailuresForm');
+        var idsWrap = document.getElementById('deleteSelectedFailuresIds');
+        if (!deleteBtn || !deleteForm || !idsWrap || !rowCheckboxes.length) return;
+
+        function selectedIds() {
+            return rowCheckboxes.filter(function(cb) { return cb.checked; }).map(function(cb) { return cb.value; });
+        }
+        function renderSelectedIds(ids) {
+            idsWrap.innerHTML = '';
+            ids.forEach(function(id) {
+                var input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'ids[]';
+                input.value = id;
+                idsWrap.appendChild(input);
+            });
+        }
+        function updateControls() {
+            var ids = selectedIds();
+            renderSelectedIds(ids);
+            if (ids.length > 0) {
+                deleteBtn.classList.remove('d-none');
+            } else {
+                deleteBtn.classList.add('d-none');
+            }
+            if (selectAll) {
+                var checkedCount = ids.length;
+                selectAll.checked = checkedCount > 0 && checkedCount === rowCheckboxes.length;
+                selectAll.indeterminate = checkedCount > 0 && checkedCount < rowCheckboxes.length;
+            }
+        }
+
+        rowCheckboxes.forEach(function(cb) {
+            cb.addEventListener('change', updateControls);
+            cb.addEventListener('click', function(e) { e.stopPropagation(); });
+        });
+        if (selectAll) {
+            selectAll.addEventListener('change', function() {
+                var checked = !!selectAll.checked;
+                rowCheckboxes.forEach(function(cb) { cb.checked = checked; });
+                updateControls();
+            });
+            selectAll.addEventListener('click', function(e) { e.stopPropagation(); });
+        }
+        deleteBtn.addEventListener('click', function() {
+            var ids = selectedIds();
+            if (!ids.length) return;
+            if (!window.confirm('Delete selected rows?')) return;
+            deleteForm.submit();
+        });
+        updateControls();
     })();
 
     (function taskCardsExcelModalInit() {
