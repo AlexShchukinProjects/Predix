@@ -131,83 +131,7 @@ class ReliabilityController extends Controller
             $aggregateTypes = collect();
         }
 
-        // Реальные отказы для таблицы + фильтры
-        // work_cards_master: NRC = ADDNRC|NONROUTINE + непустой src_cust_card; RC = дополнение (чтобы RC+NRC = все строки)
-        // # of RC / Max Hours on RC — по подмножеству RC; NRC-метрики — по подмножеству NRC + STR
-        // EEF Count: зарезервировано (0)
-        $requiresCalculatedSqlFilters = ($request->filled('max_hours_rc') && is_numeric($request->input('max_hours_rc')))
-            || ($request->filled('num_str_nrcs') && is_numeric($request->input('num_str_nrcs')));
-
-        $wcm = 'work_cards_master';
-        if ($requiresCalculatedSqlFilters) {
-            $nrcTab = "(LOWER(TRIM(COALESCE({$wcm}.order_type, ''))) IN ('addnrc', 'nonroutine') AND TRIM(COALESCE({$wcm}.src_cust_card, '')) <> '')";
-            $rcTab = "((LOWER(TRIM(COALESCE({$wcm}.order_type, ''))) NOT IN ('addnrc', 'nonroutine')) OR (TRIM(COALESCE({$wcm}.src_cust_card, '')) = ''))";
-            $nrcStrMatch = "(
-                    UPPER(COALESCE({$wcm}.description, '')) LIKE '%STR%'
-                    OR UPPER(COALESCE({$wcm}.corrective_action, '')) LIKE '%STR%'
-                    OR UPPER(COALESCE({$wcm}.order_type, '')) LIKE '%STR%'
-                )";
-            $failuresQuery = ReliabilityFailure::query()
-                ->selectRaw("rel_stub.*,
-                    (SELECT COUNT(*) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$rcTab}) as num_rc,
-                    (SELECT MAX(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.work_order_number), '') != '' AND {$wcm}.cust_card LIKE CONCAT('%', rel_stub.work_order_number, '%') AND {$rcTab}) as max_hours_on_rc,
-                    (SELECT COUNT(*) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as num_str_nrcs,
-                    (SELECT MAX(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as max_mhs_str_nrc,
-                    (SELECT AVG(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as avg_str_mhs_raw,
-                    (SELECT 0) as eef_count")
-                ->with(['detectionStage', 'consequence', 'takenMeasure'])
-                ->orderByDesc('failure_date')
-                ->orderByDesc('id');
-        } else {
-            $failuresQuery = ReliabilityFailure::query()
-                ->with(['detectionStage', 'consequence', 'takenMeasure'])
-                ->orderByDesc('failure_date')
-                ->orderByDesc('id');
-        }
-
-        // Фильтр по дате создания (failure_date)
-        $dateFrom = $request->input('date_from');
-        $dateTo = $request->input('date_to');
-        if ($dateFrom) {
-            $failuresQuery->whereDate('failure_date', '>=', $dateFrom);
-        }
-        if ($dateTo) {
-            $failuresQuery->whereDate('failure_date', '<=', $dateTo);
-        }
-
-        // Фильтр по ID
-        if ($request->filled('id')) {
-            $failuresQuery->where('id', $request->input('id'));
-        }
-
-        // TASK CARD DESCRIPTION (описание задачи / проявление неисправности)
-        if ($request->filled('task_card_description')) {
-            $desc = $request->input('task_card_description');
-            $failuresQuery->where(function ($q) use ($desc) {
-                $q->where('aircraft_malfunction', 'like', '%' . $desc . '%')
-                  ->orWhere('component_cause', 'like', '%' . $desc . '%')
-                  ->orWhere('component_malfunction', 'like', '%' . $desc . '%');
-            });
-        }
-
-        // TASK CARD (номер WO / work order)
-        if ($request->filled('task_card')) {
-            $taskCard = $request->input('task_card');
-            $failuresQuery->where(function ($q) use ($taskCard) {
-                $q->where('wo_number', 'like', '%' . $taskCard . '%')
-                  ->orWhere('work_order_number', 'like', '%' . $taskCard . '%');
-            });
-        }
-
-        // Max Hours on RC (calculated: filter by minimum value)
-        if ($requiresCalculatedSqlFilters && $request->filled('max_hours_rc') && is_numeric($request->input('max_hours_rc'))) {
-            $failuresQuery->havingRaw('max_hours_on_rc >= ?', [(float) $request->input('max_hours_rc')]);
-        }
-
-        // # of STR NRCs (calculated: filter by minimum value)
-        if ($requiresCalculatedSqlFilters && $request->filled('num_str_nrcs') && is_numeric($request->input('num_str_nrcs'))) {
-            $failuresQuery->havingRaw('num_str_nrcs >= ?', [(int) $request->input('num_str_nrcs')]);
-        }
+        $failuresQuery = $this->buildFailuresTableQuery($request);
 
         // Пагинация
         $perPage = (int) $request->input('per_page', 100);
@@ -271,6 +195,82 @@ class ReliabilityController extends Controller
             }
         }
         $query->whereIn($column, $arr);
+    }
+
+    /**
+     * Базовый запрос таблицы Task со всеми фильтрами.
+     */
+    private function buildFailuresTableQuery(Request $request)
+    {
+        $requiresCalculatedSqlFilters = ($request->filled('max_hours_rc') && is_numeric($request->input('max_hours_rc')))
+            || ($request->filled('num_str_nrcs') && is_numeric($request->input('num_str_nrcs')));
+
+        $wcm = 'work_cards_master';
+        if ($requiresCalculatedSqlFilters) {
+            $nrcTab = "(LOWER(TRIM(COALESCE({$wcm}.order_type, ''))) IN ('addnrc', 'nonroutine') AND TRIM(COALESCE({$wcm}.src_cust_card, '')) <> '')";
+            $rcTab = "((LOWER(TRIM(COALESCE({$wcm}.order_type, ''))) NOT IN ('addnrc', 'nonroutine')) OR (TRIM(COALESCE({$wcm}.src_cust_card, '')) = ''))";
+            $nrcStrMatch = "(
+                    UPPER(COALESCE({$wcm}.description, '')) LIKE '%STR%'
+                    OR UPPER(COALESCE({$wcm}.corrective_action, '')) LIKE '%STR%'
+                    OR UPPER(COALESCE({$wcm}.order_type, '')) LIKE '%STR%'
+                )";
+            $failuresQuery = ReliabilityFailure::query()
+                ->selectRaw("rel_stub.*,
+                    (SELECT COUNT(*) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$rcTab}) as num_rc,
+                    (SELECT MAX(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.work_order_number), '') != '' AND {$wcm}.cust_card LIKE CONCAT('%', rel_stub.work_order_number, '%') AND {$rcTab}) as max_hours_on_rc,
+                    (SELECT COUNT(*) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as num_str_nrcs,
+                    (SELECT MAX(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as max_mhs_str_nrc,
+                    (SELECT AVG(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as avg_str_mhs_raw,
+                    (SELECT 0) as eef_count")
+                ->with(['detectionStage', 'consequence', 'takenMeasure'])
+                ->orderByDesc('failure_date')
+                ->orderByDesc('id');
+        } else {
+            $failuresQuery = ReliabilityFailure::query()
+                ->with(['detectionStage', 'consequence', 'takenMeasure'])
+                ->orderByDesc('failure_date')
+                ->orderByDesc('id');
+        }
+
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        if ($dateFrom) {
+            $failuresQuery->whereDate('failure_date', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $failuresQuery->whereDate('failure_date', '<=', $dateTo);
+        }
+
+        if ($request->filled('id')) {
+            $failuresQuery->where('id', $request->input('id'));
+        }
+
+        if ($request->filled('task_card_description')) {
+            $desc = $request->input('task_card_description');
+            $failuresQuery->where(function ($q) use ($desc) {
+                $q->where('aircraft_malfunction', 'like', '%' . $desc . '%')
+                  ->orWhere('component_cause', 'like', '%' . $desc . '%')
+                  ->orWhere('component_malfunction', 'like', '%' . $desc . '%');
+            });
+        }
+
+        if ($request->filled('task_card')) {
+            $taskCard = $request->input('task_card');
+            $failuresQuery->where(function ($q) use ($taskCard) {
+                $q->where('wo_number', 'like', '%' . $taskCard . '%')
+                  ->orWhere('work_order_number', 'like', '%' . $taskCard . '%');
+            });
+        }
+
+        if ($requiresCalculatedSqlFilters && $request->filled('max_hours_rc') && is_numeric($request->input('max_hours_rc'))) {
+            $failuresQuery->havingRaw('max_hours_on_rc >= ?', [(float) $request->input('max_hours_rc')]);
+        }
+
+        if ($requiresCalculatedSqlFilters && $request->filled('num_str_nrcs') && is_numeric($request->input('num_str_nrcs'))) {
+            $failuresQuery->havingRaw('num_str_nrcs >= ?', [(int) $request->input('num_str_nrcs')]);
+        }
+
+        return $failuresQuery;
     }
 
     private function enrichFailureMetricsFromWorkCards(Collection $failures): void
@@ -2216,68 +2216,34 @@ class ReliabilityController extends Controller
      */
     public function exportFailuresToExcel(Request $request)
     {
-        // Используем те же фильтры, что и в методе index
-        $failuresQuery = ReliabilityFailure::query()
-            ->with(['detectionStage', 'consequence', 'takenMeasure', 'woStatus', 'engineType', 'engineNumber'])
-            ->orderByDesc('failure_date')
-            ->orderByDesc('id');
-
-        // Фильтр по дате создания (failure_date)
-        $dateFrom = $request->input('date_from');
-        $dateTo = $request->input('date_to');
-        if ($dateFrom) {
-            $failuresQuery->whereDate('failure_date', '>=', $dateFrom);
-        }
-        if ($dateTo) {
-            $failuresQuery->whereDate('failure_date', '<=', $dateTo);
-        }
-
-        // Фильтр по ID
-        if ($request->filled('id')) {
-            $failuresQuery->where('id', $request->input('id'));
-        }
-
-        // Фильтр по описанию (проявление неисправности ВС)
-        if ($request->filled('description')) {
-            $desc = $request->input('description');
-            $failuresQuery->where(function ($q) use ($desc) {
-                $q->where('aircraft_malfunction', 'like', '%' . $desc . '%')
-                  ->orWhere('component_malfunction', 'like', '%' . $desc . '%');
-            });
-        }
-
-        $this->applyMultiFilter($failuresQuery, $request, 'aircraft_type', 'aircraft_type');
-        $this->applyMultiFilter($failuresQuery, $request, 'aircraft_number', 'aircraft_number');
-        $this->applyMultiFilter($failuresQuery, $request, 'system', 'system_name');
-        $this->applyMultiFilter($failuresQuery, $request, 'subsystem', 'subsystem_name');
-        $this->applyMultiFilter($failuresQuery, $request, 'aggregate_type', 'aggregate_type');
-        $this->applyMultiFilter($failuresQuery, $request, 'detection_stage', 'detection_stage_id', 'int');
-        $this->applyMultiFilter($failuresQuery, $request, 'engine_type', 'engine_type_id', 'int');
-        $this->applyMultiFilter($failuresQuery, $request, 'engine', 'engine_number_id', 'int');
-
-        // Получаем все записи без пагинации
-        $failures = $failuresQuery->get();
+        $failures = $this->buildFailuresTableQuery($request)->get();
+        $this->enrichFailureMetricsFromWorkCards($failures);
 
         // Создаем Excel файл
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-
-        // Видимость полей формы отказа
-        $fieldsList = RelFailureFormSetting::formFieldsList();
-        $fieldVisibility = RelFailureFormSetting::getFieldVisibility();
-        $visibleFieldKeys = array_keys(array_filter($fieldVisibility));
-
-        // Заголовки: ID + только видимые поля из настроек формы отказа
-        $colIndex = 1;
-        $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex) . '1', 'ID');
-        foreach ($visibleFieldKeys as $fieldKey) {
-            $colIndex++;
-            $label = $fieldsList[$fieldKey] ?? $fieldKey;
-            $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex) . '1', $label);
+        $headers = [
+            'SEQ',
+            'TASK CARD',
+            'TASK CARD DESCRIPTION',
+            'MPD',
+            '# of RC',
+            'Max Hours on RC',
+            '# of STR NRCs',
+            '%',
+            'Max MHs on STR NRC',
+            'AVG STR MHs',
+            'EEF Count',
+            '% EEF',
+            'Probabile Critical Findings',
+            'REF',
+        ];
+        foreach ($headers as $index => $header) {
+            $sheet->setCellValue(Coordinate::stringFromColumnIndex($index + 1) . '1', $header);
         }
 
         // Стили для заголовков
-        $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+        $lastCol = Coordinate::stringFromColumnIndex(count($headers));
         $sheet->getStyle('A1:' . $lastCol . '1')->applyFromArray([
             'font' => [
                 'bold' => true,
@@ -2293,223 +2259,48 @@ class ReliabilityController extends Controller
             ],
         ]);
 
-        $resolutionMethodLabels = [
-            'repair' => 'Ремонт',
-            'replacement' => 'Замена',
-            'adjustment' => 'Регулировка',
-        ];
-
-        // Данные: ID + только видимые поля
+        // Данные экспортируем в тех же колонках, что и в таблице Task.
         $row = 2;
-        foreach ($failures as $failure) {
-            $colIndex = 1;
-            // ID
-            $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex) . $row, $failure->id);
+        foreach ($failures as $index => $failure) {
+            $numRc = (int) ($failure->num_rc ?? 0);
+            $numStrNrcs = (int) ($failure->num_str_nrcs ?? 0);
+            $eefCount = (int) ($failure->eef_count ?? 0);
 
-            foreach ($visibleFieldKeys as $fieldKey) {
-                $colIndex++;
-                $coord = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex) . $row;
-                $value = '';
+            $strPercent = $numRc > 0 ? number_format(($numStrNrcs / $numRc) * 100, 2, '.', '') . '%' : '0.00%';
+            $eefPercent = $numRc > 0 ? number_format(($eefCount / $numRc) * 100, 2, '.', '') . '%' : '0.00%';
 
-                switch ($fieldKey) {
-                    case 'account_number':
-                        $value = $failure->account_number ?? '';
-                        break;
-                    case 'failure_date':
-                        $value = $failure->failure_date ? \Carbon\Carbon::parse($failure->failure_date)->format('d.m.Y') : '';
-                        break;
-                    case 'aircraft_number':
-                        $value = $failure->aircraft_number ?? '';
-                        break;
-                    case 'aircraft_type':
-                        $value = $failure->aircraft_type ?? '';
-                        break;
-                    case 'type_code':
-                        $value = $failure->aircraft_type_code ?? ($failure->type_code ?? '');
-                        break;
-                    case 'modification_code':
-                        $value = $failure->modification_code ?? '';
-                        break;
-                    case 'aircraft_hours':
-                        $value = $failure->aircraft_hours;
-                        break;
-                    case 'aircraft_landings':
-                        $value = $failure->aircraft_landings;
-                        break;
-                    case 'aircraft_ppr_hours':
-                        $value = $failure->aircraft_ppr_hours;
-                        break;
-                    case 'aircraft_ppr_landings':
-                        $value = $failure->aircraft_ppr_landings;
-                        break;
-                    case 'detection_stage':
-                        $value = optional($failure->detectionStage)->name ?? '';
-                        break;
-                    case 'aircraft_malfunction':
-                        $value = $failure->aircraft_malfunction ?? '';
-                        break;
-                    case 'aggregate_type':
-                        $value = $failure->aggregate_type ?? '';
-                        break;
-                    case 'part_number_off':
-                        $value = $failure->part_number_off ?? '';
-                        break;
-                    case 'component_serial':
-                        $value = $failure->component_serial ?? '';
-                        break;
-                    case 'part_number_on':
-                        $value = $failure->part_number_on ?? '';
-                        break;
-                    case 'serial_number_on':
-                        $value = $failure->serial_number_on ?? '';
-                        break;
-                    case 'system_name':
-                        $value = $failure->system_name ?? '';
-                        break;
-                    case 'subsystem_name':
-                        $value = $failure->subsystem_name ?? '';
-                        break;
-                    case 'component_sne_hours':
-                        $value = $failure->component_sne_hours;
-                        break;
-                    case 'component_ppr_hours':
-                        $value = $failure->component_ppr_hours;
-                        break;
-                    case 'component_hours_unit':
-                        $value = $failure->component_hours_unit ?? '';
-                        break;
-                    case 'resolution_date':
-                        $value = $failure->resolution_date ? \Carbon\Carbon::parse($failure->resolution_date)->format('d.m.Y') : '';
-                        break;
-                    case 'component_cause':
-                        $value = $failure->component_cause ?? '';
-                        break;
-                    case 'taken_measure_id':
-                        $value = optional($failure->takenMeasure)->name ?? '';
-                        break;
-                    case 'wo_number':
-                        $value = $failure->wo_number ?? '';
-                        break;
-                    case 'wo_status_id':
-                        $value = optional($failure->woStatus)->name ?? '';
-                        break;
-                    case 'work_order_number':
-                        $value = $failure->work_order_number ?? '';
-                        break;
-                    case 'resolution_method':
-                        $value = $resolutionMethodLabels[$failure->resolution_method ?? ''] ?? $failure->resolution_method ?? '';
-                        break;
-                    case 'aircraft_serial':
-                        $value = $failure->aircraft_serial ?? '';
-                        break;
-                    case 'aircraft_manufacture_date':
-                        $value = $failure->aircraft_manufacture_date ? \Carbon\Carbon::parse($failure->aircraft_manufacture_date)->format('d.m.Y') : '';
-                        break;
-                    case 'aircraft_repair_date':
-                        $value = $failure->aircraft_repair_date ? \Carbon\Carbon::parse($failure->aircraft_repair_date)->format('d.m.Y') : '';
-                        break;
-                    case 'previous_repair_location':
-                        $value = $failure->previous_repair_location ?? '';
-                        break;
-                    case 'aircraft_repairs_count':
-                        $value = $failure->aircraft_repairs_count;
-                        break;
-                    case 'operator':
-                        $value = $failure->operator ?? '';
-                        break;
-                    case 'event_location':
-                        $value = $failure->event_location ?? '';
-                        break;
-                    case 'consequence_id':
-                        $value = optional($failure->consequence)->name ?? '';
-                        break;
-                    case 'component_malfunction':
-                        $value = $failure->component_malfunction ?? '';
-                        break;
-                    case 'manufacturer':
-                        $value = $failure->manufacturer ?? '';
-                        break;
-                    case 'removal_date':
-                        $value = $failure->removal_date ? \Carbon\Carbon::parse($failure->removal_date)->format('d.m.Y') : '';
-                        break;
-                    case 'production_date':
-                        $value = $failure->production_date ? \Carbon\Carbon::parse($failure->production_date)->format('d.m.Y') : '';
-                        break;
-                    case 'component_repairs_count':
-                        $value = $failure->component_repairs_count;
-                        break;
-                    case 'previous_installation_date':
-                        $value = $failure->previous_installation_date ? \Carbon\Carbon::parse($failure->previous_installation_date)->format('d.m.Y') : '';
-                        break;
-                    case 'repair_factory':
-                        $value = $failure->repair_factory ?? '';
-                        break;
-                    case 'component_repair_date':
-                        $value = $failure->component_repair_date ? \Carbon\Carbon::parse($failure->component_repair_date)->format('d.m.Y') : '';
-                        break;
-                    case 'engine_type_id':
-                        $value = optional($failure->engineType)->name ?? '';
-                        break;
-                    case 'engine_number_id':
-                        $value = optional($failure->engineNumber)->number ?? '';
-                        break;
-                    case 'engine_release_date':
-                        $value = $failure->engine_release_date ? \Carbon\Carbon::parse($failure->engine_release_date)->format('d.m.Y') : '';
-                        break;
-                    case 'engine_installation_date':
-                        $value = $failure->engine_installation_date ? \Carbon\Carbon::parse($failure->engine_installation_date)->format('d.m.Y') : '';
-                        break;
-                    case 'engine_sne_hours':
-                        $value = $failure->engine_sne_hours;
-                        break;
-                    case 'engine_ppr_hours':
-                        $value = $failure->engine_ppr_hours;
-                        break;
-                    case 'engine_sne_cycles':
-                        $value = $failure->engine_sne_cycles;
-                        break;
-                    case 'engine_ppr_cycles':
-                        $value = $failure->engine_ppr_cycles;
-                        break;
-                    case 'engine_repair_date':
-                        $value = $failure->engine_repair_date ? \Carbon\Carbon::parse($failure->engine_repair_date)->format('d.m.Y') : '';
-                        break;
-                    case 'engine_repair_location':
-                        $value = $failure->engine_repair_location ?? '';
-                        break;
-                    case 'engine_repairs_count':
-                        $value = $failure->engine_repairs_count;
-                        break;
-                    case 'owner':
-                        $value = $failure->owner ?? '';
-                        break;
-                    case 'position':
-                        $value = $failure->position ?? '';
-                        break;
-                    case 'created_by':
-                        $value = $failure->created_by_id ?? null;
-                        break;
-                }
+            $rowData = [
+                $index + 1,
+                $failure->wo_number ?? $failure->work_order_number ?? '—',
+                $failure->aircraft_malfunction ?? $failure->component_cause ?? '—',
+                $failure->mpd ?? '—',
+                $numRc,
+                $failure->max_hours_on_rc !== null ? number_format((float) $failure->max_hours_on_rc, 2, '.', '') : '—',
+                $numStrNrcs,
+                $strPercent,
+                $failure->max_mhs_str_nrc !== null ? number_format((float) $failure->max_mhs_str_nrc, 2, '.', '') : '—',
+                number_format((float) ($failure->avg_str_mhs_raw ?? 0), 2, '.', ''),
+                $eefCount,
+                $eefPercent,
+                '—',
+                '—',
+            ];
 
-                $sheet->setCellValue($coord, $value);
+            foreach ($rowData as $columnIndex => $value) {
+                $sheet->setCellValue(Coordinate::stringFromColumnIndex($columnIndex + 1) . $row, $value);
             }
-
             $row++;
         }
 
-        // Ширина колонок: увеличиваем примерно в 3 раза для всех реально существующих колонок
-        $lastColIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($lastCol);
-        for ($i = 1; $i <= $lastColIndex; $i++) {
-            $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i);
-            $dim = $sheet->getColumnDimension($col);
-            // Базовая ширина по умолчанию
-            $baseWidth = $dim->getWidth();
-            if ($baseWidth <= 0) {
-                $baseWidth = 10;
-            }
-            $dim->setAutoSize(false);
-            $dim->setWidth($baseWidth * 3);
+        $sheet->getColumnDimension('A')->setWidth(8);
+        $sheet->getColumnDimension('B')->setWidth(20);
+        $sheet->getColumnDimension('C')->setWidth(45);
+        $sheet->getColumnDimension('D')->setWidth(20);
+        foreach (['E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'] as $col) {
+            $sheet->getColumnDimension($col)->setWidth(18);
         }
+        $sheet->getColumnDimension('M')->setWidth(30);
+        $sheet->getColumnDimension('N')->setWidth(14);
 
         // Границы
         if ($row > 2) {
