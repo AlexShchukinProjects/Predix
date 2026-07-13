@@ -133,9 +133,12 @@ class ReliabilityController extends Controller
 
         $failuresQuery = $this->buildFailuresTableQuery($request);
 
+        [$sortColumn, $sortDirection] = $this->resolveFailuresSort($request);
+        $this->applyFailuresSort($failuresQuery, $sortColumn, $sortDirection);
+
         // Пагинация
         $perPage = (int) $request->input('per_page', 100);
-        if (!in_array($perPage, [10, 50, 100, 200], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 200, 1000, 3000, 5000], true)) {
             $perPage = 100;
         }
         $failures = $failuresQuery->paginate($perPage)->withQueryString();
@@ -163,6 +166,8 @@ class ReliabilityController extends Controller
             'takenMeasures' => $takenMeasures,
             'aggregateTypes' => $aggregateTypes,
             'failures' => $failures,
+            'sortColumn' => $sortColumn,
+            'sortDirection' => $sortDirection,
             'failureFormVisibility' => $failureFormVisibility,
             'hiddenFormFields' => $hiddenFormFields,
             'tabsVisibility' => $tabsVisibility,
@@ -222,14 +227,10 @@ class ReliabilityController extends Controller
                     (SELECT MAX(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as max_mhs_str_nrc,
                     (SELECT AVG(CAST({$wcm}.act_time AS DECIMAL(15,2))) FROM {$wcm} WHERE COALESCE(TRIM(rel_stub.mpd), '') != '' AND {$wcm}.src_cust_card LIKE CONCAT('%', rel_stub.mpd, '%') AND {$nrcTab} AND {$nrcStrMatch}) as avg_str_mhs_raw,
                     (SELECT 0) as eef_count")
-                ->with(['detectionStage', 'consequence', 'takenMeasure'])
-                ->orderByDesc('failure_date')
-                ->orderByDesc('id');
+                ->with(['detectionStage', 'consequence', 'takenMeasure']);
         } else {
             $failuresQuery = ReliabilityFailure::query()
-                ->with(['detectionStage', 'consequence', 'takenMeasure'])
-                ->orderByDesc('failure_date')
-                ->orderByDesc('id');
+                ->with(['detectionStage', 'consequence', 'takenMeasure']);
         }
 
         $dateFrom = $request->input('date_from');
@@ -271,6 +272,48 @@ class ReliabilityController extends Controller
         }
 
         return $failuresQuery;
+    }
+
+    /** @return list<string> */
+    private function failuresSortableColumnNames(): array
+    {
+        return [
+            'id',
+            'work_order_number',
+            'wo_number',
+            'aircraft_malfunction',
+            'mpd',
+            'failure_date',
+        ];
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function resolveFailuresSort(Request $request): array
+    {
+        $allowed = $this->failuresSortableColumnNames();
+        $sort = (string) $request->input('sort', 'failure_date');
+        if (!in_array($sort, $allowed, true)) {
+            $sort = 'failure_date';
+        }
+        $dir = strtolower((string) $request->input('dir', 'desc'));
+        if (!in_array($dir, ['asc', 'desc'], true)) {
+            $dir = 'desc';
+        }
+
+        return [$sort, $dir];
+    }
+
+    private function applyFailuresSort($query, string $column, string $direction): void
+    {
+        if ($column === 'work_order_number') {
+            $query->orderByRaw('COALESCE(NULLIF(TRIM(work_order_number), ""), NULLIF(TRIM(wo_number), "")) ' . ($direction === 'asc' ? 'asc' : 'desc'));
+        } else {
+            $query->orderBy($column, $direction);
+        }
+
+        if ($column !== 'id') {
+            $query->orderByDesc('id');
+        }
     }
 
     private function enrichFailureMetricsFromWorkCards(Collection $failures): void

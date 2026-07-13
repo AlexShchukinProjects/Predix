@@ -23,6 +23,8 @@
                 <option value="100" {{ $currentPerPage === 100 ? 'selected' : '' }}>100</option>
                 <option value="500" {{ $currentPerPage === 500 ? 'selected' : '' }}>500</option>
                 <option value="1000" {{ $currentPerPage === 1000 ? 'selected' : '' }}>1000</option>
+                <option value="5000" {{ $currentPerPage === 5000 ? 'selected' : '' }}>5000</option>
+                <option value="10000" {{ $currentPerPage === 10000 ? 'selected' : '' }}>10000</option>
             </select>
             <span class="ms-2">Total records: {{ $items->total() }}</span>
         </div>

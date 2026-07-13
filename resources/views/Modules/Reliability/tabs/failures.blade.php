@@ -9,6 +9,9 @@
                 <option value="25" {{ $currentPerPage === 25 ? 'selected' : '' }}>25</option>
                 <option value="50" {{ $currentPerPage === 50 ? 'selected' : '' }}>50</option>
                 <option value="100" {{ $currentPerPage === 100 ? 'selected' : '' }}>100</option>
+                <option value="1000" {{ $currentPerPage === 1000 ? 'selected' : '' }}>1000</option>
+                <option value="3000" {{ $currentPerPage === 3000 ? 'selected' : '' }}>3000</option>
+                <option value="5000" {{ $currentPerPage === 5000 ? 'selected' : '' }}>5000</option>
             </select>
             <span class="ms-2">Total records: {{ $failures->total() }}</span>
         @else
@@ -56,20 +59,24 @@
                             <input type="checkbox" class="form-check-input" id="selectAllFailuresCheckbox" title="Select all on page">
                         </th>
                         <th style="padding: 12px; width: 40px;"></th>
-                        <th style="padding: 12px;">SEQ</th>
-                        <th style="padding: 12px;">TASK CARD</th>
-                        <th style="padding: 12px; min-width: 200px;">TASK CARD DESCRIPTION</th>
-                        <th style="padding: 12px;">MPD</th>
-                        <th style="padding: 12px;"># of RC</th>
-                        <th style="padding: 12px;">Max Hours on RC</th>
-                        <th style="padding: 12px;"># of STR NRCs</th>
-                        <th style="padding: 12px;">%</th>
-                        <th style="padding: 12px;">Max MHs on STR NRC</th>
-                        <th style="padding: 12px;">AVG STR MHs</th>
-                        <th style="padding: 12px;">EEF Count</th>
-                        <th style="padding: 12px;">% EEF</th>
-                        <th style="padding: 12px; min-width: 180px;">Probabile Critical Findings</th>
-                        <th style="padding: 12px;">REF</th>
+                        @php
+                            $sortColumn = $sortColumn ?? 'failure_date';
+                            $sortDirection = $sortDirection ?? 'desc';
+                        @endphp
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['column' => 'id', 'label' => 'SEQ', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['column' => 'work_order_number', 'label' => 'TASK CARD', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['column' => 'aircraft_malfunction', 'label' => 'TASK CARD DESCRIPTION', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection, 'extraStyle' => ' min-width: 200px;'])
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['column' => 'mpd', 'label' => 'MPD', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['label' => '# of RC', 'clientSort' => true, 'clientSortKey' => 'num_rc', 'sortable' => false, 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['label' => 'Max Hours on RC', 'clientSort' => true, 'clientSortKey' => 'max_hours_on_rc', 'sortable' => false, 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['label' => '# of STR NRCs', 'clientSort' => true, 'clientSortKey' => 'num_str_nrcs', 'sortable' => false, 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['label' => '%', 'clientSort' => true, 'clientSortKey' => 'str_percent', 'sortable' => false, 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['label' => 'Max MHs on STR NRC', 'clientSort' => true, 'clientSortKey' => 'max_mhs_str_nrc', 'sortable' => false, 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['label' => 'AVG STR MHs', 'clientSort' => true, 'clientSortKey' => 'avg_str_mhs', 'sortable' => false, 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['label' => 'EEF Count', 'clientSort' => true, 'clientSortKey' => 'eef_count', 'sortable' => false, 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['label' => '% EEF', 'clientSort' => true, 'clientSortKey' => 'eef_percent', 'sortable' => false, 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['label' => 'Probabile Critical Findings', 'clientSort' => true, 'clientSortKey' => 'probable_critical_findings', 'sortable' => false, 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection, 'extraStyle' => ' min-width: 180px;'])
+                        @include('Modules.Reliability.tabs.partials.sort_th_blue', ['label' => 'REF', 'sortable' => false])
                     </tr>
                 </thead>
                 <tbody>
@@ -256,6 +263,54 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    (function failuresClientSortInit() {
+        var tbody = document.querySelector('.reliability-table-scroll-wrap tbody');
+        if (!tbody) return;
+        var clientSortState = { key: null, dir: 'asc' };
+
+        function parseCellValue(text) {
+            var s = String(text || '').trim().replace(',', '.');
+            if (s === '' || s === '—') return null;
+            var n = Number(s);
+            return isFinite(n) ? n : s.toLowerCase();
+        }
+
+        function clearClientSortActive() {
+            document.querySelectorAll('.rel-th-sort--client.is-active').forEach(function(btn) {
+                btn.classList.remove('is-active', 'asc', 'desc');
+            });
+        }
+
+        document.querySelectorAll('.rel-th-sort--client').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var key = btn.getAttribute('data-client-sort-key');
+                if (!key) return;
+                if (clientSortState.key === key) {
+                    clientSortState.dir = clientSortState.dir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    clientSortState.key = key;
+                    clientSortState.dir = 'asc';
+                }
+                clearClientSortActive();
+                btn.classList.add('is-active', clientSortState.dir);
+
+                var rows = Array.prototype.slice.call(tbody.querySelectorAll('.js-failure-row'));
+                rows.sort(function(a, b) {
+                    var aCell = a.querySelector('[data-metric="' + key + '"]');
+                    var bCell = b.querySelector('[data-metric="' + key + '"]');
+                    var aVal = parseCellValue(aCell ? aCell.textContent : '');
+                    var bVal = parseCellValue(bCell ? bCell.textContent : '');
+                    if (aVal === null && bVal === null) return 0;
+                    if (aVal === null) return 1;
+                    if (bVal === null) return -1;
+                    var cmp = aVal < bVal ? -1 : (aVal > bVal ? 1 : 0);
+                    return clientSortState.dir === 'asc' ? cmp : -cmp;
+                });
+                rows.forEach(function(row) { tbody.appendChild(row); });
+            });
+        });
+    })();
+
     document.querySelectorAll('.clickable-row[data-href]').forEach(function(row) {
         row.addEventListener('click', function(e) {
             if (e.target.closest('a') || e.target.closest('button') || e.target.closest('.no-click')) return;
@@ -677,7 +732,62 @@ function updatePerPage(value) {
     position: sticky;
     top: 0;
     z-index: 5;
-    background-color: #f5f7fa;
+    background-color: #1E64D4;
+}
+
+.rel-th-sort {
+    font-weight: bold;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.rel-th-sort--client {
+    font: inherit;
+}
+
+.rel-sort-arrows {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5px;
+    margin-right: 9px;
+    flex-shrink: 0;
+    line-height: 0;
+}
+
+.rel-sort-arrows__up,
+.rel-sort-arrows__down {
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+}
+
+.rel-sort-arrows__up {
+    border-bottom: 7.5px solid rgba(255, 255, 255, 0.45);
+}
+
+.rel-sort-arrows__down {
+    border-top: 7.5px solid rgba(255, 255, 255, 0.45);
+}
+
+.rel-th-sort.is-active.asc .rel-sort-arrows__up {
+    border-bottom-color: #fff;
+}
+
+.rel-th-sort.is-active.desc .rel-sort-arrows__down {
+    border-top-color: #fff;
+}
+
+.rel-th-sort:hover .rel-sort-arrows__up {
+    border-bottom-color: #fff;
+}
+
+.rel-th-sort:hover .rel-sort-arrows__down {
+    border-top-color: #fff;
 }
 
 .table thead th {

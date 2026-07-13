@@ -41,7 +41,7 @@ class InspectionDataController extends Controller
     public function projects(Request $request): View
     {
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000, 5000, 10000], true)) {
             $perPage = 50;
         }
         [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionProject::class);
@@ -167,7 +167,7 @@ class InspectionDataController extends Controller
     {
         $source = $this->resolveMasterDataSource($request);
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000, 5000, 10000], true)) {
             $perPage = 50;
         }
         $query = ReliabilityMasterData::query();
@@ -1351,7 +1351,7 @@ class InspectionDataController extends Controller
     public function aircrafts(Request $request): View
     {
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000, 5000, 10000], true)) {
             $perPage = 50;
         }
         [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionAircraft::class);
@@ -1639,7 +1639,7 @@ class InspectionDataController extends Controller
     public function workCards(Request $request): View
     {
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000, 5000, 10000], true)) {
             $perPage = 50;
         }
         [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionWorkCard::class);
@@ -2325,7 +2325,7 @@ class InspectionDataController extends Controller
     public function eefRegistry(Request $request): View
     {
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000, 5000, 10000], true)) {
             $perPage = 50;
         }
         [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionEefRegistry::class);
@@ -2928,7 +2928,7 @@ class InspectionDataController extends Controller
     public function workCardMaterials(Request $request): View
     {
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000, 5000, 10000], true)) {
             $perPage = 50;
         }
         [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionWorkCardMaterial::class);
@@ -3263,7 +3263,7 @@ class InspectionDataController extends Controller
     public function sourceCardRefs(Request $request): View
     {
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000, 5000, 10000], true)) {
             $perPage = 50;
         }
         [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionSourceCardRef::class);
@@ -3289,7 +3289,7 @@ class InspectionDataController extends Controller
     public function caseAnalyses(Request $request): View
     {
         $perPage = (int) $request->get('per_page', 50);
-        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100, 500, 1000, 5000, 10000], true)) {
             $perPage = 50;
         }
         [$sortColumn, $sortDirection] = $this->resolveInspectionSettingsSort($request, InspectionCaseAnalysis::class);
