@@ -65,12 +65,13 @@ final class ReliabilityTaskCardNormalizer
         $rules = CardFormatRuleRepository::activeCustomRules($oem, $documentType);
 
         foreach ($rules as $rule) {
-            $blocks = $rule['digit_blocks'] ?? CardFormatMask::digitBlocksFromMask((string) ($rule['mask'] ?? ''));
+            $mask = (string) ($rule['mask'] ?? '');
+            $blocks = $rule['digit_blocks'] ?? CardFormatMask::digitBlocksFromMask($mask);
             if (!is_array($blocks) || $blocks === []) {
                 continue;
             }
 
-            $result = CardFormatMask::apply($raw, array_map('intval', $blocks));
+            $result = CardFormatMask::apply($raw, array_map('intval', $blocks), $mask !== '' ? $mask : null, false);
             if ($result !== null) {
                 return $result;
             }

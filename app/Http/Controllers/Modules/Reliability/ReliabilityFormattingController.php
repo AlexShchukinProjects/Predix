@@ -50,12 +50,18 @@ class ReliabilityFormattingController extends Controller
         if (!empty($data['mask'])) {
             $blocks = CardFormatMask::digitBlocksFromMask($data['mask']);
             if ($blocks === null) {
-                return response()->json(['message' => 'Invalid mask format. Use d for digits, A for letters, and literals like -. Example: dd-ddd-dd-dd'], 422);
+                return response()->json(['message' => 'Invalid mask format. Use d for digits, A for letters, and literals like -. Example: 4N-dd-ddd-dd-C'], 422);
             }
 
-            $result['mask'] = trim($data['mask']);
+            $mask = trim($data['mask']);
+            $result['mask'] = $mask;
             $result['digit_blocks'] = $blocks;
-            $result['preview_normalized'] = CardFormatMask::apply($data['raw_example'], $blocks);
+            $result['preview_normalized'] = CardFormatMask::apply(
+                $data['raw_example'],
+                $blocks,
+                $mask,
+                (bool) ($result['keep_suffix'] ?? false)
+            );
             $result['matches_expected'] = strtoupper(trim((string) $result['preview_normalized'])) === strtoupper(trim($data['expected_output']));
         }
 
@@ -83,7 +89,20 @@ class ReliabilityFormattingController extends Controller
             return back()->withErrors(['mask' => 'Invalid mask format.'])->withInput();
         }
 
-        $preview = CardFormatMask::apply($data['raw_example'], $blocks);
+        $mask = trim($data['mask']);
+        $inferred = CardFormatRuleInference::infer(
+            $data['raw_example'],
+            $data['expected_output'],
+            $data['oem'] ?? null,
+            $data['document_type'] ?? null,
+        );
+
+        $preview = CardFormatMask::apply(
+            $data['raw_example'],
+            $blocks,
+            $mask,
+            (bool) ($inferred['keep_suffix'] ?? false)
+        );
         if ($preview === null || strtoupper(trim($preview)) !== strtoupper(trim($data['expected_output']))) {
             $message = 'Mask does not produce the expected output for the raw example.';
             if ($request->expectsJson()) {
@@ -93,20 +112,13 @@ class ReliabilityFormattingController extends Controller
             return back()->withErrors(['mask' => $message])->withInput();
         }
 
-        $inferred = CardFormatRuleInference::infer(
-            $data['raw_example'],
-            $data['expected_output'],
-            $data['oem'] ?? null,
-            $data['document_type'] ?? null,
-        );
-
         $priority = (int) (ReliabilityCardFormatRule::max('priority') ?? 0) + 10;
 
         $rule = ReliabilityCardFormatRule::create([
-            'name' => $data['name'] ?: 'Custom: ' . $data['mask'],
+            'name' => $data['name'] ?: 'Custom: ' . $mask,
             'document_type' => $data['document_type'] ?? $inferred['document_type'],
             'oem' => $data['oem'] ?? $inferred['oem'],
-            'mask' => $data['mask'],
+            'mask' => $mask,
             'digit_blocks' => $blocks,
             'is_builtin' => false,
             'is_active' => true,
@@ -180,7 +192,7 @@ class ReliabilityFormattingController extends Controller
             return response()->json(['message' => 'Invalid mask format.'], 422);
         }
 
-        $fromMask = CardFormatMask::apply($data['raw_example'], $blocks);
+        $fromMask = CardFormatMask::apply($data['raw_example'], $blocks, trim($data['mask']), false);
         $fromEngine = ReliabilityTaskCardNormalizer::normalize(
             $data['raw_example'],
             $data['oem'] ?? null,
@@ -239,12 +251,13 @@ class ReliabilityFormattingController extends Controller
                 $signature = '__empty__';
             }
 
-            // One example per format + OEM (Boeing / Airbus / unknown)
+            // One display row per structure + OEM; collect all examples to build consensus mask
             $groupKey = $signature . '|' . ($oem ?? 'unknown');
             $count = (int) ($row->occurrences ?? 1);
             if (!isset($bySignature[$groupKey])) {
                 $bySignature[$groupKey] = [
                     'example' => $raw,
+                    'examples' => [$raw],
                     'signature' => $signature === '__empty__' ? '—' : $signature,
                     'oem' => $oem,
                     'oem_label' => $oem === 'boeing' ? 'Boeing' : ($oem === 'airbus' ? 'Airbus' : '—'),
@@ -257,6 +270,9 @@ class ReliabilityFormattingController extends Controller
 
             $bySignature[$groupKey]['distinct_values']++;
             $bySignature[$groupKey]['occurrences'] += $count;
+            if (!in_array($raw, $bySignature[$groupKey]['examples'], true)) {
+                $bySignature[$groupKey]['examples'][] = $raw;
+            }
             // Prefer a row that already has a known OEM / aircraft type
             if (empty($bySignature[$groupKey]['oem']) && $oem !== null) {
                 $bySignature[$groupKey]['example'] = $raw;
@@ -266,7 +282,21 @@ class ReliabilityFormattingController extends Controller
             }
         }
 
-        $rows = array_values($bySignature);
+        $rows = [];
+        foreach ($bySignature as $group) {
+            $formatMask = CardFormatValue::consensusFormatMask($group['examples'] ?? [$group['example']]);
+            $rows[] = [
+                'example' => $group['example'],
+                'signature' => $formatMask,
+                'structure' => $group['signature'],
+                'oem' => $group['oem'],
+                'oem_label' => $group['oem_label'],
+                'aircraft_type' => $group['aircraft_type'],
+                'distinct_values' => $group['distinct_values'],
+                'occurrences' => $group['occurrences'],
+            ];
+        }
+
         usort($rows, static function (array $a, array $b): int {
             return ($b['occurrences'] <=> $a['occurrences'])
                 ?: strcmp((string) $a['signature'], (string) $b['signature']);

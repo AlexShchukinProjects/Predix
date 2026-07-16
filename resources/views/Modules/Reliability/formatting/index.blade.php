@@ -28,7 +28,7 @@
                         Find unformatted
                     </button>
                     <p class="small text-muted mb-2" id="unformattedHint">
-                        One example per SRC. CUST. CARD structure that current rules cannot normalize.
+                        One example per SRC. CUST. CARD structure. Format keeps fixed characters (e.g. 4N…C) and marks varying digits as d.
                     </p>
                     <div class="table-responsive formatting-unformatted-wrap">
                         <table class="table table-sm align-middle formatting-rules-table mb-0">
@@ -91,7 +91,8 @@
                     <div id="formatAnalysisPanel" class="format-analysis-panel d-none mt-4">
                         <div class="mb-2 fw-semibold">3. Detected format</div>
                         <p class="small text-muted mb-2">
-                            <code>d</code> = digit, <code>A</code> = letter, other characters are literals (for example <code>-</code>).
+                            <code>d</code> = digit to extract, fixed characters (e.g. <code>4N</code>, <code>C</code>) are matched and discarded.
+                            Example: <code>4N-dd-ddd-dd-C</code> → <code>21-061-01</code>.
                         </p>
                         <label class="form-label">Mask</label>
                         <input type="text" class="form-control font-monospace mb-3" id="formatMaskInput">
@@ -227,6 +228,8 @@
 .format-map-chip__arrow { color:#94a3b8; font-size:11px; margin:2px 0; }
 .format-map-chip__formatted { font-family:Consolas, monospace; font-size:12px; color:#1E64D4; font-weight:600; }
 .format-map-chip__mask { font-size:11px; color:#64748b; margin-top:4px; }
+.format-map-chip--discard { background:#f8fafc; opacity:.85; }
+.format-map-chip--discard .format-map-chip__formatted { color:#94a3b8; font-weight:500; }
 .format-preview-box { border:1px solid var(--fmt-border); border-radius:6px; padding:10px 12px; background:#fafbfc; min-height:72px; }
 .format-preview-value { font-family:Consolas, monospace; font-size:14px; font-weight:600; color:#2d3748; word-break:break-all; }
 .format-match-ok { color:#198754; }
@@ -357,9 +360,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         items.forEach(function(item) {
             var chip = document.createElement('div');
-            chip.className = 'format-map-chip';
+            var type = item.type || 'part';
+            chip.className = 'format-map-chip' + (type.indexOf('discard') === 0 ? ' format-map-chip--discard' : '');
             chip.innerHTML =
-                '<div class="format-map-chip__type">' + (item.type || 'part') + '</div>' +
+                '<div class="format-map-chip__type">' + type + '</div>' +
                 '<div class="format-map-chip__raw">' + (item.raw_part || '—') + '</div>' +
                 '<div class="format-map-chip__arrow">→</div>' +
                 '<div class="format-map-chip__formatted">' + (item.formatted_part || '—') + '</div>' +

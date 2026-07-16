@@ -86,4 +86,132 @@ final class CardFormatValue
 
         return $signature;
     }
+
+    /**
+     * Build a consensus format mask from many examples of the same structure.
+     * Tokens that never change stay as literals; varying digit runs become d's,
+     * varying letter runs become A's.
+     * With a single example, digit runs are masked as d's and letters stay literal
+     * (e.g. 4N-21-061-01-C → 4N-dd-ddd-dd-C).
+     *
+     * @param list<string> $rawValues
+     */
+    public static function consensusFormatMask(array $rawValues): string
+    {
+        $prepared = [];
+        foreach ($rawValues as $raw) {
+            $value = self::prepare((string) $raw);
+            if ($value !== '') {
+                $prepared[] = $value;
+            }
+        }
+
+        $prepared = array_values(array_unique($prepared));
+        if ($prepared === []) {
+            return '—';
+        }
+
+        $tokenRows = [];
+        foreach ($prepared as $value) {
+            $tokenRows[] = self::tokenizeRuns($value);
+        }
+
+        $tokenCount = count($tokenRows[0]);
+        foreach ($tokenRows as $tokens) {
+            if (count($tokens) !== $tokenCount) {
+                // Fallback: structural signature of first value
+                return self::structureSignature($prepared[0]) ?: '—';
+            }
+        }
+
+        $singleExample = count($prepared) === 1;
+        $mask = '';
+
+        for ($i = 0; $i < $tokenCount; $i++) {
+            $first = $tokenRows[0][$i];
+            $type = $first['type'];
+            $allSame = true;
+            foreach ($tokenRows as $tokens) {
+                if ($tokens[$i]['type'] !== $type || $tokens[$i]['value'] !== $first['value']) {
+                    $allSame = false;
+                    break;
+                }
+            }
+
+            if ($type === 'sep') {
+                $mask .= $first['value'];
+                continue;
+            }
+
+            $adjacentToLetters =
+                ($i > 0 && $tokenRows[0][$i - 1]['type'] === 'letters')
+                || ($i + 1 < $tokenCount && $tokenRows[0][$i + 1]['type'] === 'letters');
+
+            if ($type === 'digits') {
+                // Single example: keep digits glued to letters (e.g. 4N), mask standalone number groups.
+                // Multiple examples: keep only tokens that never change across the set.
+                if ($singleExample) {
+                    $mask .= $adjacentToLetters
+                        ? $first['value']
+                        : str_repeat('d', strlen($first['value']));
+                } elseif ($allSame) {
+                    $mask .= $first['value'];
+                } else {
+                    $mask .= str_repeat('d', strlen($first['value']));
+                }
+                continue;
+            }
+
+            // letters
+            if ($singleExample || $allSame) {
+                $mask .= $first['value'];
+            } else {
+                $mask .= str_repeat('A', strlen($first['value']));
+            }
+        }
+
+        return $mask !== '' ? $mask : '—';
+    }
+
+    /**
+     * Split value into runs: digits / letters / separators.
+     * Example: 4N-21-061-01-C → 4 | N | - | 21 | - | 061 | - | 01 | - | C
+     *
+     * @return list<array{type: string, value: string}>
+     */
+    public static function tokenizeRuns(string $value): array
+    {
+        $tokens = [];
+        $len = strlen($value);
+        $i = 0;
+
+        while ($i < $len) {
+            $char = $value[$i];
+            if (ctype_digit($char)) {
+                $start = $i;
+                while ($i < $len && ctype_digit($value[$i])) {
+                    $i++;
+                }
+                $tokens[] = ['type' => 'digits', 'value' => substr($value, $start, $i - $start)];
+                continue;
+            }
+
+            if (ctype_alpha($char)) {
+                $start = $i;
+                while ($i < $len && ctype_alpha($value[$i])) {
+                    $i++;
+                }
+                $tokens[] = ['type' => 'letters', 'value' => substr($value, $start, $i - $start)];
+                continue;
+            }
+
+            $start = $i;
+            while ($i < $len && !ctype_digit($value[$i]) && !ctype_alpha($value[$i])) {
+                $i++;
+            }
+            $tokens[] = ['type' => 'sep', 'value' => substr($value, $start, $i - $start)];
+        }
+
+        return $tokens;
+    }
 }
