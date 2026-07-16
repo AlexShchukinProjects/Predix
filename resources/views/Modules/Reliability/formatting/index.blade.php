@@ -17,7 +17,7 @@
     @endif
 
     <div class="row g-4">
-        <div class="col-lg-3">
+        <div class="col-lg-5">
             <div class="formatting-card">
                 <div class="formatting-card__head">
                     <h5 class="mb-0">Unformatted</h5>
@@ -52,7 +52,7 @@
             </div>
         </div>
 
-        <div class="col-lg-4">
+        <div class="col-lg-2">
             <div class="formatting-card">
                 <div class="formatting-card__head">
                     <h5 class="mb-0">Add new rule</h5>
@@ -66,26 +66,24 @@
                         <label class="form-label">2. Expected formatted value</label>
                         <input type="text" class="form-control" id="formatExpectedOutput" placeholder="e.g. 29-11-05-210-804">
                     </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">OEM (optional)</label>
-                            <select class="form-select" id="formatOem">
-                                <option value="">Auto</option>
-                                <option value="airbus">Airbus</option>
-                                <option value="boeing">Boeing</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Document type (optional)</label>
-                            <select class="form-select" id="formatDocumentType">
-                                <option value="">Auto</option>
-                                <option value="task_card">Task card</option>
-                                <option value="mpd">MPD</option>
-                                <option value="easa">EASA</option>
-                                <option value="faa">FAA</option>
-                                <option value="any">Any</option>
-                            </select>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">OEM (optional)</label>
+                        <select class="form-select" id="formatOem">
+                            <option value="">Auto</option>
+                            <option value="airbus">Airbus</option>
+                            <option value="boeing">Boeing</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Document type (optional)</label>
+                        <select class="form-select" id="formatDocumentType">
+                            <option value="">Auto</option>
+                            <option value="task_card">Task card</option>
+                            <option value="mpd">MPD</option>
+                            <option value="easa">EASA</option>
+                            <option value="faa">FAA</option>
+                            <option value="any">Any</option>
+                        </select>
                     </div>
 
                     <button type="button" class="btn efds-btn efds-btn--outline-primary btn-sm" id="formatAnalyzeBtn">Analyze pattern</button>
@@ -103,18 +101,14 @@
                             <div id="formatMappingPreview" class="format-mapping-preview"></div>
                         </div>
 
-                        <div class="row g-2 mb-3">
-                            <div class="col-md-6">
-                                <div class="format-preview-box">
-                                    <div class="small text-muted">Preview from mask</div>
-                                    <div id="formatPreviewValue" class="format-preview-value">—</div>
-                                </div>
+                        <div class="mb-3">
+                            <div class="format-preview-box mb-2">
+                                <div class="small text-muted">Preview from mask</div>
+                                <div id="formatPreviewValue" class="format-preview-value">—</div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="format-preview-box">
-                                    <div class="small text-muted">Expected</div>
-                                    <div id="formatExpectedValue" class="format-preview-value">—</div>
-                                </div>
+                            <div class="format-preview-box">
+                                <div class="small text-muted">Expected</div>
+                                <div id="formatExpectedValue" class="format-preview-value">—</div>
                             </div>
                         </div>
 
