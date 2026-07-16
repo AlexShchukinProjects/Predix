@@ -35,13 +35,14 @@
                             <thead>
                                 <tr>
                                     <th>SRC. CUST. CARD</th>
+                                    <th>Aircraft</th>
                                     <th>Format</th>
                                     <th class="text-end">Count</th>
                                 </tr>
                             </thead>
                             <tbody id="unformattedTableBody">
                                 <tr>
-                                    <td colspan="3" class="text-muted small">Press the button to scan master data.</td>
+                                    <td colspan="4" class="text-muted small">Press the button to scan master data.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -296,7 +297,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderUnformattedRows(rows) {
         unformattedTableBody.innerHTML = '';
         if (!rows || !rows.length) {
-            unformattedTableBody.innerHTML = '<tr><td colspan="3" class="text-muted small">No unformatted formats found.</td></tr>';
+            unformattedTableBody.innerHTML = '<tr><td colspan="4" class="text-muted small">No unformatted formats found.</td></tr>';
             return;
         }
 
@@ -305,8 +306,10 @@ document.addEventListener('DOMContentLoaded', function() {
             tr.className = 'formatting-unformatted-row';
             tr.setAttribute('data-example', row.example || '');
             tr.setAttribute('data-oem', row.oem || '');
+            var oemLabel = row.oem_label || (row.oem === 'boeing' ? 'Boeing' : (row.oem === 'airbus' ? 'Airbus' : '—'));
             tr.innerHTML =
                 '<td><span class="formatting-unformatted-example">' + escapeHtml(row.example) + '</span></td>' +
+                '<td class="small">' + escapeHtml(oemLabel) + '</td>' +
                 '<td><code class="small">' + escapeHtml(row.signature) + '</code></td>' +
                 '<td class="text-end small">' + escapeHtml(String(row.occurrences || 0)) + '</td>';
             unformattedTableBody.appendChild(tr);

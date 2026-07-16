@@ -210,10 +210,10 @@ class ReliabilityFormattingController extends Controller
 
         $values = DB::table('work_cards_master')
             ->selectRaw('TRIM(src_cust_card) as src_cust_card')
-            ->selectRaw('MIN(TRIM(COALESCE(aircraft_type, \'\'))) as aircraft_type')
+            ->selectRaw('TRIM(COALESCE(aircraft_type, \'\')) as aircraft_type')
             ->selectRaw('COUNT(*) as occurrences')
             ->whereRaw("TRIM(COALESCE(src_cust_card, '')) <> ''")
-            ->groupBy(DB::raw('TRIM(src_cust_card)'))
+            ->groupBy(DB::raw('TRIM(src_cust_card)'), DB::raw('TRIM(COALESCE(aircraft_type, \'\'))'))
             ->orderBy('src_cust_card')
             ->get();
 
@@ -226,7 +226,8 @@ class ReliabilityFormattingController extends Controller
                 continue;
             }
 
-            $oem = $this->detectOemFromAircraftType((string) ($row->aircraft_type ?? ''));
+            $aircraftType = trim((string) ($row->aircraft_type ?? ''));
+            $oem = $this->detectOemFromAircraftType($aircraftType);
             $normalized = ReliabilityTaskCardNormalizer::normalize($raw, $oem);
             if ($normalized !== null && trim($normalized) !== '') {
                 continue;
@@ -238,21 +239,31 @@ class ReliabilityFormattingController extends Controller
                 $signature = '__empty__';
             }
 
+            // One example per format + OEM (Boeing / Airbus / unknown)
+            $groupKey = $signature . '|' . ($oem ?? 'unknown');
             $count = (int) ($row->occurrences ?? 1);
-            if (!isset($bySignature[$signature])) {
-                $bySignature[$signature] = [
+            if (!isset($bySignature[$groupKey])) {
+                $bySignature[$groupKey] = [
                     'example' => $raw,
                     'signature' => $signature === '__empty__' ? '—' : $signature,
                     'oem' => $oem,
-                    'aircraft_type' => trim((string) ($row->aircraft_type ?? '')) ?: null,
+                    'oem_label' => $oem === 'boeing' ? 'Boeing' : ($oem === 'airbus' ? 'Airbus' : '—'),
+                    'aircraft_type' => $aircraftType !== '' ? $aircraftType : null,
                     'distinct_values' => 1,
                     'occurrences' => $count,
                 ];
                 continue;
             }
 
-            $bySignature[$signature]['distinct_values']++;
-            $bySignature[$signature]['occurrences'] += $count;
+            $bySignature[$groupKey]['distinct_values']++;
+            $bySignature[$groupKey]['occurrences'] += $count;
+            // Prefer a row that already has a known OEM / aircraft type
+            if (empty($bySignature[$groupKey]['oem']) && $oem !== null) {
+                $bySignature[$groupKey]['example'] = $raw;
+                $bySignature[$groupKey]['oem'] = $oem;
+                $bySignature[$groupKey]['oem_label'] = $oem === 'boeing' ? 'Boeing' : 'Airbus';
+                $bySignature[$groupKey]['aircraft_type'] = $aircraftType !== '' ? $aircraftType : null;
+            }
         }
 
         $rows = array_values($bySignature);
