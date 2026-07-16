@@ -4,7 +4,7 @@
 <div class="container-fluid mt-3" style="max-width: 600px;">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <a href="{{ route('modules.reliability.settings.index') }}" class="back-link" style="color: #007bff; text-decoration: none; font-size: 16px;">
+            <a href="{{ route('modules.reliability.settings.configuration') }}" class="back-link" style="color: #007bff; text-decoration: none; font-size: 16px;">
                 ← Back to reliability settings
             </a>
             <h2 class="mb-0 mt-2" style="font-weight: 600; color: #2d3748; font-size: 24px;">Organization code</h2>

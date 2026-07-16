@@ -51,6 +51,13 @@ Route::middleware('auth')->group(function () {
         // Надежность
         Route::get('/reliability', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'index'])->name('reliability.index');
         Route::get('/reliability/master-data-schema', fn() => view('Modules.Reliability.master_data_schema'))->name('reliability.master-data-schema');
+        Route::get('/reliability/formatting', [\App\Http\Controllers\Modules\Reliability\ReliabilityFormattingController::class, 'index'])->name('reliability.formatting');
+        Route::post('/reliability/formatting/infer', [\App\Http\Controllers\Modules\Reliability\ReliabilityFormattingController::class, 'infer'])->name('reliability.formatting.infer');
+        Route::post('/reliability/formatting/preview', [\App\Http\Controllers\Modules\Reliability\ReliabilityFormattingController::class, 'preview'])->name('reliability.formatting.preview');
+        Route::post('/reliability/formatting/unformatted', [\App\Http\Controllers\Modules\Reliability\ReliabilityFormattingController::class, 'findUnformatted'])->name('reliability.formatting.unformatted');
+        Route::post('/reliability/formatting/rules', [\App\Http\Controllers\Modules\Reliability\ReliabilityFormattingController::class, 'store'])->name('reliability.formatting.rules.store');
+        Route::delete('/reliability/formatting/rules/{rule}', [\App\Http\Controllers\Modules\Reliability\ReliabilityFormattingController::class, 'destroy'])->name('reliability.formatting.rules.destroy');
+        Route::post('/reliability/formatting/rules/{rule}/toggle', [\App\Http\Controllers\Modules\Reliability\ReliabilityFormattingController::class, 'toggle'])->name('reliability.formatting.rules.toggle');
         Route::get('/reliability/dashboards', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'dashboards'])->name('reliability.dashboards');
         Route::post('/reliability/task-cards-excel-headers', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'taskCardsExcelHeaders'])->name('reliability.task-cards-excel.headers');
         Route::post('/reliability/task-cards-excel-preview', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'taskCardsExcelPreview'])->name('reliability.task-cards-excel.preview');
@@ -78,6 +85,7 @@ Route::middleware('auth')->group(function () {
         // Настройки модуля "Надёжность"
         Route::prefix('/reliability/settings')->name('reliability.settings.')->group(function () {
             Route::get('/', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'index'])->name('index');
+            Route::get('/configuration', [\App\Http\Controllers\Modules\Reliability\ReliabilitySettingsController::class, 'index'])->name('configuration');
             // Inspection data (projects, aircrafts, work_cards, …)
             Route::get('/projects', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'projects'])->name('inspection.projects');
             Route::post('/projects/upload', [\App\Http\Controllers\Modules\Reliability\InspectionDataController::class, 'projectsUpload'])->name('inspection.projects.upload');

@@ -28,5 +28,7 @@ return [
     'Надежность' => [
         'modules.reliability.index' => 'Отказы агрегатов',
         'modules.reliability.settings.index' => 'Настройки',
+        'modules.reliability.formatting' => 'Formatting',
+        'modules.reliability.settings.configuration' => 'Configuration',
     ],
 ];

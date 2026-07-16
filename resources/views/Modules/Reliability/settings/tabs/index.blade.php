@@ -4,7 +4,7 @@
 <div class="container-fluid mt-3">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <a href="{{ route('modules.reliability.settings.index') }}" class="back-link" style="color: #007bff; text-decoration: none; font-size: 16px;">
+            <a href="{{ route('modules.reliability.settings.configuration') }}" class="back-link" style="color: #007bff; text-decoration: none; font-size: 16px;">
                 ← Back to reliability settings
             </a>
             <h2 class="mb-0 mt-2" style="font-weight: 600; color: #2d3748; font-size: 24px;">Reliability module tabs</h2>
@@ -48,7 +48,7 @@
 
                 <div class="efds-actions mt-3">
                     <button type="submit" class="btn efds-btn efds-btn--primary">Save</button>
-                    <a href="{{ route('modules.reliability.settings.index') }}" class="btn efds-btn efds-btn--outline-primary">Cancel</a>
+                    <a href="{{ route('modules.reliability.settings.configuration') }}" class="btn efds-btn efds-btn--outline-primary">Cancel</a>
                 </div>
             </form>
         </div>
