@@ -52,7 +52,7 @@
             </div>
         </div>
 
-        <div class="col-lg-2">
+        <div class="col-lg-2 formatting-add-rule-col">
             <div class="formatting-card">
                 <div class="formatting-card__head">
                     <h5 class="mb-0">Add new rule</h5>
@@ -208,6 +208,10 @@
 <style>
 .formatting-page { --fmt-border:#e3e6f0; --fmt-bg:#f5f7fa; }
 .formatting-title { font-weight:600; color:#2d3748; font-size:24px; }
+.formatting-add-rule-col {
+    flex: 0 0 calc(16.666667% + 50px);
+    max-width: calc(16.666667% + 50px);
+}
 .formatting-card { background:#fff; border:1px solid var(--fmt-border); border-radius:8px; overflow:hidden; }
 .formatting-card__head { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; background:var(--fmt-bg); border-bottom:1px solid var(--fmt-border); }
 .formatting-card__body { padding:16px; }
