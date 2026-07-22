@@ -19,50 +19,25 @@ final class ReliabilityTaskCardNormalizer
             $resolvedDocumentType = 'task_card';
         }
 
-        $customResult = self::applyCustomRules($raw, $normalizedOem !== '' ? $normalizedOem : null, $resolvedDocumentType);
-        if ($customResult !== null) {
-            return $customResult;
+        // Try all applicable masks: longer first, then more specific (e.g. ddd-Addd-dd before ddd-dddd-dd).
+        $rulesResult = self::applyOrderedRules(
+            $raw,
+            $normalizedOem !== '' ? $normalizedOem : null,
+            $resolvedDocumentType
+        );
+        if ($rulesResult !== null) {
+            return $rulesResult;
         }
 
-        if ($normalizedDocumentType === 'easa') {
-            return self::normalizeEasa($raw);
-        }
-
-        if ($normalizedDocumentType === 'faa') {
-            return self::normalizeFaa($raw);
-        }
-
-        if ($normalizedDocumentType === 'task_card') {
-            return match ($normalizedOem) {
-                'boeing' => self::normalizeBoeing($raw),
-                'airbus' => self::normalizeAirbus($raw),
-                default => null,
-            };
-        }
-
-        $autoDetectedDocumentType = CardFormatValue::detectBulletinType($raw);
-        if ($autoDetectedDocumentType === 'easa') {
-            return self::normalizeEasa($raw);
-        }
-
-        if ($autoDetectedDocumentType === 'faa') {
-            return self::normalizeFaa($raw);
-        }
-
-        if ($normalizedOem === 'boeing') {
-            return self::normalizeBoeing($raw);
-        }
-
-        if ($normalizedOem === 'airbus') {
-            return self::normalizeAirbus($raw);
-        }
-
+        // Last resort: legacy MPD cascade (classic → alt → min) if no rule mask matched.
         return MpdCardNormalizer::normalize((string) ($raw ?? ''));
     }
 
-    private static function applyCustomRules(?string $raw, ?string $oem, ?string $documentType): ?string
+    private static function applyOrderedRules(?string $raw, ?string $oem, ?string $documentType): ?string
     {
-        $rules = CardFormatRuleRepository::activeCustomRules($oem, $documentType);
+        // Include MPD / any-type rules even when OEM resolved to task_card,
+        // so short Boeing-only masks cannot block longer/shorter MPD fallbacks incorrectly.
+        $rules = CardFormatRuleRepository::activeRulesForNormalization($oem, $documentType);
 
         foreach ($rules as $rule) {
             $mask = (string) ($rule['mask'] ?? '');
@@ -78,25 +53,5 @@ final class ReliabilityTaskCardNormalizer
         }
 
         return null;
-    }
-
-    private static function normalizeBoeing(?string $raw): ?string
-    {
-        return CardFormatMask::apply($raw, [2, 3, 2, 2]);
-    }
-
-    private static function normalizeAirbus(?string $raw): ?string
-    {
-        return CardFormatMask::apply($raw, [6, 2, 1]);
-    }
-
-    private static function normalizeEasa(?string $raw): ?string
-    {
-        return CardFormatMask::apply($raw, [4, 4]);
-    }
-
-    private static function normalizeFaa(?string $raw): ?string
-    {
-        return CardFormatMask::apply($raw, [4, 2, 2]);
     }
 }

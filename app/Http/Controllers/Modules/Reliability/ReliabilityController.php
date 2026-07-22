@@ -6,6 +6,8 @@ namespace App\Http\Controllers\Modules\Reliability;
 
 use App\Http\Controllers\Controller;
 use App\Models\RelBufSetting;
+use App\Support\GaesWorkCardSegregation;
+use App\Support\EefNrcLinker;
 use App\Support\ReliabilityTaskCardNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -212,8 +214,8 @@ class ReliabilityController extends Controller
 
         $wcm = 'work_cards_master';
         if ($requiresCalculatedSqlFilters) {
-            $nrcTab = "(LOWER(TRIM(COALESCE({$wcm}.order_type, ''))) IN ('addnrc', 'nonroutine') AND TRIM(COALESCE({$wcm}.src_cust_card, '')) <> '')";
-            $rcTab = "((LOWER(TRIM(COALESCE({$wcm}.order_type, ''))) NOT IN ('addnrc', 'nonroutine')) OR (TRIM(COALESCE({$wcm}.src_cust_card, '')) = ''))";
+            $nrcTab = GaesWorkCardSegregation::sqlIsNrc("{$wcm}.order_type");
+            $rcTab = GaesWorkCardSegregation::sqlIsRc("{$wcm}.order_type");
             $nrcStrMatch = "(
                     UPPER(COALESCE({$wcm}.description, '')) LIKE '%STR%'
                     OR UPPER(COALESCE({$wcm}.corrective_action, '')) LIKE '%STR%'
@@ -345,7 +347,7 @@ class ReliabilityController extends Controller
         if ($combinedRcKeys !== []) {
             $rcRows = DB::table('work_cards_master')
                 ->select(['cust_card', 'act_time'])
-                ->whereRaw("((LOWER(TRIM(COALESCE(order_type, ''))) NOT IN ('addnrc', 'nonroutine')) OR (TRIM(COALESCE(src_cust_card, '')) = ''))")
+                ->whereRaw(GaesWorkCardSegregation::sqlIsRc('order_type'))
                 ->where(function ($query) use ($combinedRcKeys): void {
                     foreach ($combinedRcKeys as $key) {
                         $query->orWhere('cust_card', 'like', '%' . $this->escapeLikeForSql($key) . '%');
@@ -381,7 +383,7 @@ class ReliabilityController extends Controller
         if ($mpdKeys !== []) {
             $nrcRows = DB::table('work_cards_master')
                 ->select(['src_cust_card', 'act_time'])
-                ->whereRaw("(LOWER(TRIM(COALESCE(order_type, ''))) IN ('addnrc', 'nonroutine') AND TRIM(COALESCE(src_cust_card, '')) <> '')")
+                ->whereRaw(GaesWorkCardSegregation::sqlIsNrc('order_type'))
                 ->whereRaw("(
                     UPPER(COALESCE(description, '')) LIKE '%STR%'
                     OR UPPER(COALESCE(corrective_action, '')) LIKE '%STR%'
@@ -1007,8 +1009,8 @@ class ReliabilityController extends Controller
         string $msnFilter,
     ): array {
         $base = $this->dashboardBaseTableQuery($table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
-        $routineSql = "NOT (UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
-        $nonroutineSql = "(UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
+        $routineSql = GaesWorkCardSegregation::sqlIsRc('order_type');
+        $nonroutineSql = GaesWorkCardSegregation::sqlIsNrc('order_type');
 
         $rTask = (int) $base->clone()->whereRaw($routineSql)->count();
         $nTask = (int) $base->clone()->whereRaw($nonroutineSql)->count();
@@ -1095,8 +1097,8 @@ class ReliabilityController extends Controller
         $table = $useMaster ? 'work_cards_master' : 'work_cards';
         $q = DB::table($table);
         $this->dashboardApplyFiltersQuery($q, $table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
-        $routineSql = "NOT (UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
-        $nonroutineSql = "(UPPER(COALESCE(order_type, '')) LIKE '%NON%' OR UPPER(COALESCE(order_type, '')) LIKE '%NRC%')";
+        $routineSql = GaesWorkCardSegregation::sqlIsRc('order_type');
+        $nonroutineSql = GaesWorkCardSegregation::sqlIsNrc('order_type');
         $q->whereRaw($routineBucket ? $routineSql : $nonroutineSql);
 
         $rows = $q->selectRaw("TRIM(COALESCE(ata, '')) AS ata_key")
@@ -1134,7 +1136,7 @@ class ReliabilityController extends Controller
         $table = $useMaster ? 'work_cards_master' : 'work_cards';
         $q = DB::table($table);
         $this->dashboardApplyFiltersQuery($q, $table, $useMaster, $projectFilter, $customerFilter, $aircraftTypeFilter, $tailFilter, $msnFilter);
-        $q->whereRaw("(LOWER(TRIM(COALESCE(order_type, ''))) IN ('addnrc', 'nonroutine') AND TRIM(COALESCE(src_cust_card, '')) <> '')");
+        $q->whereRaw(GaesWorkCardSegregation::sqlIsNrc('order_type'));
         $rows = $q->selectRaw("TRIM(COALESCE(ata, '')) AS ata_key")
             ->selectRaw('COUNT(*) AS c')
             ->groupBy('ata_key')
@@ -1525,17 +1527,18 @@ class ReliabilityController extends Controller
         $numStrNrcs = 0;
         $maxMhsStrNrc = null;
         $avgStrMhsRaw = 0.0;
+        $eefCount = 0;
 
         if ($mpd !== '') {
             $mpdLike = '%' . $this->escapeLikeForSql($mpd) . '%';
             $numRc = (int) DB::table($wcm)
                 ->whereRaw("cust_card LIKE ?", [$mpdLike])
-                ->whereRaw("((LOWER(TRIM(COALESCE(order_type, ''))) NOT IN ('addnrc', 'nonroutine')) OR (TRIM(COALESCE(src_cust_card, '')) = ''))")
+                ->whereRaw(GaesWorkCardSegregation::sqlIsRc('order_type'))
                 ->count();
 
             $nrcQuery = DB::table($wcm)
                 ->whereRaw("src_cust_card LIKE ?", [$mpdLike])
-                ->whereRaw("(LOWER(TRIM(COALESCE(order_type, ''))) IN ('addnrc', 'nonroutine') AND TRIM(COALESCE(src_cust_card, '')) <> '')")
+                ->whereRaw(GaesWorkCardSegregation::sqlIsNrc('order_type'))
                 ->whereRaw("(
                     UPPER(COALESCE(description, '')) LIKE '%STR%'
                     OR UPPER(COALESCE(corrective_action, '')) LIKE '%STR%'
@@ -1546,13 +1549,14 @@ class ReliabilityController extends Controller
             $maxMhsStrNrc = (clone $nrcQuery)->max(DB::raw('CAST(act_time AS DECIMAL(15,2))'));
             $avgVal = (clone $nrcQuery)->avg(DB::raw('CAST(act_time AS DECIMAL(15,2))'));
             $avgStrMhsRaw = $avgVal !== null ? (float) $avgVal : 0.0;
+            $eefCount = EefNrcLinker::countDistinctEefForMpdStrNrcs($mpd, $wcm);
         }
 
         if ($workOrder !== '') {
             $workOrderLike = '%' . $this->escapeLikeForSql($workOrder) . '%';
             $maxHoursOnRc = DB::table($wcm)
                 ->whereRaw("cust_card LIKE ?", [$workOrderLike])
-                ->whereRaw("((LOWER(TRIM(COALESCE(order_type, ''))) NOT IN ('addnrc', 'nonroutine')) OR (TRIM(COALESCE(src_cust_card, '')) = ''))")
+                ->whereRaw(GaesWorkCardSegregation::sqlIsRc('order_type'))
                 ->max(DB::raw('CAST(act_time AS DECIMAL(15,2))'));
         }
 
@@ -1564,7 +1568,7 @@ class ReliabilityController extends Controller
                 'num_str_nrcs' => $numStrNrcs,
                 'max_mhs_str_nrc' => $maxMhsStrNrc !== null ? (float) $maxMhsStrNrc : null,
                 'avg_str_mhs_raw' => $avgStrMhsRaw,
-                'eef_count' => 0,
+                'eef_count' => $eefCount,
             ],
         ]);
     }
@@ -2310,7 +2314,7 @@ class ReliabilityController extends Controller
             $eefCount = (int) ($failure->eef_count ?? 0);
 
             $strPercent = $numRc > 0 ? number_format(($numStrNrcs / $numRc) * 100, 2, '.', '') . '%' : '0.00%';
-            $eefPercent = $numRc > 0 ? number_format(($eefCount / $numRc) * 100, 2, '.', '') . '%' : '0.00%';
+            $eefPercent = $numStrNrcs > 0 ? number_format(($eefCount / $numStrNrcs) * 100, 2, '.', '') . '%' : '0.00%';
 
             $rowData = [
                 $index + 1,

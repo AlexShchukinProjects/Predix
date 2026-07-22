@@ -2,6 +2,9 @@
 
 **Определение:** количество записей в RC Master Data, у которых CUST. CARD содержит MPD данного отказа.
 
+**Segregation (GAES):** RC = `ORDER TYPE ≠ NON-ROUTINE`; NRC = `ORDER TYPE = NON-ROUTINE`.
+GAES ID = `WORK ORDER` & `-` & `ITEM`; Source RC ID (NRC) = `SRC. ORDER` & `-` & `SRC. ITEM`.
+
 
 ## Max Hours on RC
 

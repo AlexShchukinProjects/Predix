@@ -133,7 +133,7 @@
 
     <div class="efds-table-header">
         <div class="efds-table-header__stats text-muted">
-            <span class="me-2 d-none d-md-inline">Single table; NRC = ADDNRC or NONROUTINE with non-empty SRC. CUST. CARD; RC = all other rows.</span>
+            <span class="me-2 d-none d-md-inline">RC = ORDER TYPE ≠ NON-ROUTINE; NRC = ORDER TYPE = NON-ROUTINE. GAES ID = WORK ORDER-ITEM; Source RC ID = SRC. ORDER-SRC. ITEM.</span>
             <span class="me-2">Per page:</span>
             <select class="form-select form-select-sm" id="master-data-per-page" aria-label="Records per page">
                 @php $currentPerPage = (int) request('per_page', $perPage ?? 50); @endphp
@@ -188,8 +188,10 @@
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'wo_station', 'label' => 'WO STATION', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'work_order', 'label' => 'WORK ORDER', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'item', 'label' => 'ITEM', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['label' => 'GAES ID', 'sortable' => false])
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'src_order', 'label' => 'SRC. ORDER', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'src_item', 'label' => 'SRC. ITEM', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
+                                @include('Modules.Reliability.settings.master_data.partials.sort_th', ['label' => 'SOURCE RC ID', 'sortable' => false])
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'src_cust_card', 'label' => 'SRC. CUST. CARD', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'description', 'label' => 'DESCRIPTION', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
                                 @include('Modules.Reliability.settings.master_data.partials.sort_th', ['column' => 'corrective_action', 'label' => 'CORRECTIVE ACTION', 'sortColumn' => $sortColumn, 'sortDirection' => $sortDirection])
@@ -222,8 +224,10 @@
                                 <td>{{ $row->wo_station }}</td>
                                 <td>{{ $row->work_order }}</td>
                                 <td>{{ $row->item }}</td>
+                                <td>{{ $row->master_gaes_id ?: '—' }}</td>
                                 <td>{{ $row->src_order }}</td>
                                 <td>{{ $row->src_item }}</td>
+                                <td>{{ $row->master_source_rc_id ?: '—' }}</td>
                                 <td>{{ $row->src_cust_card }}</td>
                                 <td>{{ Str::limit($row->description, 60) }}</td>
                                 <td>{{ Str::limit($row->corrective_action, 60) }}</td>
@@ -237,7 +241,7 @@
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="29" class="text-center py-4 text-muted">No records. Upload data from Excel / CSV.</td>
+                                <td colspan="31" class="text-center py-4 text-muted">No records. Upload data from Excel / CSV.</td>
                             </tr>
                             @endforelse
                         </tbody>
@@ -421,7 +425,9 @@
                                     ['name' => 'corrective_action', 'note' => '→ CORRECTIVE ACTION'],
                                     ['name' => 'ata', 'note' => '→ ATA'],
                                     ['name' => 'cust_card', 'note' => '→ CUST. CARD'],
-                                    ['name' => 'order_type', 'hint' => 'RC/NRC tab filter with src_cust_card', 'note' => '→ ORDER TYPE'],
+                                    ['name' => 'order_type', 'hint' => 'RC: ≠ NON-ROUTINE; NRC: = NON-ROUTINE', 'note' => '→ ORDER TYPE'],
+                                    ['name' => 'gaes_id', 'hint' => 'Computed: WORK ORDER-ITEM', 'note' => '→ GAES ID'],
+                                    ['name' => 'source_rc_id', 'hint' => 'Computed: SRC. ORDER-SRC. ITEM', 'note' => '→ SOURCE RC ID'],
                                     ['name' => 'avg_time', 'note' => '→ AVG. TIME'],
                                     ['name' => 'act_time', 'note' => '→ ACT. TIME'],
                                     ['name' => 'aircraft_location', 'note' => '→ AIRCRAFT LOCATION'],
@@ -967,8 +973,24 @@
         var fd = new FormData();
         fd.append('file', file);
         fd.append('_token', document.querySelector('#form-upload-master-data-modal [name=_token]').value);
-        fetch('{{ route("modules.reliability.settings.master-data.count") }}', { method: 'POST', body: fd })
-        .then(function(r) { return r.json(); })
+        fetch('{{ route("modules.reliability.settings.master-data.count") }}', {
+            method: 'POST',
+            body: fd,
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r) {
+            return r.text().then(function(text) {
+                var data;
+                try { data = JSON.parse(text); }
+                catch (parseErr) {
+                    throw new Error('Non-JSON response (' + r.status + '): ' + String(text).slice(0, 180));
+                }
+                if (!r.ok) {
+                    throw new Error((data && (data.error || (data.message))) || ('HTTP ' + r.status));
+                }
+                return data;
+            });
+        })
         .then(function(data) {
             countingEl.classList.add('d-none');
             if (data.error) { countErrorEl.textContent = data.error; countErrorEl.classList.remove('d-none'); return; }
@@ -984,7 +1006,11 @@
             submitBtn.disabled = false;
         }).catch(function(err) {
             countingEl.classList.add('d-none');
-            countErrorEl.textContent = 'Count error: ' + err.message;
+            var msg = String(err && err.message || err);
+            if (/413|Content-Length|exceeds the limit/i.test(msg)) {
+                msg = 'File is too large for PHP upload limits (post_max_size/upload_max_filesize). Increase limits in php.ini and restart the PHP server, or use "From server disk".';
+            }
+            countErrorEl.textContent = 'Count error: ' + msg;
             countErrorEl.classList.remove('d-none');
         });
     }

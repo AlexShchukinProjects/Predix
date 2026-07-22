@@ -127,6 +127,38 @@
     </div>
 </div>
 
+<div class="card border-0 shadow-sm mt-3 mb-3">
+    <div class="card-body py-3 px-3 small text-muted">
+        <div class="fw-semibold text-dark mb-2">How EEF Count and % EEF are calculated</div>
+        <ol class="mb-2 ps-3">
+            <li class="mb-1">
+                For the task card <strong>MPD</strong>, find related <strong>STR NRCs</strong> in Master data
+                (<code>SRC. CUST. CARD</code> contains the MPD, <code>ORDER TYPE = NON-ROUTINE</code>,
+                and description / corrective action / order type contains <code>STR</code>).
+            </li>
+            <li class="mb-1">
+                Build an NRC key from each row: <code>WORK ORDER</code> + <code>-</code> + <code>ITEM</code>
+                (item digits zero-padded to 4), e.g. WO <code>17766</code> + item <code>66</code> → <code>17766-0066</code>.
+            </li>
+            <li class="mb-1">
+                Match that key to <strong>EEF registry</strong> field <code>NRC Number</code>
+                (same rule as Master data EEF#; comma-separated NRC lists are supported).
+            </li>
+            <li class="mb-1">
+                <strong>EEF Count</strong> = number of distinct <code>EEF Number</code> values found for those NRCs.
+            </li>
+            <li>
+                <strong>% EEF</strong> = <code>EEF Count / Num STR NRCs × 100</code>
+                (0.00 if there are no STR NRCs).
+            </li>
+        </ol>
+        <div>
+            <strong>Probable Critical Findings</strong> uses
+            <code>(% STR × % EEF) / 100</code>.
+        </div>
+    </div>
+</div>
+
 @if(isset($failures) && $failures instanceof \Illuminate\Contracts\Pagination\Paginator)
     <!-- Пагинация -->
     <div class="d-flex justify-content-between align-items-center" style="margin-top: 20px; margin-bottom: 20px;">

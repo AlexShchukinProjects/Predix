@@ -64,6 +64,75 @@ final class CardFormatMask
     }
 
     /**
+     * Longer masks first. Used when choosing among overlapping rules.
+     */
+    public static function maskLength(string $mask): int
+    {
+        return strlen(trim($mask));
+    }
+
+    /**
+     * Higher = more specific.
+     * - fixed literal (digit/letter/other, not d/x/A wildcard): 5
+     * - letter wildcard A: 2
+     * - digit wildcard d/x/X: 0
+     * Separators do not add specificity.
+     */
+    public static function maskSpecificityScore(string $mask): int
+    {
+        $mask = trim($mask);
+        $score = 0;
+        $len = strlen($mask);
+
+        for ($i = 0; $i < $len; $i++) {
+            $char = $mask[$i];
+            if ($char === 'd' || $char === 'x' || $char === 'X') {
+                continue;
+            }
+            if ($char === 'A') {
+                $score += 2;
+                continue;
+            }
+            if ($char === '-' || $char === ' ' || $char === '_') {
+                continue;
+            }
+            // Fixed literal such as 4, N, C
+            $score += 5;
+        }
+
+        return $score;
+    }
+
+    /**
+     * Sort comparator: longer mask first, then more specific, then lower priority.
+     *
+     * @param array<string, mixed> $a
+     * @param array<string, mixed> $b
+     */
+    public static function compareRulesByMask(array $a, array $b): int
+    {
+        $maskA = (string) ($a['mask'] ?? '');
+        $maskB = (string) ($b['mask'] ?? '');
+
+        $byLength = self::maskLength($maskB) <=> self::maskLength($maskA);
+        if ($byLength !== 0) {
+            return $byLength;
+        }
+
+        $bySpecificity = self::maskSpecificityScore($maskB) <=> self::maskSpecificityScore($maskA);
+        if ($bySpecificity !== 0) {
+            return $bySpecificity;
+        }
+
+        $byPriority = ((int) ($a['priority'] ?? 100)) <=> ((int) ($b['priority'] ?? 100));
+        if ($byPriority !== 0) {
+            return $byPriority;
+        }
+
+        return ((int) ($a['id'] ?? 0)) <=> ((int) ($b['id'] ?? 0));
+    }
+
+    /**
      * Apply mask to raw value.
      *
      * @param list<int> $blocks

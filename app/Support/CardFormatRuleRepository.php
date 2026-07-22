@@ -10,13 +10,14 @@ use Illuminate\Support\Collection;
 final class CardFormatRuleRepository
 {
     /**
+     * Default rules seeded into the database (formerly hard-coded built-ins).
+     *
      * @return list<array<string, mixed>>
      */
-    public static function builtinDefinitions(): array
+    public static function defaultSeedDefinitions(): array
     {
         return [
             [
-                'key' => 'builtin_boeing_task_card',
                 'name' => 'Task card — Boeing',
                 'document_type' => 'task_card',
                 'oem' => 'boeing',
@@ -27,7 +28,6 @@ final class CardFormatRuleRepository
                 'example_normalized' => '12-108-00-01',
             ],
             [
-                'key' => 'builtin_airbus_task_card',
                 'name' => 'Task card — Airbus',
                 'document_type' => 'task_card',
                 'oem' => 'airbus',
@@ -38,7 +38,6 @@ final class CardFormatRuleRepository
                 'example_normalized' => '291105-21-0',
             ],
             [
-                'key' => 'builtin_easa',
                 'name' => 'EASA bulletin',
                 'document_type' => 'easa',
                 'oem' => null,
@@ -49,7 +48,6 @@ final class CardFormatRuleRepository
                 'example_normalized' => '2024-1234',
             ],
             [
-                'key' => 'builtin_faa',
                 'name' => 'FAA bulletin',
                 'document_type' => 'faa',
                 'oem' => null,
@@ -60,7 +58,6 @@ final class CardFormatRuleRepository
                 'example_normalized' => '2024-12-31',
             ],
             [
-                'key' => 'builtin_mpd_classic',
                 'name' => 'MPD classic',
                 'document_type' => 'mpd',
                 'oem' => null,
@@ -71,7 +68,6 @@ final class CardFormatRuleRepository
                 'example_normalized' => '29-11-05-210-804',
             ],
             [
-                'key' => 'builtin_mpd_alt',
                 'name' => 'MPD alternate',
                 'document_type' => 'mpd',
                 'oem' => null,
@@ -82,7 +78,6 @@ final class CardFormatRuleRepository
                 'example_normalized' => '12-108-00-01',
             ],
             [
-                'key' => 'builtin_mpd_min',
                 'name' => 'MPD minimum core',
                 'document_type' => 'mpd',
                 'oem' => null,
@@ -100,44 +95,41 @@ final class CardFormatRuleRepository
      */
     public static function allForDisplay(): Collection
     {
-        $custom = ReliabilityCardFormatRule::query()
+        if (!self::tableExists()) {
+            return collect();
+        }
+
+        return ReliabilityCardFormatRule::query()
             ->orderBy('priority')
             ->orderBy('id')
             ->get()
             ->map(static function (ReliabilityCardFormatRule $rule): array {
-                return [
-                    'id' => $rule->id,
-                    'key' => 'custom_' . $rule->id,
-                    'name' => $rule->name ?: 'Custom rule #' . $rule->id,
-                    'document_type' => $rule->document_type,
-                    'oem' => $rule->oem,
-                    'mask' => $rule->mask,
-                    'digit_blocks' => $rule->digit_blocks,
-                    'is_builtin' => false,
-                    'is_active' => $rule->is_active,
-                    'priority' => $rule->priority,
-                    'example_raw' => $rule->example_raw,
-                    'example_normalized' => $rule->example_normalized,
-                    'mapping' => $rule->mapping,
-                ];
+                return self::toPayload($rule);
+            })
+            ->sort(static fn (array $a, array $b): int => CardFormatMask::compareRulesByMask($a, $b))
+            ->values()
+            ->map(static function (array $rule, int $index): array {
+                $rule['match_priority'] = $index + 1;
+
+                return $rule;
             });
-
-        $builtins = collect(self::builtinDefinitions())->map(static function (array $rule): array {
-            return array_merge($rule, [
-                'id' => null,
-                'is_builtin' => true,
-                'is_active' => true,
-                'mapping' => null,
-            ]);
-        });
-
-        return $builtins->concat($custom)->values();
     }
 
     /**
      * @return list<array<string, mixed>>
      */
     public static function activeCustomRules(?string $oem = null, ?string $documentType = null): array
+    {
+        return self::activeRules($oem, $documentType);
+    }
+
+    /**
+     * Rules used by the normalizer, sorted by mask length then specificity.
+     * MPD / any document types stay available even when OEM implies task_card.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function activeRulesForNormalization(?string $oem = null, ?string $documentType = null): array
     {
         if (!self::tableExists()) {
             return [];
@@ -147,33 +139,21 @@ final class CardFormatRuleRepository
         $normalizedDocumentType = self::normalizeDocumentType($documentType);
         $rules = [];
 
-        $customRules = ReliabilityCardFormatRule::query()
+        $rows = ReliabilityCardFormatRule::query()
             ->where('is_active', true)
             ->orderBy('priority')
             ->orderBy('id')
             ->get();
 
-        foreach ($customRules as $rule) {
-            $payload = [
-                'key' => 'custom_' . $rule->id,
-                'name' => $rule->name,
-                'document_type' => $rule->document_type,
-                'oem' => $rule->oem,
-                'mask' => $rule->mask,
-                'digit_blocks' => $rule->digit_blocks,
-                'priority' => $rule->priority,
-            ];
-
-            if (!self::ruleMatchesContext($payload, $normalizedOem, $normalizedDocumentType)) {
+        foreach ($rows as $rule) {
+            $payload = self::toPayload($rule);
+            if (!self::ruleMatchesNormalizationContext($payload, $normalizedOem, $normalizedDocumentType)) {
                 continue;
             }
-
             $rules[] = $payload;
         }
 
-        usort($rules, static function (array $a, array $b): int {
-            return ($a['priority'] ?? 100) <=> ($b['priority'] ?? 100);
-        });
+        usort($rules, [CardFormatMask::class, 'compareRulesByMask']);
 
         return $rules;
     }
@@ -183,50 +163,53 @@ final class CardFormatRuleRepository
      */
     public static function activeRules(?string $oem = null, ?string $documentType = null): array
     {
+        if (!self::tableExists()) {
+            return [];
+        }
+
         $normalizedOem = self::normalizeOem($oem);
         $normalizedDocumentType = self::normalizeDocumentType($documentType);
-
         $rules = [];
 
-        foreach (self::builtinDefinitions() as $definition) {
-            if (!self::ruleMatchesContext($definition, $normalizedOem, $normalizedDocumentType)) {
+        $rows = ReliabilityCardFormatRule::query()
+            ->where('is_active', true)
+            ->orderBy('priority')
+            ->orderBy('id')
+            ->get();
+
+        foreach ($rows as $rule) {
+            $payload = self::toPayload($rule);
+            if (!self::ruleMatchesContext($payload, $normalizedOem, $normalizedDocumentType)) {
                 continue;
             }
-
-            $rules[] = $definition;
+            $rules[] = $payload;
         }
 
-        if (self::tableExists()) {
-            $customRules = ReliabilityCardFormatRule::query()
-                ->where('is_active', true)
-                ->orderBy('priority')
-                ->orderBy('id')
-                ->get();
-
-            foreach ($customRules as $rule) {
-                $payload = [
-                    'key' => 'custom_' . $rule->id,
-                    'name' => $rule->name,
-                    'document_type' => $rule->document_type,
-                    'oem' => $rule->oem,
-                    'mask' => $rule->mask,
-                    'digit_blocks' => $rule->digit_blocks,
-                    'priority' => $rule->priority,
-                ];
-
-                if (!self::ruleMatchesContext($payload, $normalizedOem, $normalizedDocumentType)) {
-                    continue;
-                }
-
-                $rules[] = $payload;
-            }
-        }
-
-        usort($rules, static function (array $a, array $b): int {
-            return ($a['priority'] ?? 100) <=> ($b['priority'] ?? 100);
-        });
+        usort($rules, [CardFormatMask::class, 'compareRulesByMask']);
 
         return $rules;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function toPayload(ReliabilityCardFormatRule $rule): array
+    {
+        return [
+            'id' => $rule->id,
+            'key' => 'rule_' . $rule->id,
+            'name' => $rule->name ?: 'Rule #' . $rule->id,
+            'document_type' => $rule->document_type,
+            'oem' => $rule->oem,
+            'mask' => $rule->mask,
+            'digit_blocks' => $rule->digit_blocks,
+            'is_builtin' => false,
+            'is_active' => $rule->is_active,
+            'priority' => $rule->priority,
+            'example_raw' => $rule->example_raw,
+            'example_normalized' => $rule->example_normalized,
+            'mapping' => $rule->mapping,
+        ];
     }
 
     /**
@@ -246,6 +229,29 @@ final class CardFormatRuleRepository
         }
 
         return true;
+    }
+
+    /**
+     * @param array<string, mixed> $rule
+     */
+    private static function ruleMatchesNormalizationContext(array $rule, ?string $oem, ?string $documentType): bool
+    {
+        $ruleOem = self::normalizeOem($rule['oem'] ?? null);
+        $ruleDocumentType = self::normalizeDocumentType($rule['document_type'] ?? 'any') ?? 'any';
+
+        if ($oem !== null && $ruleOem !== null && $ruleOem !== $oem) {
+            return false;
+        }
+
+        if ($ruleDocumentType === 'any' || $ruleDocumentType === 'mpd') {
+            return true;
+        }
+
+        if ($documentType === null) {
+            return true;
+        }
+
+        return $ruleDocumentType === $documentType;
     }
 
     private static function normalizeOem(?string $oem): ?string

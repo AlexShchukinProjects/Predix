@@ -13,6 +13,7 @@ use App\Models\InspectionSourceCardRef;
 use App\Models\InspectionWorkCard;
 use App\Models\InspectionWorkCardMaterial;
 use App\Models\ReliabilityMasterData;
+use App\Support\GaesWorkCardSegregation;
 use App\Support\ReliabilityTaskCardNormalizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -327,6 +328,20 @@ class InspectionDataController extends Controller
             $row->setAttribute('master_equipment', $engine);
             $oem = $this->detectOemFromAircraftType((string) ($row->aircraft_type ?? ''));
             $row->setAttribute('master_cust_card_norm', ReliabilityTaskCardNormalizer::normalize((string) ($row->cust_card ?? ''), $oem));
+            $row->setAttribute(
+                'master_gaes_id',
+                GaesWorkCardSegregation::gaesId(
+                    (string) ($row->work_order ?? ''),
+                    (string) ($row->item ?? '')
+                )
+            );
+            $row->setAttribute(
+                'master_source_rc_id',
+                GaesWorkCardSegregation::sourceRcId(
+                    (string) ($row->src_order ?? ''),
+                    (string) ($row->src_item ?? '')
+                )
+            );
         }
     }
 
@@ -486,21 +501,17 @@ class InspectionDataController extends Controller
     }
 
     /**
-     * NRC: ORDER TYPE = ADDNRC или NONROUTINE и непустой SRC. CUST. CARD (как в Power Query).
-     * RC: дополнение к NRC — иначе строки ADDNRC/NONROUTINE с пустым SRC. CUST. CARD не попадали ни на одну вкладку.
-     *      Формула: (тип не ADDNRC/NONROUTINE) ИЛИ (SRC. CUST. CARD пустой).
+     * GAES segregation:
+     * - NRC: ORDER TYPE = NON-ROUTINE
+     * - RC: ORDER TYPE ≠ NON-ROUTINE
      */
     private function applyMasterDataTabFilter(Builder $query, string $source): void
     {
         if ($source === 'nrc') {
-            $query->whereRaw('LOWER(TRIM(COALESCE(order_type, \'\'))) IN (?, ?)', ['addnrc', 'nonroutine'])
-                ->whereRaw('TRIM(COALESCE(src_cust_card, \'\')) <> \'\'');
+            $query->whereRaw(GaesWorkCardSegregation::sqlIsNrc('order_type'));
             return;
         }
-        $query->where(function (Builder $q) {
-            $q->whereRaw('LOWER(TRIM(COALESCE(order_type, \'\'))) NOT IN (?, ?)', ['addnrc', 'nonroutine'])
-                ->orWhereRaw('TRIM(COALESCE(src_cust_card, \'\')) = \'\'');
-        });
+        $query->whereRaw(GaesWorkCardSegregation::sqlIsRc('order_type'));
     }
 
     private function applyMasterDataFilters($query, Request $request, string $source = 'rc'): void
@@ -650,7 +661,11 @@ class InspectionDataController extends Controller
     public function masterDataCount(Request $request): \Illuminate\Http\JsonResponse
     {
         set_time_limit(120);
-        $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls|max:204800']);
+        try {
+            $request->validate(['file' => 'required|file|mimes:csv,txt,xlsx,xls|max:204800']);
+        } catch (\Illuminate\Validation\ValidationException $ve) {
+            return response()->json(['error' => 'Validation failed', 'errors' => $ve->errors()], 422);
+        }
         try {
             $file = $request->file('file');
             $path = $file->getRealPath();
@@ -867,8 +882,10 @@ class InspectionDataController extends Controller
             'wo_station' => 'WO STATION',
             'work_order' => 'WORK ORDER',
             'item' => 'ITEM',
+            'master_gaes_id' => 'GAES ID',
             'src_order' => 'SRC. ORDER',
             'src_item' => 'SRC. ITEM',
+            'master_source_rc_id' => 'SOURCE RC ID',
             'src_cust_card' => 'SRC. CUST. CARD',
             'description' => 'DESCRIPTION',
             'corrective_action' => 'CORRECTIVE ACTION',

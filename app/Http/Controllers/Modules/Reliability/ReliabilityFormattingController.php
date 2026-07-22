@@ -140,12 +140,75 @@ class ReliabilityFormattingController extends Controller
             ->with('success', 'Formatting rule added.');
     }
 
-    public function destroy(ReliabilityCardFormatRule $rule): RedirectResponse|JsonResponse
+    public function update(Request $request, ReliabilityCardFormatRule $rule): JsonResponse|RedirectResponse
     {
-        if ($rule->is_builtin) {
-            abort(403, 'Built-in rules cannot be deleted.');
+        $data = $request->validate([
+            'name' => ['nullable', 'string', 'max:120'],
+            'raw_example' => ['required', 'string', 'max:255'],
+            'expected_output' => ['required', 'string', 'max:255'],
+            'mask' => ['required', 'string', 'max:128'],
+            'document_type' => ['nullable', 'string', 'in:task_card,easa,faa,mpd,any'],
+            'oem' => ['nullable', 'string', 'in:airbus,boeing'],
+            'mapping' => ['nullable', 'array'],
+        ]);
+
+        $blocks = CardFormatMask::digitBlocksFromMask($data['mask']);
+        if ($blocks === null) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Invalid mask format.'], 422);
+            }
+
+            return back()->withErrors(['mask' => 'Invalid mask format.'])->withInput();
         }
 
+        $mask = trim($data['mask']);
+        $inferred = CardFormatRuleInference::infer(
+            $data['raw_example'],
+            $data['expected_output'],
+            $data['oem'] ?? null,
+            $data['document_type'] ?? null,
+        );
+
+        $preview = CardFormatMask::apply(
+            $data['raw_example'],
+            $blocks,
+            $mask,
+            (bool) ($inferred['keep_suffix'] ?? false)
+        );
+        if ($preview === null || strtoupper(trim($preview)) !== strtoupper(trim($data['expected_output']))) {
+            $message = 'Mask does not produce the expected output for the raw example.';
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 422);
+            }
+
+            return back()->withErrors(['mask' => $message])->withInput();
+        }
+
+        $rule->update([
+            'name' => $data['name'] ?: ('Custom: ' . $mask),
+            'document_type' => $data['document_type'] ?? $inferred['document_type'],
+            'oem' => $data['oem'] ?? null,
+            'mask' => $mask,
+            'digit_blocks' => $blocks,
+            'example_raw' => $data['raw_example'],
+            'example_normalized' => $data['expected_output'],
+            'mapping' => $data['mapping'] ?? $inferred['mapping'],
+        ]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Formatting rule updated.',
+                'rule' => $rule->fresh(),
+            ]);
+        }
+
+        return redirect()
+            ->route('modules.reliability.formatting')
+            ->with('success', 'Formatting rule updated.');
+    }
+
+    public function destroy(ReliabilityCardFormatRule $rule): RedirectResponse|JsonResponse
+    {
         $rule->delete();
 
         if (request()->expectsJson()) {
@@ -159,10 +222,6 @@ class ReliabilityFormattingController extends Controller
 
     public function toggle(ReliabilityCardFormatRule $rule): RedirectResponse|JsonResponse
     {
-        if ($rule->is_builtin) {
-            abort(403, 'Built-in rules cannot be toggled.');
-        }
-
         $rule->is_active = !$rule->is_active;
         $rule->save();
 
@@ -228,6 +287,12 @@ class ReliabilityFormattingController extends Controller
             ->groupBy(DB::raw('TRIM(src_cust_card)'), DB::raw('TRIM(COALESCE(aircraft_type, \'\'))'))
             ->orderBy('src_cust_card')
             ->get();
+
+        $totalRows = (int) DB::table('work_cards_master')->count();
+        $rowsWithSrc = (int) DB::table('work_cards_master')
+            ->whereRaw("TRIM(COALESCE(src_cust_card, '')) <> ''")
+            ->count();
+        $rowsWithoutSrc = max(0, $totalRows - $rowsWithSrc);
 
         $bySignature = [];
         $unformattedTotal = 0;
@@ -304,6 +369,9 @@ class ReliabilityFormattingController extends Controller
 
         return response()->json([
             'rows' => $rows,
+            'total_rows' => $totalRows,
+            'rows_with_src' => $rowsWithSrc,
+            'rows_without_src' => $rowsWithoutSrc,
             'scanned' => $values->count(),
             'unformatted_total' => $unformattedTotal,
             'format_groups' => count($rows),

@@ -56,6 +56,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/reliability/formatting/preview', [\App\Http\Controllers\Modules\Reliability\ReliabilityFormattingController::class, 'preview'])->name('reliability.formatting.preview');
         Route::post('/reliability/formatting/unformatted', [\App\Http\Controllers\Modules\Reliability\ReliabilityFormattingController::class, 'findUnformatted'])->name('reliability.formatting.unformatted');
         Route::post('/reliability/formatting/rules', [\App\Http\Controllers\Modules\Reliability\ReliabilityFormattingController::class, 'store'])->name('reliability.formatting.rules.store');
+        Route::put('/reliability/formatting/rules/{rule}', [\App\Http\Controllers\Modules\Reliability\ReliabilityFormattingController::class, 'update'])->name('reliability.formatting.rules.update');
         Route::delete('/reliability/formatting/rules/{rule}', [\App\Http\Controllers\Modules\Reliability\ReliabilityFormattingController::class, 'destroy'])->name('reliability.formatting.rules.destroy');
         Route::post('/reliability/formatting/rules/{rule}/toggle', [\App\Http\Controllers\Modules\Reliability\ReliabilityFormattingController::class, 'toggle'])->name('reliability.formatting.rules.toggle');
         Route::get('/reliability/dashboards', [\App\Http\Controllers\Modules\Reliability\ReliabilityController::class, 'dashboards'])->name('reliability.dashboards');
