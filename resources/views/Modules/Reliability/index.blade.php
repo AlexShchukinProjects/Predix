@@ -17,48 +17,48 @@
                 <div class="card-body">
                     <form method="GET" action="{{ route('modules.reliability.index') }}" id="filtersForm">
                         <input type="hidden" name="tab" id="filterTab" value="{{ request('tab', 'failures') }}">
-                        <div class="row g-3">
-                            <div class="col-md-2">
+                        <div class="reliability-filters">
+                            <div class="reliability-filter-field">
                                 <label class="form-label">Date from</label>
                                 <input type="date" class="form-control form-control-sm filter-date-input" name="date_from" value="{{ request('date_from', \Carbon\Carbon::now()->subYear()->format('Y-m-d')) }}">
                             </div>
-                            <div class="col-md-2">
+                            <div class="reliability-filter-field">
                                 <label class="form-label">Date to</label>
                                 <input type="date" class="form-control form-control-sm filter-date-input" name="date_to" value="{{ request('date_to', \Carbon\Carbon::now()->format('Y-m-d')) }}">
                             </div>
-                            <div class="col-md-2">
+                            <div class="reliability-filter-field">
                                 <label class="form-label">SEQ / ID</label>
                                 <input type="text" class="form-control form-control-sm" name="id" value="{{ request('id') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
+                            <div class="reliability-filter-field">
                                 <label class="form-label">TASK CARD</label>
                                 <input type="text" class="form-control form-control-sm" name="task_card" value="{{ request('task_card') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
+                            <div class="reliability-filter-field reliability-filter-field--wide">
                                 <label class="form-label">TASK CARD DESCRIPTION</label>
                                 <input type="text" class="form-control form-control-sm" name="task_card_description" value="{{ request('task_card_description') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
+                            <div class="reliability-filter-field">
                                 <label class="form-label">MPD</label>
                                 <input type="text" class="form-control form-control-sm" name="mpd" value="{{ request('mpd') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
+                            <div class="reliability-filter-field">
                                 <label class="form-label"># of RC</label>
                                 <input type="text" class="form-control form-control-sm" name="num_rc" value="{{ request('num_rc') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
+                            <div class="reliability-filter-field">
                                 <label class="form-label">Max Hours on RC</label>
                                 <input type="text" class="form-control form-control-sm" name="max_hours_rc" value="{{ request('max_hours_rc') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
+                            <div class="reliability-filter-field">
                                 <label class="form-label"># of STR NRCs</label>
                                 <input type="text" class="form-control form-control-sm" name="num_str_nrcs" value="{{ request('num_str_nrcs') }}" placeholder="">
                             </div>
-                            <div class="col-md-2">
+                            <div class="reliability-filter-field">
                                 <label class="form-label">REF</label>
                                 <input type="text" class="form-control form-control-sm" name="ref" value="{{ request('ref') }}" placeholder="">
                             </div>
-                            <div class="col-12">
+                            <div class="reliability-filters__actions">
                                 <button type="button" style="border:none; box-shadow:none; color:gray;" class="btn btn-outline-primary btn-sm rel-reset-filters-btn" onclick="resetFilters()">Reset</button>
                             </div>
                         </div>
@@ -322,8 +322,29 @@ window.waitForChartConfig = function(callback) {
     background-color:#f5f7fa
 }
 
-
-
+.reliability-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-end;
+}
+.reliability-filter-field {
+    flex: 0 0 150px;
+    width: 150px;
+    max-width: 100%;
+    min-width: 0;
+}
+.reliability-filter-field--wide {
+    flex: 0 0 220px;
+    width: 220px;
+}
+.reliability-filter-field .form-control {
+    width: 100%;
+}
+.reliability-filters__actions {
+    flex: 0 0 auto;
+    padding-bottom: 1px;
+}
 
 .form-label {
     font-size: 0.875rem;

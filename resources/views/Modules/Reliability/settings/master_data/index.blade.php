@@ -28,85 +28,85 @@
                         <input type="hidden" name="per_page" id="masterDataFilterPerPage" value="{{ request('per_page', $perPage ?? 50) }}">
                         <input type="hidden" name="sort" value="{{ request('sort', $sortColumn) }}">
                         <input type="hidden" name="dir" value="{{ request('dir', $sortDirection) }}">
-                        <div class="row g-3 master-data-filters">
-                            <div class="col-12 small text-muted">Filters match Work Card columns (import uses only these columns from CSV/XLSX).</div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                        <div class="master-data-filters">
+                            <div class="master-data-filters__hint small text-muted">Filters match Work Card columns (import uses only these columns from CSV/XLSX).</div>
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="ID">ID</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="id" value="{{ request('id') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="PROJECT">PROJECT</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="project" value="{{ request('project') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="PROJECT TYPE">PROJECT TYPE</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="project_type" value="{{ request('project_type') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="AIRCRAFT TYPE">AIRCRAFT TYPE</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="aircraft_type" value="{{ request('aircraft_type') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="TAIL NUMBER">TAIL NUMBER</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="tail_number" value="{{ request('tail_number') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="WO STATION">WO STATION</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="wo_station" value="{{ request('wo_station') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="WORK ORDER">WORK ORDER</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="work_order" value="{{ request('work_order') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="ITEM">ITEM</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="item" value="{{ request('item') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="SRC. ORDER">SRC. ORDER</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="src_order" value="{{ request('src_order') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="SRC. ITEM">SRC. ITEM</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="src_item" value="{{ request('src_item') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="SRC. CUST. CARD">SRC. CUST. CARD</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="src_cust_card" value="{{ request('src_cust_card') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="DESCRIPTION">DESCRIPTION</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="description" value="{{ request('description') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="CORRECTIVE ACTION">CORRECTIVE ACTION</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="corrective_action" value="{{ request('corrective_action') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="ATA">ATA</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="ata" value="{{ request('ata') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="CUST. CARD">CUST. CARD</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="cust_card" value="{{ request('cust_card') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="ORDER TYPE">ORDER TYPE</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="order_type" value="{{ request('order_type') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="AVG. TIME">AVG. TIME</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="avg_time" value="{{ request('avg_time') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="ACT. TIME">ACT. TIME</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="act_time" value="{{ request('act_time') }}" placeholder="">
                             </div>
-                            <div class="col-12 col-sm-6 col-md-4 col-lg-3 min-w-0">
+                            <div class="master-data-filter-field">
                                 <label class="form-label text-truncate d-block mb-1" title="AIRCRAFT LOCATION">AIRCRAFT LOCATION</label>
                                 <input type="text" class="form-control form-control-sm master-data-filter-input" name="aircraft_location" value="{{ request('aircraft_location') }}" placeholder="">
                             </div>
-                            <div class="col-12 pt-1">
+                            <div class="master-data-filters__actions">
                                 <button type="button" style="border:none; box-shadow:none; color:gray;" class="btn btn-outline-primary btn-sm" onclick="resetMasterDataFilters()">Reset</button>
                             </div>
                         </div>
@@ -505,13 +505,33 @@
 }
 
 .form-control{background-color:white;}
-/* Filters: avoid cramming fields into one row */
-.master-data-filters > [class*="col-"] {
+.master-data-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-end;
+}
+.master-data-filters__hint {
+    flex: 0 0 100%;
+    width: 100%;
+}
+.master-data-filter-field {
+    flex: 0 0 150px;
+    width: 150px;
+    max-width: 100%;
     min-width: 0;
+}
+.master-data-filter-field .form-control {
+    width: 100%;
 }
 .master-data-filters .form-label {
     font-size: 0.8rem;
     font-weight: 500;
+    margin-bottom: 4px;
+}
+.master-data-filters__actions {
+    flex: 0 0 auto;
+    padding-bottom: 1px;
 }
 /* Same spacing as projects: below page numbers */
 .efds-pagination-wrap {
